@@ -1,0 +1,16 @@
+spring:
+  application:
+    name:
+      team1-backend-integration
+  jpa:
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: true
+  profiles:
+    active: dev
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.type: trace
