@@ -17,3 +17,6 @@ logging:
 
 shopify:
   api-version: 2025-01
+
+easypost:
+  base-url: https://api.easypost.com
