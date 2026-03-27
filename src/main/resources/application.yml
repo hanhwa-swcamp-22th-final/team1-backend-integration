@@ -16,4 +16,4 @@ logging:
     org.hibernate.type: trace
 
 shopify:
-  api-version: 2024-01
+  api-version: 2025-01

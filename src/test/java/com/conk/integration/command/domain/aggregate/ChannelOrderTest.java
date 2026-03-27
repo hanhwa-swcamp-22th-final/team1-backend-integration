@@ -27,7 +27,7 @@ public class ChannelOrderTest {
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORDER-001")
                 .channelOrderNo("CH-ORDER-001")
-                .orderChannel(OrderChannel.AMAZON)
+                .orderChannel(OrderChannel.SHOPIFY)
                 .orderedAt(LocalDateTime.now())
                 .receiverName("홍길동")
                 .receiverPhoneNo("010-1234-5678")
@@ -43,8 +43,8 @@ public class ChannelOrderTest {
 
         // then (검증)
         assertThat(saved.getOrderId()).isEqualTo("ORDER-001");
-        assertThat(saved.getReceiverName()).isEqualTo("정현호");
-        assertThat(saved.getOrderChannel()).isEqualTo(OrderChannel.AMAZON);
+        assertThat(saved.getReceiverName()).isEqualTo("홍길동");
+        assertThat(saved.getOrderChannel()).isEqualTo(OrderChannel.SHOPIFY);
     }
 
     @Test
