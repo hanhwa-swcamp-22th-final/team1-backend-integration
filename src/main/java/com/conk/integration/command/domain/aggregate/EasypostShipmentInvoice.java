@@ -52,4 +52,15 @@ public class EasypostShipmentInvoice {
     // schema: VARCHAR(255) — not DATETIME
     @Column(name = "handover_at")
     private String handoverAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

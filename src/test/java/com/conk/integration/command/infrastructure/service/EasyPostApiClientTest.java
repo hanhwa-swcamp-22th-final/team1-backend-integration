@@ -3,6 +3,7 @@ package com.conk.integration.command.infrastructure.service;
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.infrastructure.config.EasyPostProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,9 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -38,7 +42,7 @@ class EasyPostApiClientTest {
         properties.setApiKey(TEST_API_KEY);
         properties.setBaseUrl(BASE_URL);
 
-        client = new EasyPostApiClient(restTemplate, properties);
+        client = new EasyPostApiClient(restTemplate, properties, new ObjectMapper());
     }
 
     // ─────────────────────────────────────────────────────────
@@ -64,12 +68,12 @@ class EasyPostApiClientTest {
     @Test
     @DisplayName("[GREEN] createShipment - Basic Auth 헤더 포함 확인")
     void createShipment_includesBasicAuthHeader() {
+        String expectedAuth = "Basic " + Base64.getEncoder().encodeToString(
+                (TEST_API_KEY + ":").getBytes(StandardCharsets.UTF_8));
+
         mockServer.expect(requestTo(BASE_URL + "/v2/shipments"))
                 .andExpect(method(HttpMethod.POST))
-                .andExpect(header("Authorization", "Basic RVpUS190ZXN0X2tleToK".substring(0,
-                        // just check prefix
-                        0) + "Basic " + java.util.Base64.getEncoder().encodeToString(
-                        (TEST_API_KEY + ":").getBytes(java.nio.charset.StandardCharsets.UTF_8))))
+                .andExpect(header("Authorization", expectedAuth))
                 .andRespond(withSuccess(shipmentResponseJson("shp_test_002"), MediaType.APPLICATION_JSON));
 
         client.createShipment(buildRequest());
