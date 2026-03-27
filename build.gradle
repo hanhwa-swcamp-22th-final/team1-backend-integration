@@ -30,6 +30,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.jacoco:org.jacoco.core:0.8.12'
+
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
@@ -39,6 +40,17 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+// 일반 테스트: sandbox 태그 제외
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'sandbox'
+    }
+}
+
+// 샌드박스 통합 테스트: ./gradlew sandboxTest
+tasks.register('sandboxTest', Test) {
+    useJUnitPlatform {
+        includeTags 'sandbox'
+    }
+    systemProperty 'spring.profiles.active', 'dev'
 }
