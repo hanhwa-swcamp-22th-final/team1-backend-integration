@@ -24,19 +24,23 @@ public class EasyPostApiClient {
 
     private final RestTemplate restTemplate;
     private final EasyPostProperties properties;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;  // Spring Bean 주입
 
     public EasyPostShipmentResponse createShipment(EasyPostCreateShipmentRequest request) {
         try {
             Map<String, Object> body = toRequestMap(request);
             String jsonBody = objectMapper.writeValueAsString(body);
             HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildAuthHeaders());
-            return restTemplate.exchange(
+            EasyPostShipmentResponse response = restTemplate.exchange(
                     properties.getShipmentsUrl(),
                     HttpMethod.POST,
                     entity,
                     EasyPostShipmentResponse.class
             ).getBody();
+            if (response == null) {
+                throw new IllegalStateException("EasyPost createShipment returned empty response");
+            }
+            return response;
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize EasyPost request", e);
         }
@@ -46,12 +50,16 @@ public class EasyPostApiClient {
         try {
             String jsonBody = objectMapper.writeValueAsString(Map.of("rate", Map.of("id", rateId)));
             HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildAuthHeaders());
-            return restTemplate.exchange(
+            EasyPostShipmentResponse response = restTemplate.exchange(
                     properties.getBuyRateUrl(shipmentId),
                     HttpMethod.POST,
                     entity,
                     EasyPostShipmentResponse.class
             ).getBody();
+            if (response == null) {
+                throw new IllegalStateException("EasyPost buyRate returned empty response");
+            }
+            return response;
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize buyRate request", e);
         }
@@ -59,6 +67,9 @@ public class EasyPostApiClient {
 
     private Map<String, Object> toRequestMap(EasyPostCreateShipmentRequest request) {
         EasyPostCreateShipmentRequest.ShipmentBody sb = request.getShipment();
+        if (sb == null) {
+            throw new IllegalArgumentException("ShipmentBody must not be null");
+        }
         Map<String, Object> shipment = new HashMap<>();
         if (sb.getToAddress() != null) {
             shipment.put("to_address", addressToMap(sb.getToAddress()));
