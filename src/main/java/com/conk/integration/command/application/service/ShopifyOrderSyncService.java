@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.function.Function;
 
 @Slf4j
 @Service
@@ -41,8 +42,7 @@ public class ShopifyOrderSyncService {
                 continue;
             }
 
-            ChannelOrder order = toChannelOrder(dto, sellerId);
-            channelOrderRepository.save(order);
+            channelOrderRepository.save(toChannelOrder(dto, sellerId));
             log.debug("주문 저장 완료: {} ({})", orderId, dto.getName());
         }
     }
@@ -55,17 +55,20 @@ public class ShopifyOrderSyncService {
                 .channelOrderNo(dto.getName())
                 .orderChannel(OrderChannel.SHOPIFY)
                 .orderedAt(parseDateTime(dto.getCreatedAt()))
-                .receiverName(addr != null ? addr.getName() : null)
-                .receiverPhoneNo(addr != null ? addr.getPhone() : null)
-                .shipToAddress1(addr != null ? addr.getAddress1() : null)
-                .shipToAddress2(addr != null ? addr.getAddress2() : null)
-                .shipToState(addr != null ? addr.getProvinceCode() : null)
-                .shipToCity(addr != null ? addr.getCity() : null)
-                .shipToZipCode(addr != null ? addr.getZip() : null)
+                .receiverName(addrField(addr, ShopifyOrderDto.ShippingAddress::getName))
+                .receiverPhoneNo(addrField(addr, ShopifyOrderDto.ShippingAddress::getPhone))
+                .shipToAddress1(addrField(addr, ShopifyOrderDto.ShippingAddress::getAddress1))
+                .shipToAddress2(addrField(addr, ShopifyOrderDto.ShippingAddress::getAddress2))
+                .shipToState(addrField(addr, ShopifyOrderDto.ShippingAddress::getProvinceCode))
+                .shipToCity(addrField(addr, ShopifyOrderDto.ShippingAddress::getCity))
+                .shipToZipCode(addrField(addr, ShopifyOrderDto.ShippingAddress::getZip))
                 .sellerId(sellerId)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
                 .build();
+    }
+
+    private <T> T addrField(ShopifyOrderDto.ShippingAddress addr,
+                             Function<ShopifyOrderDto.ShippingAddress, T> getter) {
+        return addr != null ? getter.apply(addr) : null;
     }
 
     private LocalDateTime parseDateTime(String dateStr) {
