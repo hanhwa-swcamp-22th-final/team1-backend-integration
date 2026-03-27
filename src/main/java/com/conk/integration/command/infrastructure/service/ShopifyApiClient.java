@@ -39,6 +39,10 @@ public class ShopifyApiClient {
         ResponseEntity<ShopifyOrderListResponse> response = restTemplate.exchange(
                 url, HttpMethod.GET, new HttpEntity<>(headers), ShopifyOrderListResponse.class);
 
-        return response.getBody().getOrders();
+        ShopifyOrderListResponse body = response.getBody();
+        if (body == null) {
+            throw new IllegalStateException("Shopify API returned empty response");
+        }
+        return body.getOrders();
     }
 }

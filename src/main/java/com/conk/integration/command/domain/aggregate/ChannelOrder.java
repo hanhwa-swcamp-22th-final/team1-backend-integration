@@ -83,4 +83,15 @@ public class ChannelOrder {
     public void addItem(ChannelOrderItem item) {
         items.add(item);
     }
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }
