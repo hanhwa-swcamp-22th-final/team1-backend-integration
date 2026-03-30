@@ -1,4 +1,4 @@
-package com.conk.integration.entity;
+package com.conk.integration.command.domain.aggregate;
 
 import com.conk.integration.command.domain.aggregate.*;
 import org.junit.jupiter.api.DisplayName;

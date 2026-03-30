@@ -1,4 +1,6 @@
-package com.conk.integration.command.application.service;
+package com.conk.integration.support;
+import com.conk.integration.command.application.service.*;
+
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;

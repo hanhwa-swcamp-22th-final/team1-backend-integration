@@ -1,4 +1,4 @@
-package com.conk.integration.integration;
+package com.conk.integration.e2e.flow;
 
 import com.conk.integration.command.domain.aggregate.*;
 import com.conk.integration.command.domain.repository.*;

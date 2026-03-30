@@ -1,4 +1,6 @@
-package com.conk.integration.command.infrastructure.service;
+package com.conk.integration.e2e.api;
+import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
+
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;

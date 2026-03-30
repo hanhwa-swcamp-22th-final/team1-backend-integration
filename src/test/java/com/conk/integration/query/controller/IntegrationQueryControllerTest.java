@@ -1,4 +1,4 @@
-package com.conk.integration.controller;
+package com.conk.integration.query.controller;
 
 import com.conk.integration.query.controller.IntegrationQueryController;
 import com.conk.integration.query.dto.SellerChannelCardDto;

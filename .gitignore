@@ -39,3 +39,4 @@ out/
 src/main/resources/application-dev.yml
 .claude/**
 /docs/
+/.gradle-user-home/

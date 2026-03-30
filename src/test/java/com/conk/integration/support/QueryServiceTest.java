@@ -1,4 +1,6 @@
-package com.conk.integration.query.service;
+package com.conk.integration.support;
+import com.conk.integration.query.service.*;
+
 
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
