@@ -20,4 +20,8 @@ public class ShopifyProperties {
     public String getOrdersUrl() {
         return getBaseUrl() + "/admin/api/" + apiVersion + "/orders.json";
     }
+
+    public String getFulfillmentsUrl(String shopifyOrderId) {
+        return getBaseUrl() + "/admin/api/" + apiVersion + "/orders/" + shopifyOrderId + "/fulfillments.json";
+    }
 }
