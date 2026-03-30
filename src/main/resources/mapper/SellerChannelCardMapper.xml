@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.conk.integration.query.mapper.SellerChannelCardMapper">
+
+    <select id="findBySellerIdGroupedByChannel"
+            parameterType="string"
+            resultType="com.conk.integration.query.dto.SellerChannelCardDto">
+        SELECT
+            ca.channel_name                                                          AS `key`,
+            ca.channel_name                                                          AS label,
+            CASE WHEN COUNT(co.order_id) > 0 THEN 'ACTIVE' ELSE 'PLANNED' END       AS syncStatus,
+            COUNT(CASE WHEN co.invoice_no IS NULL
+                            AND co.order_id IS NOT NULL
+                       THEN 1 END)                                                   AS pendingOrders,
+            COUNT(CASE WHEN DATE(co.created_at) = CURDATE()
+                       THEN 1 END)                                                   AS todayImported,
+            MAX(co.created_at)                                                       AS lastSyncedAt
+        FROM channel_api ca
+        LEFT JOIN channel_order co
+            ON  co.seller_id     = ca.seller_id
+            AND co.order_channel = ca.channel_name
+        WHERE ca.seller_id = #{sellerId}
+        GROUP BY ca.channel_name
+    </select>
+
+</mapper>

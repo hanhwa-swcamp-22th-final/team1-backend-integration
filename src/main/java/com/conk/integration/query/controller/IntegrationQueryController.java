@@ -1,10 +1,10 @@
-package com.conk.integration.command.presentation;
+package com.conk.integration.query.controller;
 
-import com.conk.integration.command.application.dto.response.ApiResponse;
-import com.conk.integration.command.application.dto.response.SellerChannelCardDto;
-import com.conk.integration.command.application.dto.response.SellerChannelOrderDto;
-import com.conk.integration.command.application.service.SellerChannelCardQueryService;
-import com.conk.integration.command.application.service.SellerChannelOrderQueryService;
+import com.conk.integration.common.ApiResponse;
+import com.conk.integration.query.dto.SellerChannelCardDto;
+import com.conk.integration.query.dto.SellerChannelOrderDto;
+import com.conk.integration.query.service.SellerChannelCardQueryService;
+import com.conk.integration.query.service.SellerChannelOrderQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,7 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/integrations")
 @RequiredArgsConstructor
-public class IntegrationController {
+public class IntegrationQueryController {
 
     private final SellerChannelCardQueryService channelCardQueryService;
     private final SellerChannelOrderQueryService channelOrderQueryService;
@@ -30,8 +30,7 @@ public class IntegrationController {
     public ResponseEntity<ApiResponse<List<SellerChannelCardDto>>> getSellerChannelCards(
             @RequestHeader("X-Seller-Id") String sellerId) {
 
-        List<SellerChannelCardDto> data = channelCardQueryService.getChannelCards(sellerId);
-        return ResponseEntity.ok(ApiResponse.ok(data));
+        return ResponseEntity.ok(ApiResponse.ok(channelCardQueryService.getChannelCards(sellerId)));
     }
 
     /**
@@ -42,7 +41,6 @@ public class IntegrationController {
     public ResponseEntity<ApiResponse<List<SellerChannelOrderDto>>> getSellerChannelOrders(
             @RequestHeader("X-Seller-Id") String sellerId) {
 
-        List<SellerChannelOrderDto> data = channelOrderQueryService.getOrders(sellerId);
-        return ResponseEntity.ok(ApiResponse.ok(data));
+        return ResponseEntity.ok(ApiResponse.ok(channelOrderQueryService.getOrders(sellerId)));
     }
 }

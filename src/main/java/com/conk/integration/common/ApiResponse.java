@@ -1,4 +1,4 @@
-package com.conk.integration.command.application.dto.response;
+package com.conk.integration.common;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
