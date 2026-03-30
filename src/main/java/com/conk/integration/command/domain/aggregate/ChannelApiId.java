@@ -6,6 +6,7 @@ import lombok.*;
 
 import java.io.Serializable;
 
+// sellerId + channelName 조합으로 채널 연결을 식별하는 복합 키다.
 @Embeddable
 @NoArgsConstructor
 @AllArgsConstructor

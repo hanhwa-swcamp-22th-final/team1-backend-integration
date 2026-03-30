@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @Data
 public class SellerChannelOrderQueryResult {
 
+    // mapper XML의 컬럼 alias와 1:1로 대응되는 필드들이다.
     private String orderId;
     private String channelOrderNo;
     private String orderChannel;

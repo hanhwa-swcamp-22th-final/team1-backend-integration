@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+// 셀러 기준 통합 조회 API 엔드포인트를 노출한다.
 @RestController
 @RequestMapping("/integrations")
 @RequiredArgsConstructor
@@ -30,6 +31,7 @@ public class IntegrationQueryController {
     public ResponseEntity<ApiResponse<List<SellerChannelCardDto>>> getSellerChannelCards(
             @RequestHeader("X-Seller-Id") String sellerId) {
 
+        // 실제 조회와 후처리는 서비스에 위임하고 컨트롤러는 헤더/응답 래핑만 담당한다.
         return ResponseEntity.ok(ApiResponse.ok(channelCardQueryService.getChannelCards(sellerId)));
     }
 
@@ -41,6 +43,7 @@ public class IntegrationQueryController {
     public ResponseEntity<ApiResponse<List<SellerChannelOrderDto>>> getSellerChannelOrders(
             @RequestHeader("X-Seller-Id") String sellerId) {
 
+        // 주문 조회도 동일한 X-Seller-Id 헤더 계약을 따른다.
         return ResponseEntity.ok(ApiResponse.ok(channelOrderQueryService.getOrders(sellerId)));
     }
 }

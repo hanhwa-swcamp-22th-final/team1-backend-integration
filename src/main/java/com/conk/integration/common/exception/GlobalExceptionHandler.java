@@ -7,6 +7,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+// 컨트롤러 밖으로 나온 예외를 API 응답 형식으로 통일한다.
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -55,5 +56,6 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(false, "서버 내부에서 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
     }
 
+    // 에러 응답의 최소 공통 구조다.
     public record ErrorResponse(boolean success, String message) {}
 }

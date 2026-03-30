@@ -24,6 +24,7 @@ class ChannelOrderEntityTest {
     @DisplayName("ChannelOrder 엔티티")
     class ChannelOrderTests {
 
+        // 주문 엔티티의 핵심 표시/식별 필드가 빌더 입력 그대로 유지되는지 본다.
         @Test
         @DisplayName("Builder로 ChannelOrder를 생성하면 각 필드가 정상적으로 설정된다")
         void builder_setsAllFields() {
@@ -77,6 +78,7 @@ class ChannelOrderEntityTest {
         @Test
         @DisplayName("여러 아이템을 추가하면 모두 items 리스트에 누적된다")
         void addItem_multipleItems_allAdded() {
+            // 연속 addItem 호출이 누적 append로 동작해야 한다.
             // given
             ChannelOrder order = ChannelOrder.builder()
                     .orderId("order-002")
@@ -113,6 +115,7 @@ class ChannelOrderEntityTest {
     @DisplayName("ChannelOrderItem 엔티티")
     class ChannelOrderItemTests {
 
+        // 작업 수량 기본값은 아직 피킹/포장 전 상태를 뜻한다.
         @Test
         @DisplayName("Builder로 ChannelOrderItem을 생성하면 기본 수량 값이 0이다")
         void builder_defaultQuantities_areZero() {
@@ -142,6 +145,7 @@ class ChannelOrderEntityTest {
     @DisplayName("ChannelApiId 복합 키")
     class ChannelApiIdTests {
 
+        // 복합 키는 값 객체이므로 equals/hashCode 계약이 중요하다.
         @Test
         @DisplayName("동일한 sellerId와 channelName이면 equals/hashCode가 같아야 한다")
         void equalIds_haveEqualHashCodes() {
@@ -170,6 +174,7 @@ class ChannelOrderEntityTest {
     @DisplayName("EasypostShipmentInvoice 엔티티")
     class EasypostShipmentInvoiceTests {
 
+        // 송장 엔티티는 추적/금액 필드 보존이 핵심이다.
         @Test
         @DisplayName("Builder로 Invoice를 생성하면 invoiceNo와 carrierType이 올바르게 설정된다")
         void builder_setsInvoiceFields() {
@@ -206,6 +211,7 @@ class ChannelOrderEntityTest {
     @DisplayName("OrderChannel 열거형")
     class OrderChannelTests {
 
+        // 외부 저장값과 enum name 매핑이 일치해야 한다.
         @Test
         @DisplayName("OrderChannel.SHOPIFY는 name()이 'SHOPIFY'여야 한다")
         void shopify_name() {

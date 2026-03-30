@@ -19,6 +19,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+// 주문 조회 서비스의 DTO 변환 규칙과 상태/요약 계산을 검증한다.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("query.SellerChannelOrderQueryService 단위 테스트")
 class SellerChannelOrderQueryServiceTest {
@@ -33,6 +34,7 @@ class SellerChannelOrderQueryServiceTest {
     @Test
     @DisplayName("[GREEN] mapper raw → DTO 변환 (id, channel, itemsSummary, status 검증)")
     void getOrders_mapsRawResultToDto() {
+        // 대표 raw 결과 하나로 표시용 필드 변환을 한 번에 확인한다.
         LocalDateTime orderedAt = LocalDateTime.of(2026, 3, 19, 9, 12);
         SellerChannelOrderQueryResult raw = buildRaw("ORD-1", "SHOPIFY", "루미에르 앰플 30ml", 2, null, null, orderedAt);
         given(channelOrderMapper.findBySellerIdWithItemSummary("seller-1")).willReturn(List.of(raw));
@@ -60,6 +62,7 @@ class SellerChannelOrderQueryServiceTest {
     @Test
     @DisplayName("[GREEN] orderAmount 항상 null")
     void getOrders_orderAmountIsAlwaysNull() {
+        // 현재 구현은 주문 금액을 채우지 않으므로 null 고정 동작을 드러낸다.
         given(channelOrderMapper.findBySellerIdWithItemSummary("seller-1"))
                 .willReturn(List.of(buildRaw("ORD-1", "SHOPIFY", "상품A", 1, null, null, LocalDateTime.now())));
 
@@ -163,6 +166,7 @@ class SellerChannelOrderQueryServiceTest {
     // Helper
     // ─────────────────────────────────────────────────────────
 
+    // mapper raw 결과 fixture를 만들 때 기본 채널 주문 필드를 함께 채운다.
     private SellerChannelOrderQueryResult buildRaw(String orderId, String orderChannel,
                                                     String firstItemName, int itemCount,
                                                     String invoiceNo, String shippedAt,

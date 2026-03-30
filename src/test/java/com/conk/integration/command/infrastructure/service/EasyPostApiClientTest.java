@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
+// EasyPostApiClient가 URL, 인증 헤더, 응답 파싱을 올바르게 수행하는지 검증한다.
 @DisplayName("EasyPostApiClient 단위 테스트")
 class EasyPostApiClientTest {
 
@@ -35,6 +36,7 @@ class EasyPostApiClientTest {
 
     @BeforeEach
     void setUp() {
+        // 실제 HTTP 대신 MockRestServiceServer로 요청/응답 경계를 고정한다.
         RestTemplate restTemplate = new RestTemplate();
         mockServer = MockRestServiceServer.createServer(restTemplate);
 
@@ -68,6 +70,7 @@ class EasyPostApiClientTest {
     @Test
     @DisplayName("[GREEN] createShipment - Basic Auth 헤더 포함 확인")
     void createShipment_includesBasicAuthHeader() {
+        // EasyPost는 API key를 Basic Auth로 요구하므로 헤더 구성이 핵심이다.
         String expectedAuth = "Basic " + Base64.getEncoder().encodeToString(
                 (TEST_API_KEY + ":").getBytes(StandardCharsets.UTF_8));
 
@@ -158,6 +161,7 @@ class EasyPostApiClientTest {
     @Test
     @DisplayName("[GREEN] buyRate - shipmentId가 URL에 올바르게 포함")
     void buyRate_usesCorrectUrlWithShipmentId() {
+        // buyRate는 shipmentId가 경로에 직접 들어가므로 URL 조합을 확인한다.
         String shipmentId = "shp_xyz_999";
         mockServer.expect(requestTo(BASE_URL + "/v2/shipments/" + shipmentId + "/buy"))
                 .andExpect(method(HttpMethod.POST))
@@ -181,6 +185,7 @@ class EasyPostApiClientTest {
     // Helper
     // ─────────────────────────────────────────────────────────
 
+    // 클라이언트가 직렬화할 최소 shipment 요청 fixture다.
     private EasyPostCreateShipmentRequest buildRequest() {
         return EasyPostCreateShipmentRequest.builder()
                 .shipment(EasyPostCreateShipmentRequest.ShipmentBody.builder()
@@ -199,6 +204,7 @@ class EasyPostApiClientTest {
                 .build();
     }
 
+    // createShipment 응답 파싱 테스트에 재사용하는 JSON fixture다.
     private String shipmentResponseJson(String id) {
         return "{"
                 + "\"id\":\"" + id + "\","

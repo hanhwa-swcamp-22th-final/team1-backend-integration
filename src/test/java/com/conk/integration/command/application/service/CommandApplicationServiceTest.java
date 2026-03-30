@@ -42,6 +42,7 @@ import static org.mockito.BDDMockito.never;
 @DisplayName("[Service] Command Application Service 단위 테스트 (Mockito)")
 class CommandApplicationServiceTest {
 
+    // Shopify 주문 동기화의 저장 분기만 빠르게 읽히도록 묶는다.
     @Nested
     @DisplayName("ShopifyOrderSyncService")
     class ShopifyOrderSyncServiceTests {
@@ -58,6 +59,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("syncOrders() — 신규 주문만 DB에 저장된다 (이미 존재하는 주문 skip)")
         void syncOrders_savesOnlyNewOrders() {
+            // 1001은 중복, 1002만 신규로 취급되도록 fixture를 구성한다.
             ShopifyOrderDto existingDto = buildOrderDto(1001L, "#1001");
             ShopifyOrderDto newDto = buildOrderDto(1002L, "#1002");
 
@@ -73,6 +75,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("syncOrders() — 모든 주문이 이미 존재하면 save()가 호출되지 않는다")
         void syncOrders_savesNothing_whenAllExist() {
+            // 전체가 중복이면 저장 호출이 완전히 없어야 한다.
             given(shopifyApiClient.getOrders())
                     .willReturn(List.of(buildOrderDto(2001L, "#2001"), buildOrderDto(2002L, "#2002")));
             given(channelOrderRepository.existsById(anyString())).willReturn(true);
@@ -85,6 +88,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("syncOrders() — Shopify 주문 목록이 0건이면 save()가 호출되지 않는다")
         void syncOrders_savesNothing_whenEmptyOrders() {
+            // 외부 API가 빈 목록을 주면 서비스는 조용히 종료해야 한다.
             given(shopifyApiClient.getOrders()).willReturn(List.of());
 
             shopifyOrderSyncService.syncOrders("seller-C");
@@ -92,6 +96,7 @@ class CommandApplicationServiceTest {
             then(channelOrderRepository).should(never()).save(any());
         }
 
+        // Shopify API 응답에서 서비스가 실제로 참조하는 최소 필드만 채운다.
         private ShopifyOrderDto buildOrderDto(long id, String name) {
             ShopifyOrderDto dto = new ShopifyOrderDto();
             dto.setId(id);
@@ -117,6 +122,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("createAndSaveInvoice() — 최저가 rate 선택 후 shipment를 구매하고 DB에 저장한다")
         void createAndSaveInvoice_buysLowestRateAndSaves() {
+            // createShipment 응답은 정렬되지 않은 rate 목록으로 만들어 최저가 선택 로직을 같이 검증한다.
             EasyPostShipmentResponse.RateDto cheapRate = new EasyPostShipmentResponse.RateDto();
             cheapRate.setId("rate-cheap");
             cheapRate.setCarrier("USPS");
@@ -162,6 +168,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("selectCheapestRate() — rates 목록 중 가장 낮은 금액의 rate를 반환한다")
         void selectCheapestRate_returnsLowestRate() {
+            // helper 메서드는 호출 순서와 무관하게 최저 금액을 찾아야 한다.
             EasyPostShipmentResponse.RateDto r1 = rate("r1", "12.50");
             EasyPostShipmentResponse.RateDto r2 = rate("r2", "7.30");
             EasyPostShipmentResponse.RateDto r3 = rate("r3", "9.99");
@@ -176,6 +183,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("selectCheapestRate() — rates가 비어있으면 IllegalStateException을 던진다")
         void selectCheapestRate_throwsWhenEmpty() {
+            // 송장 구매를 진행할 수 없는 입력은 빠르게 실패시킨다.
             assertThatThrownBy(() -> easyPostInvoiceSaveService.selectCheapestRate(List.of()))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("No rates available");
@@ -184,6 +192,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("selectCheapestRate() — rate가 null인 항목은 무시되고 유효한 최저가를 반환한다")
         void selectCheapestRate_ignoresNullRates() {
+            // 외부 API 일부 값이 비어 있어도 유효한 금액이 남아 있으면 계산 가능해야 한다.
             EasyPostShipmentResponse.RateDto rNull = new EasyPostShipmentResponse.RateDto();
             rNull.setId("r-null");
 
@@ -198,6 +207,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("resolveCarrierType() — carrier 문자열에 따라 올바른 CarrierType을 반환한다")
         void resolveCarrierType_mapsCorrectly() {
+            // 지원하지 않는 문자열은 기본 운송사로 안전하게 매핑한다.
             assertThat(easyPostInvoiceSaveService.resolveCarrierType("UPS")).isEqualTo(CarrierType.UPS);
             assertThat(easyPostInvoiceSaveService.resolveCarrierType("FEDEX")).isEqualTo(CarrierType.FEDEX);
             assertThat(easyPostInvoiceSaveService.resolveCarrierType("USPS")).isEqualTo(CarrierType.USPS);
@@ -205,6 +215,7 @@ class CommandApplicationServiceTest {
             assertThat(easyPostInvoiceSaveService.resolveCarrierType("UNKNOWN")).isEqualTo(CarrierType.USPS);
         }
 
+        // rate 비교 로직 테스트에서 반복되는 DTO 생성을 줄인다.
         private EasyPostShipmentResponse.RateDto rate(String id, String rateValue) {
             EasyPostShipmentResponse.RateDto dto = new EasyPostShipmentResponse.RateDto();
             dto.setId(id);
@@ -232,6 +243,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("fulfill() — 주문과 invoice가 정상이면 Shopify API를 1회 호출한다")
         void fulfill_callsShopifyApi() {
+            // fulfill()은 주문 번호와 송장 정보만 있으면 되므로 필수 필드만 세팅한다.
             ChannelOrder order = ChannelOrder.builder()
                     .orderId("O-001")
                     .channelOrderNo("#1001")
@@ -256,6 +268,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("fulfill() — 주문이 없으면 IllegalArgumentException을 던진다")
         void fulfill_throwsWhenOrderNotFound() {
+            // 주문 자체가 없으면 이후 출고 로직으로 진행하면 안 된다.
             given(channelOrderRepository.findById("O-NONE")).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> shopifyFulfillmentService.fulfill("O-NONE"))
@@ -266,6 +279,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("fulfill() — invoiceNo가 null이면 IllegalStateException을 던진다")
         void fulfill_throwsWhenInvoiceNoIsNull() {
+            // 송장 참조가 빠진 주문은 출고 API 호출 전 단계에서 막아야 한다.
             ChannelOrder order = ChannelOrder.builder()
                     .orderId("O-002")
                     .channelOrderNo("#1002")
@@ -283,6 +297,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("fulfill() — invoice가 DB에 없으면 IllegalStateException을 던진다")
         void fulfill_throwsWhenInvoiceNotInDb() {
+            // 주문에는 참조가 있지만 실제 송장이 없을 때의 불일치 케이스다.
             ChannelOrder order = ChannelOrder.builder()
                     .orderId("O-003")
                     .channelOrderNo("#1003")
@@ -301,6 +316,7 @@ class CommandApplicationServiceTest {
         @Test
         @DisplayName("resolveCarrierCompany() — CarrierType에 따라 올바른 운송사 이름을 반환한다")
         void resolveCarrierCompany_mapsCorrectly() {
+            // Shopify API가 기대하는 운송사 문자열 규칙을 고정한다.
             assertThat(shopifyFulfillmentService.resolveCarrierCompany(CarrierType.UPS)).isEqualTo("UPS");
             assertThat(shopifyFulfillmentService.resolveCarrierCompany(CarrierType.FEDEX)).isEqualTo("FedEx");
             assertThat(shopifyFulfillmentService.resolveCarrierCompany(CarrierType.USPS)).isEqualTo("USPS");

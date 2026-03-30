@@ -18,6 +18,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+// 채널 카드 조회 서비스의 입력 검증과 라벨 후처리를 검증한다.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("query.SellerChannelCardQueryService 단위 테스트")
 class SellerChannelCardQueryServiceTest {
@@ -32,6 +33,7 @@ class SellerChannelCardQueryServiceTest {
     @Test
     @DisplayName("[GREEN] mapper 결과 반환 후 label 채움")
     void getChannelCards_delegatesToMapper_andFillsLabel() {
+        // mapper raw 값은 유지하고 label만 후처리되는지 확인한다.
         SellerChannelCardDto dto = buildCard("SHOPIFY", "ACTIVE", 3, 1, LocalDateTime.now());
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1")).willReturn(List.of(dto));
 
@@ -74,6 +76,7 @@ class SellerChannelCardQueryServiceTest {
     @Test
     @DisplayName("[GREEN] pendingOrders/todayImported/lastSyncedAt mapper 값 그대로")
     void getChannelCards_statisticFields_passedThrough() {
+        // 숫자/시각 통계 필드는 가공 없이 그대로 노출되어야 한다.
         LocalDateTime lastSync = LocalDateTime.of(2026, 3, 19, 9, 10);
         SellerChannelCardDto dto = buildCard("SHOPIFY", "ACTIVE", 14, 3, lastSync);
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1")).willReturn(List.of(dto));
@@ -149,6 +152,7 @@ class SellerChannelCardQueryServiceTest {
     // Helper
     // ─────────────────────────────────────────────────────────
 
+    // mapper 응답 fixture를 짧게 재사용하기 위한 헬퍼다.
     private SellerChannelCardDto buildCard(String key, String syncStatus,
                                            int pendingOrders, int todayImported,
                                            LocalDateTime lastSyncedAt) {

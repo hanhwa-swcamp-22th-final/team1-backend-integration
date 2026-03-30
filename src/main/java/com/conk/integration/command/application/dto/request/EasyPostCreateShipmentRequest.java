@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+// EasyPost shipment 생성 요청의 최소 JSON 구조를 표현한다.
 @Getter
 @Builder
 @NoArgsConstructor
@@ -15,6 +16,7 @@ public class EasyPostCreateShipmentRequest {
 
     private ShipmentBody shipment;
 
+    // EasyPost가 요구하는 shipment 루트 객체다.
     @Getter
     @Builder
     @NoArgsConstructor
@@ -31,6 +33,7 @@ public class EasyPostCreateShipmentRequest {
         private ParcelBody parcel;
     }
 
+    // 수취/발송 주소를 같은 구조로 재사용한다.
     @Getter
     @Builder
     @NoArgsConstructor
@@ -48,6 +51,7 @@ public class EasyPostCreateShipmentRequest {
         private String email;
     }
 
+    // 소포 크기와 무게 정보를 담는다.
     @Getter
     @Builder
     @NoArgsConstructor

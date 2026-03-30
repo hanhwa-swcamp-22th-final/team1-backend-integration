@@ -8,6 +8,7 @@ import lombok.Setter;
 
 import java.util.List;
 
+// EasyPost shipment 관련 응답에서 서비스가 사용하는 필드만 매핑한다.
 @Getter
 @Setter
 @NoArgsConstructor
@@ -34,6 +35,7 @@ public class EasyPostShipmentResponse {
     @JsonProperty("to_address")
     private AddressDto toAddress;
 
+    // 운임 비교와 구매에 사용하는 rate 항목이다.
     @Getter
     @Setter
     @NoArgsConstructor
@@ -46,6 +48,7 @@ public class EasyPostShipmentResponse {
         private String currency;
     }
 
+    // 구매 후 생성되는 라벨 URL 정보다.
     @Getter
     @Setter
     @NoArgsConstructor
@@ -55,6 +58,7 @@ public class EasyPostShipmentResponse {
         private String labelUrl;
     }
 
+    // 배송 추적 공개 URL을 담는다.
     @Getter
     @Setter
     @NoArgsConstructor
@@ -65,6 +69,7 @@ public class EasyPostShipmentResponse {
         private String publicUrl;
     }
 
+    // 수취 주소를 송장 엔티티의 한 줄 주소로 변환할 때 사용한다.
     @Getter
     @Setter
     @NoArgsConstructor

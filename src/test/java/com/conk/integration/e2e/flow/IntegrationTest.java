@@ -86,6 +86,7 @@ class IntegrationTest {
     @DisplayName("ShopifyOrderSyncService 통합 — Shopify API 응답이 DB에 저장된다")
     class SyncOrdersIntegrationTests {
 
+        // 외부 주문 응답이 실제 DB 저장으로 이어지는지 본다.
         @Test
         @DisplayName("syncOrders() — Shopify 주문 2건 반환 시 DB에 2건이 저장된다")
         void syncOrders_persistsTwoOrders() {
@@ -108,6 +109,7 @@ class IntegrationTest {
         @Test
         @DisplayName("syncOrders() — 이미 저장된 주문은 중복 저장되지 않는다 (멱등성)")
         void syncOrders_idempotent_doesNotDuplicateExistingOrder() {
+            // 같은 주문이 다시 들어와도 DB 건수는 유지되어야 한다.
             // given — 주문 9003은 이미 DB에 존재
             channelOrderRepository.save(ChannelOrder.builder()
                     .orderId("9003").channelOrderNo("#9003")
@@ -149,6 +151,7 @@ class IntegrationTest {
     @DisplayName("ShopifyFulfillmentService 통합 — DB 조회 후 Shopify API를 호출한다")
     class FulfillmentIntegrationTests {
 
+        // DB에 필요한 데이터가 있으면 외부 fulfillment API까지 이어지는지 본다.
         @Test
         @DisplayName("fulfill() — 주문과 invoice가 DB에 있으면 Shopify fulfillment API가 호출된다")
         void fulfill_callsShopifyApiWhenDataExists() {
@@ -210,6 +213,7 @@ class IntegrationTest {
     @DisplayName("GET /integrations/seller/orders — HTTP 전체 흐름 통합 테스트")
     class OrderQueryHttpIntegrationTests {
 
+        // MyBatis 조회 결과가 HTTP 응답 JSON까지 전달되는 전체 경로를 확인한다.
         @Test
         @DisplayName("DB에 주문이 있을 때 HTTP 요청으로 조회하면 200과 주문 데이터가 반환된다")
         void getOrders_e2e_returnsHttpOkWithData() throws Exception {
@@ -286,6 +290,7 @@ class IntegrationTest {
     @DisplayName("ChannelApi DB 저장 및 조회 통합 테스트")
     class ChannelApiIntegrationTests {
 
+        // 채널 연결 정보의 저장과 sellerId 기반 조회를 함께 검증한다.
         @Test
         @DisplayName("ChannelApi 저장 후 findByIdSellerId()로 조회하면 정상적으로 반환된다")
         void saveAndFindChannelApi() {
@@ -313,6 +318,7 @@ class IntegrationTest {
      * ShopifyOrderDto 테스트 픽스처 생성
      */
     private ShopifyOrderDto buildShopifyOrderDto(long id, String name, String receiverName, String address) {
+        // Sync service가 참조하는 최소 필드만 채운다.
         ShopifyOrderDto dto = new ShopifyOrderDto();
         dto.setId(id);
         dto.setName(name);

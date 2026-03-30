@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
+// Shopify 출고 서비스가 DB 조회와 외부 API 호출을 어떻게 조합하는지 검증한다.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ShopifyFulfillmentService 단위 테스트")
 class ShopifyFulfillmentServiceTest {
@@ -44,6 +45,7 @@ class ShopifyFulfillmentServiceTest {
     @Test
     @DisplayName("[GREEN] 정상 플로우 - ChannelOrder 조회 → Invoice 조회 → fulfillment 호출")
     void fulfill_happyPath() {
+        // 주문과 송장이 모두 있을 때만 fulfillment API가 호출되어야 한다.
         ChannelOrder order = buildChannelOrder("ORD-001", "shp_invoice_001", "5678901234");
         EasypostShipmentInvoice invoice = buildInvoice("shp_invoice_001", CarrierType.UPS, "1Z999AA10123456784");
 
@@ -121,6 +123,7 @@ class ShopifyFulfillmentServiceTest {
     @Test
     @DisplayName("[예외] ShopifyFulfillmentApiClient 실패 → 예외 전파")
     void fulfill_propagatesExceptionFromClient() {
+        // 외부 API 실패는 삼키지 않고 상위로 그대로 전파한다.
         ChannelOrder order = buildChannelOrder("ORD-004", "shp_invoice_004", "5678901234");
         EasypostShipmentInvoice invoice = buildInvoice("shp_invoice_004", CarrierType.USPS, "9400111899223397888692");
 
@@ -139,6 +142,7 @@ class ShopifyFulfillmentServiceTest {
     // Helper
     // ─────────────────────────────────────────────────────────
 
+    // 출고 테스트에서 필요한 최소 주문 엔티티 fixture다.
     private ChannelOrder buildChannelOrder(String orderId, String invoiceNo, String channelOrderNo) {
         return ChannelOrder.builder()
                 .orderId(orderId)
@@ -149,6 +153,7 @@ class ShopifyFulfillmentServiceTest {
                 .build();
     }
 
+    // 운송사 매핑과 송장 조회 테스트용 최소 송장 fixture다.
     private EasypostShipmentInvoice buildInvoice(String invoiceNo, CarrierType carrierType, String trackingUrl) {
         return EasypostShipmentInvoice.builder()
                 .invoiceNo(invoiceNo)

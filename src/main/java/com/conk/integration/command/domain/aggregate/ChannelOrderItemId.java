@@ -6,6 +6,7 @@ import lombok.*;
 
 import java.io.Serializable;
 
+// 주문 아이템을 orderId + skuId로 식별하는 복합 키다.
 @Embeddable
 @NoArgsConstructor
 @AllArgsConstructor

@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+// Shopify 주문 조회 응답에서 내부 주문 저장에 필요한 필드만 매핑한다.
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,6 +33,7 @@ public class ShopifyOrderDto {
     @JsonProperty("shipping_address")
     private ShippingAddress shippingAddress;
 
+    // 배송지 필드는 ChannelOrder 주소 컬럼으로 분해 저장된다.
     @Getter
     @Setter
     @NoArgsConstructor

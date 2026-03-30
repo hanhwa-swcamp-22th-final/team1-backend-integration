@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class SellerChannelCardDto {
 
+    // key는 저장/조회용 채널 코드, label은 화면 표시용 문자열이다.
     private String key;
     private String label;
     private String syncStatus;

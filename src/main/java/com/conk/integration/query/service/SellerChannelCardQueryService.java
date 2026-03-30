@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+// 채널 카드 raw 조회 결과에 표시용 라벨을 덧입혀 반환한다.
 @Service
 @RequiredArgsConstructor
 public class SellerChannelCardQueryService {
@@ -16,10 +17,12 @@ public class SellerChannelCardQueryService {
     public List<SellerChannelCardDto> getChannelCards(String sellerId) {
         validateSellerId(sellerId);
         List<SellerChannelCardDto> cards = channelCardMapper.findBySellerIdGroupedByChannel(sellerId);
+        // DB에는 코드값만 있으므로 화면 표시에 맞는 label을 후처리한다.
         cards.forEach(card -> card.setLabel(toLabel(card.getKey())));
         return cards;
     }
 
+    // 알려진 채널 코드를 사람이 읽기 쉬운 라벨로 바꾼다.
     String toLabel(String channelName) {
         if (channelName == null) return "";
         return switch (channelName.toUpperCase()) {
@@ -31,6 +34,7 @@ public class SellerChannelCardQueryService {
         };
     }
 
+    // 모든 셀러 기준 조회 API는 X-Seller-Id 입력 검증을 공통으로 수행한다.
     private void validateSellerId(String sellerId) {
         if (sellerId == null || sellerId.isBlank()) {
             throw new IllegalArgumentException("sellerId는 필수입니다.");

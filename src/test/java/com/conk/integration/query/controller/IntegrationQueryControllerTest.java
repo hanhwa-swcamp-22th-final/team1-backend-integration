@@ -51,6 +51,7 @@ class IntegrationQueryControllerTest {
     @DisplayName("GET /integrations/seller/channels — 채널 카드 조회 (INT-001)")
     class GetSellerChannelCardsTests {
 
+        // 헤더 입력과 응답 JSON 구조가 계약대로 유지되는지 확인한다.
         @Test
         @DisplayName("정상 요청 — HTTP 200과 success:true, 채널 카드 목록이 반환된다")
         void getSellerChannelCards_returnsOk() throws Exception {
@@ -120,6 +121,7 @@ class IntegrationQueryControllerTest {
         @Test
         @DisplayName("여러 채널 카드가 있을 때 모두 반환된다")
         void getSellerChannelCards_multipleCards() throws Exception {
+            // 배열 응답에서 다건 직렬화가 정상 동작하는지 본다.
             // given
             SellerChannelCardDto shopify = new SellerChannelCardDto();
             shopify.setKey("SHOPIFY"); shopify.setLabel("Shopify"); shopify.setPendingOrders(5);
@@ -148,6 +150,7 @@ class IntegrationQueryControllerTest {
     @DisplayName("GET /integrations/seller/orders — 통합 주문 조회 (INT-002)")
     class GetSellerChannelOrdersTests {
 
+        // 주문 조회 응답의 대표 필드가 JSON으로 정확히 직렬화되는지 본다.
         @Test
         @DisplayName("정상 요청 — HTTP 200과 주문 목록이 반환된다")
         void getSellerChannelOrders_returnsOk() throws Exception {

@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @Builder
 public class SellerChannelOrderDto {
 
+    // 화면에서 직접 쓰는 표시용 주문 필드들만 노출한다.
     private String id;
     private String channel;
     private String channelOrderNo;

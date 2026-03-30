@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+// 주문에 속한 SKU 단위 수량/작업 상태를 저장하는 자식 엔티티다.
 @Entity
 @Table(name = "channel_order_item")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
