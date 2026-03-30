@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 
 // 컨트롤러 밖으로 나온 예외를 API 응답 형식으로 통일한다.
 @Slf4j
@@ -32,6 +33,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(false, "필수 헤더가 누락되었습니다: " + ex.getHeaderName()));
+    }
+
+    /**
+     * 지원하지 않는 HTTP 메서드 호출 시 405로 응답한다.
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
+        log.warn("HttpRequestMethodNotSupportedException: {}", ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(new ErrorResponse(false, "지원하지 않는 HTTP 메서드입니다: " + ex.getMethod()));
     }
 
     /**
