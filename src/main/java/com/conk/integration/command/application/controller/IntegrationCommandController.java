@@ -1,6 +1,6 @@
 package com.conk.integration.command.application.controller;
 
-import com.conk.integration.command.application.service.ShopifyFulfillmentService;
+import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class IntegrationCommandController {
 
-    private final ShopifyFulfillmentService shopifyFulfillmentService;
+    private final ChannelFulfillmentDispatchService fulfillmentDispatchService;
 
     /**
      * INT-003 — 셀러 주문 fulfillment 생성
@@ -28,7 +28,7 @@ public class IntegrationCommandController {
             @PathVariable String orderId) {
 
         // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
-        shopifyFulfillmentService.fulfill(orderId);
+        fulfillmentDispatchService.fulfill(orderId);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 }

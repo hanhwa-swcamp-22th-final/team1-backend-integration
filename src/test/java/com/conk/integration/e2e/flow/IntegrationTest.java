@@ -2,7 +2,7 @@ package com.conk.integration.e2e.flow;
 
 import com.conk.integration.command.domain.aggregate.*;
 import com.conk.integration.command.domain.repository.*;
-import com.conk.integration.command.application.service.ShopifyFulfillmentService;
+import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.command.application.service.ShopifyOrderSyncService;
 import com.conk.integration.command.infrastructure.service.ShopifyApiClient;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
@@ -41,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * ✅ 검증 대상:
  *   - ShopifyOrderSyncService.syncOrders() : API 응답 → DB 저장 전체 흐름
- *   - ShopifyFulfillmentService.fulfill() : DB 조회 → Shopify API 호출 전체 흐름
+ *   - ChannelFulfillmentDispatchService.fulfill() : DB 조회 → 채널 선택 → Shopify API 호출 전체 흐름
  *   - GET /integrations/seller/orders : Controller → Service → DB → HTTP 응답 전체 흐름
  */
 @SpringBootTest
@@ -67,7 +67,7 @@ class IntegrationTest {
     private ShopifyOrderSyncService shopifyOrderSyncService;
 
     @Autowired
-    private ShopifyFulfillmentService shopifyFulfillmentService;
+    private ChannelFulfillmentDispatchService fulfillmentDispatchService;
 
     @Autowired
     private ChannelOrderRepository channelOrderRepository;
@@ -144,11 +144,11 @@ class IntegrationTest {
     }
 
     /* ===================================================================
-     * 2) ShopifyFulfillmentService — 전체 흐름 (DB 조회 → Shopify API 호출)
+     * 2) ChannelFulfillmentDispatchService — 전체 흐름 (DB 조회 → Shopify API 호출)
      * =================================================================== */
 
     @Nested
-    @DisplayName("ShopifyFulfillmentService 통합 — DB 조회 후 Shopify API를 호출한다")
+    @DisplayName("ChannelFulfillmentDispatchService 통합 — DB 조회 후 Shopify API를 호출한다")
     class FulfillmentIntegrationTests {
 
         // DB에 필요한 데이터가 있으면 외부 fulfillment API까지 이어지는지 본다.
@@ -171,7 +171,7 @@ class IntegrationTest {
                     .build());
 
             // when
-            shopifyFulfillmentService.fulfill("ORDER-INTG-001");
+            fulfillmentDispatchService.fulfill("ORDER-INTG-001");
 
             // then — Shopify fulfillment API가 실제로 호출되었는지 검증
             then(shopifyFulfillmentApiClient).should(times(1))
@@ -181,7 +181,7 @@ class IntegrationTest {
         @Test
         @DisplayName("fulfill() — DB에 주문이 없으면 IllegalArgumentException이 발생한다")
         void fulfill_throwsWhenOrderNotInDb() {
-            assertThatThrownBy(() -> shopifyFulfillmentService.fulfill("ORDER-NOT-EXIST"))
+            assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("ORDER-NOT-EXIST"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("ChannelOrder를 찾을 수 없습니다");
         }
@@ -199,7 +199,7 @@ class IntegrationTest {
                     .build());
 
             // when & then
-            assertThatThrownBy(() -> shopifyFulfillmentService.fulfill("ORDER-NO-INV"))
+            assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("ORDER-NO-INV"))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("송장이 발급되지 않은 주문");
         }

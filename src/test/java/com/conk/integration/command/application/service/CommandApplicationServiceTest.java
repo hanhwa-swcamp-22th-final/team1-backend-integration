@@ -6,6 +6,7 @@ import com.conk.integration.command.application.dto.response.ShopifyOrderDto;
 import com.conk.integration.command.domain.aggregate.CarrierType;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
+import com.conk.integration.command.domain.aggregate.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
@@ -225,8 +226,8 @@ class CommandApplicationServiceTest {
     }
 
     @Nested
-    @DisplayName("ShopifyFulfillmentService")
-    class ShopifyFulfillmentServiceTests {
+    @DisplayName("ChannelFulfillmentDispatchService")
+    class ChannelFulfillmentDispatchServiceTests {
 
         @Mock
         private ChannelOrderRepository channelOrderRepository;
@@ -235,34 +236,40 @@ class CommandApplicationServiceTest {
         private EasypostShipmentInvoiceRepository invoiceRepository;
 
         @Mock
-        private ShopifyFulfillmentApiClient shopifyFulfillmentApiClient;
+        private ChannelFulfillmentSender shopifySender;
 
-        @InjectMocks
-        private ShopifyFulfillmentService shopifyFulfillmentService;
+        private ChannelFulfillmentDispatchService fulfillmentDispatchService;
 
         @Test
-        @DisplayName("fulfill() — 주문과 invoice가 정상이면 Shopify API를 1회 호출한다")
+        @DisplayName("fulfill() — SHOPIFY 주문이면 지원 sender를 1회 호출한다")
         void fulfill_callsShopifyApi() {
-            // fulfill()은 주문 번호와 송장 정보만 있으면 되므로 필수 필드만 세팅한다.
+            // dispatch는 공통 조회 후 채널 sender로 위임해야 한다.
             ChannelOrder order = ChannelOrder.builder()
                     .orderId("O-001")
                     .channelOrderNo("#1001")
                     .invoiceNo("INV-001")
+                    .orderChannel(OrderChannel.SHOPIFY)
                     .sellerId("S")
                     .build();
 
             EasypostShipmentInvoice invoice = EasypostShipmentInvoice.builder()
                     .invoiceNo("INV-001")
-                    .carrierType(CarrierType.UPS)
                     .build();
 
             given(channelOrderRepository.findById("O-001")).willReturn(Optional.of(order));
             given(invoiceRepository.findById("INV-001")).willReturn(Optional.of(invoice));
+            given(shopifySender.supports(OrderChannel.SHOPIFY)).willReturn(true);
 
-            shopifyFulfillmentService.fulfill("O-001");
+            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
+                    channelOrderRepository,
+                    invoiceRepository,
+                    List.of(shopifySender)
+            );
 
-            then(shopifyFulfillmentApiClient).should(times(1))
-                    .createFulfillment(eq("#1001"), any());
+            fulfillmentDispatchService.fulfill("O-001");
+
+            then(shopifySender).should(times(1))
+                    .send(order, invoice);
         }
 
         @Test
@@ -271,7 +278,13 @@ class CommandApplicationServiceTest {
             // 주문 자체가 없으면 이후 출고 로직으로 진행하면 안 된다.
             given(channelOrderRepository.findById("O-NONE")).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> shopifyFulfillmentService.fulfill("O-NONE"))
+            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
+                    channelOrderRepository,
+                    invoiceRepository,
+                    List.of(shopifySender)
+            );
+
+            assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-NONE"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("ChannelOrder를 찾을 수 없습니다");
         }
@@ -284,12 +297,19 @@ class CommandApplicationServiceTest {
                     .orderId("O-002")
                     .channelOrderNo("#1002")
                     .invoiceNo(null)
+                    .orderChannel(OrderChannel.SHOPIFY)
                     .sellerId("S")
                     .build();
 
             given(channelOrderRepository.findById("O-002")).willReturn(Optional.of(order));
 
-            assertThatThrownBy(() -> shopifyFulfillmentService.fulfill("O-002"))
+            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
+                    channelOrderRepository,
+                    invoiceRepository,
+                    List.of(shopifySender)
+            );
+
+            assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-002"))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("송장이 발급되지 않은 주문");
         }
@@ -302,25 +322,52 @@ class CommandApplicationServiceTest {
                     .orderId("O-003")
                     .channelOrderNo("#1003")
                     .invoiceNo("INV-NOT-EXIST")
+                    .orderChannel(OrderChannel.SHOPIFY)
                     .sellerId("S")
                     .build();
 
             given(channelOrderRepository.findById("O-003")).willReturn(Optional.of(order));
             given(invoiceRepository.findById("INV-NOT-EXIST")).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> shopifyFulfillmentService.fulfill("O-003"))
+            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
+                    channelOrderRepository,
+                    invoiceRepository,
+                    List.of(shopifySender)
+            );
+
+            assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-003"))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("EasypostShipmentInvoice를 찾을 수 없습니다");
         }
 
         @Test
-        @DisplayName("resolveCarrierCompany() — CarrierType에 따라 올바른 운송사 이름을 반환한다")
-        void resolveCarrierCompany_mapsCorrectly() {
-            // Shopify API가 기대하는 운송사 문자열 규칙을 고정한다.
-            assertThat(shopifyFulfillmentService.resolveCarrierCompany(CarrierType.UPS)).isEqualTo("UPS");
-            assertThat(shopifyFulfillmentService.resolveCarrierCompany(CarrierType.FEDEX)).isEqualTo("FedEx");
-            assertThat(shopifyFulfillmentService.resolveCarrierCompany(CarrierType.USPS)).isEqualTo("USPS");
-            assertThat(shopifyFulfillmentService.resolveCarrierCompany(null)).isEqualTo("USPS");
+        @DisplayName("fulfill() — 지원 sender가 없으면 IllegalArgumentException을 던진다")
+        void fulfill_throwsWhenSenderNotSupported() {
+            ChannelOrder order = ChannelOrder.builder()
+                    .orderId("O-004")
+                    .channelOrderNo("#1004")
+                    .invoiceNo("INV-004")
+                    .orderChannel(OrderChannel.AMAZON)
+                    .sellerId("S")
+                    .build();
+
+            EasypostShipmentInvoice invoice = EasypostShipmentInvoice.builder()
+                    .invoiceNo("INV-004")
+                    .build();
+
+            given(channelOrderRepository.findById("O-004")).willReturn(Optional.of(order));
+            given(invoiceRepository.findById("INV-004")).willReturn(Optional.of(invoice));
+            given(shopifySender.supports(OrderChannel.AMAZON)).willReturn(false);
+
+            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
+                    channelOrderRepository,
+                    invoiceRepository,
+                    List.of(shopifySender)
+            );
+
+            assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-004"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("지원하지 않는 fulfillment 채널입니다");
         }
     }
 }

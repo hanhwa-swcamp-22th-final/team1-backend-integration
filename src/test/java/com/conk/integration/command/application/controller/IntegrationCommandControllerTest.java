@@ -1,7 +1,7 @@
 package com.conk.integration.command.application.controller;
 
 import com.conk.integration.command.application.controller.IntegrationCommandController;
-import com.conk.integration.command.application.service.ShopifyFulfillmentService;
+import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.common.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,7 +30,7 @@ class IntegrationCommandControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private ShopifyFulfillmentService shopifyFulfillmentService;
+    private ChannelFulfillmentDispatchService fulfillmentDispatchService;
 
     @Nested
     @DisplayName("POST /integrations/seller/orders/fulfillment/{orderId} — fulfillment 생성 (INT-003)")
@@ -46,7 +46,7 @@ class IntegrationCommandControllerTest {
                             {"success":true,"data":null}
                             """));
 
-            then(shopifyFulfillmentService).should()
+            then(fulfillmentDispatchService).should()
                     .fulfill("ORD-20260330-0001");
         }
 
@@ -63,7 +63,7 @@ class IntegrationCommandControllerTest {
         @DisplayName("Service가 IllegalArgumentException을 던지면 HTTP 400이 반환된다")
         void createSellerOrderFulfillment_illegalArgument_returns400() throws Exception {
             doThrow(new IllegalArgumentException("ChannelOrder를 찾을 수 없습니다: ORD-404"))
-                    .when(shopifyFulfillmentService)
+                    .when(fulfillmentDispatchService)
                     .fulfill("ORD-404");
 
             mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-404")
@@ -77,7 +77,7 @@ class IntegrationCommandControllerTest {
         @DisplayName("Service가 IllegalStateException을 던지면 HTTP 400이 반환된다")
         void createSellerOrderFulfillment_illegalState_returns400() throws Exception {
             doThrow(new IllegalStateException("송장이 발급되지 않은 주문입니다: ORD-20260330-0001"))
-                    .when(shopifyFulfillmentService)
+                    .when(fulfillmentDispatchService)
                     .fulfill("ORD-20260330-0001");
 
             mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001")
