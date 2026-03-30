@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+// Shopify fulfillment 생성 요청 body를 표현한다.
 @Getter
 @Builder
 @NoArgsConstructor
@@ -15,6 +16,7 @@ public class ShopifyFulfillmentRequest {
 
     private FulfillmentBody fulfillment;
 
+    // Shopify가 기대하는 fulfillment 루트 객체다.
     @Getter
     @Builder
     @NoArgsConstructor
@@ -29,6 +31,7 @@ public class ShopifyFulfillmentRequest {
         private boolean notifyCustomer;
     }
 
+    // 추적번호와 운송사 정보를 한 덩어리로 보낸다.
     @Getter
     @Builder
     @NoArgsConstructor

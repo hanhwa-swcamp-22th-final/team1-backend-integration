@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
+// Shopify 주문 동기화 서비스의 매핑, 중복 방지, 예외 전파를 검증한다.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ShopifyOrderSyncService Tests")
 class ShopifyOrderSyncServiceTest {
@@ -92,7 +93,7 @@ class ShopifyOrderSyncServiceTest {
     @Test
     @DisplayName("[RED→GREEN] 저장된 ChannelOrder 필드가 Shopify 응답과 올바르게 매핑")
     void syncOrders_mapsFieldsCorrectly() {
-        // given
+        // 주소 필드를 모두 채워 채널 주문 엔티티로의 매핑 누락이 없는지 본다.
         ShopifyOrderDto dto = buildOrderDto(4502818226334L, "#1001", "2024-01-15T10:00:00-05:00");
         dto.getShippingAddress().setName("Jane Smith");
         dto.getShippingAddress().setAddress1("456 Oak Ave");
@@ -174,7 +175,7 @@ class ShopifyOrderSyncServiceTest {
     @Test
     @DisplayName("[예외] shippingAddress가 null인 주문도 NPE 없이 저장 성공 (null 필드로 저장)")
     void syncOrders_savesOrder_whenShippingAddressIsNull() {
-        // given
+        // 외부 API 데이터가 불완전해도 최소 주문 저장은 가능해야 한다.
         ShopifyOrderDto dto = new ShopifyOrderDto();
         dto.setId(9999L);
         dto.setName("#9999");
@@ -237,6 +238,7 @@ class ShopifyOrderSyncServiceTest {
     // Helper
     // ─────────────────────────────────────────────────────────
 
+    // syncOrders가 소비하는 최소 Shopify 주문 응답 fixture다.
     private ShopifyOrderDto buildOrderDto(Long id, String name, String createdAt) {
         ShopifyOrderDto dto = new ShopifyOrderDto();
         dto.setId(id);

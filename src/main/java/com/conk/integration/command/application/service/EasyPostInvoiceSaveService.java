@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+// EasyPost shipment 생성 결과를 CONK 송장 엔티티로 변환해 저장한다.
 @Service
 @RequiredArgsConstructor
 public class EasyPostInvoiceSaveService {
@@ -28,6 +29,7 @@ public class EasyPostInvoiceSaveService {
     public EasypostShipmentInvoice createAndSaveInvoice(EasyPostCreateShipmentRequest request) {
         EasyPostShipmentResponse shipment = easyPostApiClient.createShipment(request);
 
+        // EasyPost rate 목록 중 가장 저렴한 운임만 구매 대상으로 선택한다.
         EasyPostShipmentResponse.RateDto cheapest = selectCheapestRate(shipment.getRates());
 
         EasyPostShipmentResponse bought = easyPostApiClient.buyRate(shipment.getId(), cheapest.getId());
@@ -36,6 +38,7 @@ public class EasyPostInvoiceSaveService {
         return invoiceRepository.save(invoice);
     }
 
+    // 유효한 rate 문자열만 대상으로 최저 운임을 계산한다.
     EasyPostShipmentResponse.RateDto selectCheapestRate(List<EasyPostShipmentResponse.RateDto> rates) {
         if (rates == null || rates.isEmpty()) {
             throw new IllegalStateException("No rates available for shipment");
@@ -46,6 +49,7 @@ public class EasyPostInvoiceSaveService {
                 .orElseThrow(() -> new IllegalStateException("No valid rates available for shipment"));
     }
 
+    // 외부 shipment 응답을 내부 송장 엔티티로 정규화한다.
     private EasypostShipmentInvoice toInvoice(EasyPostShipmentResponse response) {
         EasyPostShipmentResponse.RateDto selected = response.getSelectedRate();
         String labelUrl = response.getPostageLabel() != null ? response.getPostageLabel().getLabelUrl() : null;
@@ -71,6 +75,7 @@ public class EasyPostInvoiceSaveService {
                 .build();
     }
 
+    // EasyPost carrier 문자열을 내부 enum으로 맞춘다.
     CarrierType resolveCarrierType(String carrier) {
         if (carrier == null) return CarrierType.USPS;
         return switch (carrier.toUpperCase()) {
@@ -80,6 +85,7 @@ public class EasyPostInvoiceSaveService {
         };
     }
 
+    // tracker 공개 URL이 있으면 우선 사용하고, 없으면 trackingCode 기반 URL을 만든다.
     private String resolveTrackingUrl(EasyPostShipmentResponse response) {
         if (response.getTracker() != null && response.getTracker().getPublicUrl() != null) {
             return response.getTracker().getPublicUrl();
@@ -90,6 +96,7 @@ public class EasyPostInvoiceSaveService {
         return null;
     }
 
+    // 주소 조각을 사람이 읽을 수 있는 한 줄 문자열로 합친다.
     private String resolveShipToAddress(EasyPostShipmentResponse.AddressDto addr) {
         if (addr == null) return null;
         return Stream.of(addr.getStreet1(), addr.getCity(), addr.getState(), addr.getZip(), addr.getCountry())
@@ -97,6 +104,7 @@ public class EasyPostInvoiceSaveService {
                 .collect(Collectors.joining(", "));
     }
 
+    // 운임 문자열이 숫자로 파싱 가능한지 확인한다.
     private boolean isNumeric(String s) {
         try {
             Double.parseDouble(s);

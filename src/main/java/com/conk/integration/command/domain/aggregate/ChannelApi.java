@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+// 셀러가 채널별로 연결한 API 자격 정보를 저장한다.
 @Entity
 @Table(name = "channel_api")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

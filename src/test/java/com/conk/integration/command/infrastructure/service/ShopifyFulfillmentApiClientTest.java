@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
+// Shopify 출고 API 클라이언트의 URL, 헤더, 응답 파싱을 검증한다.
 @DisplayName("ShopifyFulfillmentApiClient 단위 테스트")
 class ShopifyFulfillmentApiClientTest {
 
@@ -33,6 +34,7 @@ class ShopifyFulfillmentApiClientTest {
 
     @BeforeEach
     void setUp() {
+        // 실제 Shopify 호출 없이 요청 스펙만 검증하기 위한 서버다.
         RestTemplate restTemplate = new RestTemplate();
         mockServer = MockRestServiceServer.createServer(restTemplate);
 
@@ -93,6 +95,7 @@ class ShopifyFulfillmentApiClientTest {
     @Test
     @DisplayName("[GREEN] trackingNumber와 company가 요청 body에 포함")
     void createFulfillment_sendsTrackingNumberAndCompany() {
+        // 출고 API는 추적번호/운송사 정보가 핵심이므로 body 직렬화만 집중해서 본다.
         mockServer.expect(requestTo(expectedUrl()))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
@@ -155,11 +158,13 @@ class ShopifyFulfillmentApiClientTest {
     // Helper
     // ─────────────────────────────────────────────────────────
 
+    // 주문별 출고 엔드포인트 URL 조합을 한 곳에서 재사용한다.
     private String expectedUrl() {
         return "https://" + STORE_NAME + ".myshopify.com/admin/api/" + API_VERSION
                 + "/orders/" + SHOPIFY_ORDER_ID + "/fulfillments.json";
     }
 
+    // 운송사/추적번호를 포함한 최소 fulfillment 요청 fixture다.
     private ShopifyFulfillmentRequest buildRequest() {
         return ShopifyFulfillmentRequest.builder()
                 .fulfillment(ShopifyFulfillmentRequest.FulfillmentBody.builder()
@@ -172,6 +177,7 @@ class ShopifyFulfillmentApiClientTest {
                 .build();
     }
 
+    // fulfillment 응답 파싱 테스트에 재사용하는 JSON fixture다.
     private String fulfillmentResponseJson(String id, String status) {
         return "{\"fulfillment\":{\"id\":" + id + ",\"status\":\"" + status + "\","
                 + "\"tracking_number\":\"1Z999AA10123456784\",\"tracking_company\":\"UPS\"}}";

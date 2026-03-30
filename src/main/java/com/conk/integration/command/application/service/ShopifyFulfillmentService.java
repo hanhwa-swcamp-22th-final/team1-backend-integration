@@ -10,6 +10,7 @@ import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApi
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+// 저장된 주문/송장 정보를 조합해 Shopify 출고 API를 호출한다.
 @Service
 @RequiredArgsConstructor
 public class ShopifyFulfillmentService {
@@ -35,6 +36,7 @@ public class ShopifyFulfillmentService {
 
         ShopifyFulfillmentRequest request = ShopifyFulfillmentRequest.builder()
                 .fulfillment(ShopifyFulfillmentRequest.FulfillmentBody.builder()
+                        // Shopify가 기대하는 추적 정보 형식으로 송장 데이터를 변환한다.
                         .trackingInfo(ShopifyFulfillmentRequest.TrackingInfo.builder()
                                 .number(invoice.getInvoiceNo())
                                 .company(resolveCarrierCompany(invoice.getCarrierType()))
@@ -46,6 +48,7 @@ public class ShopifyFulfillmentService {
         shopifyFulfillmentApiClient.createFulfillment(order.getChannelOrderNo(), request);
     }
 
+    // 내부 운송사 enum을 Shopify가 읽는 문자열로 변환한다.
     String resolveCarrierCompany(CarrierType carrierType) {
         if (carrierType == null) return "USPS";
         return switch (carrierType) {

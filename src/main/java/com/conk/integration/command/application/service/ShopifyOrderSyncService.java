@@ -15,6 +15,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.function.Function;
 
+// Shopify 주문 응답을 내부 ChannelOrder 엔티티로 변환해 저장한다.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -37,6 +38,7 @@ public class ShopifyOrderSyncService {
         for (ShopifyOrderDto dto : orders) {
             String orderId = String.valueOf(dto.getId());
 
+            // 같은 orderId가 이미 있으면 재저장하지 않아 멱등성을 유지한다.
             if (channelOrderRepository.existsById(orderId)) {
                 log.debug("중복 주문 skip: {}", orderId);
                 continue;
@@ -47,6 +49,7 @@ public class ShopifyOrderSyncService {
         }
     }
 
+    // Shopify 주문 DTO를 내부 저장용 엔티티로 정규화한다.
     private ChannelOrder toChannelOrder(ShopifyOrderDto dto, String sellerId) {
         ShopifyOrderDto.ShippingAddress addr = dto.getShippingAddress();
 
@@ -66,11 +69,13 @@ public class ShopifyOrderSyncService {
                 .build();
     }
 
+    // shippingAddress가 비어 있는 주문도 null 안전하게 처리한다.
     private <T> T addrField(ShopifyOrderDto.ShippingAddress addr,
                              Function<ShopifyOrderDto.ShippingAddress, T> getter) {
         return addr != null ? getter.apply(addr) : null;
     }
 
+    // Shopify의 ISO-8601 시각 문자열을 내부 LocalDateTime으로 변환한다.
     private LocalDateTime parseDateTime(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return null;
         return OffsetDateTime.parse(dateStr).toLocalDateTime();

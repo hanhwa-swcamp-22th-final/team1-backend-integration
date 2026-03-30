@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+// 외부 채널 주문을 내부 표준 포맷으로 저장하는 주문 aggregate 루트다.
 @Entity
 @Table(name = "channel_order")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -80,16 +81,19 @@ public class ChannelOrder {
                fetch = FetchType.LAZY)
     private List<ChannelOrderItem> items = new ArrayList<>();
 
+    // 연관 아이템 컬렉션에 항목을 추가하는 최소 편의 메서드다.
     public void addItem(ChannelOrderItem item) {
         items.add(item);
     }
 
+    // 생성 시 감사 시각을 자동으로 채운다.
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
 
+    // 수정 시 updatedAt만 갱신한다.
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();

@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
+// EasyPost 송장 저장 서비스의 정상 흐름과 예외 전파를 Mockito로 검증한다.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("EasyPostInvoiceSaveService 단위 테스트")
 class EasyPostInvoiceSaveServiceTest {
@@ -43,6 +44,7 @@ class EasyPostInvoiceSaveServiceTest {
     @Test
     @DisplayName("[GREEN] 정상 플로우 - createShipment → buyRate → DB 저장")
     void createAndSaveInvoice_fullHappyPath() {
+        // 비싼/싼 운임을 함께 내려 최저가 선택과 저장을 한 번에 확인한다.
         EasyPostShipmentResponse created = buildShipmentWithRates("shp_001",
                 List.of(buildRate("r1", "USPS", "6.40"), buildRate("r2", "UPS", "10.50")));
         EasyPostShipmentResponse bought = buildBoughtShipment("shp_001", "USPS", "6.40",
@@ -63,6 +65,7 @@ class EasyPostInvoiceSaveServiceTest {
     @Test
     @DisplayName("[GREEN] 최저가 rate가 올바르게 선택됨")
     void selectCheapestRate_picksLowestRate() {
+        // 입력 순서와 상관없이 최저 운임이 선택되어야 한다.
         List<EasyPostShipmentResponse.RateDto> rates = List.of(
                 buildRate("r_expensive", "UPS", "15.00"),
                 buildRate("r_cheap", "USPS", "5.99"),
@@ -98,6 +101,7 @@ class EasyPostInvoiceSaveServiceTest {
     @Test
     @DisplayName("[GREEN] 필드 매핑 - invoiceNo, carrierType, freightChargeAmt, labelUrl 검증")
     void createAndSaveInvoice_mapsFieldsCorrectly() {
+        // 외부 응답이 엔티티 필드로 어떻게 변환되는지 캡처해서 본다.
         EasyPostShipmentResponse created = buildShipmentWithRates("shp_field_test",
                 List.of(buildRate("r1", "USPS", "6.40")));
         EasyPostShipmentResponse bought = buildBoughtShipment("shp_field_test", "USPS", "6.40",
@@ -174,6 +178,7 @@ class EasyPostInvoiceSaveServiceTest {
     @Test
     @DisplayName("[예외] createShipment 응답에 rates가 없으면 IllegalStateException")
     void createAndSaveInvoice_throwsWhenNoRates() {
+        // 구매 가능한 rate가 없으면 저장 전에 즉시 실패해야 한다.
         EasyPostShipmentResponse created = buildShipmentWithRates("shp_001", List.of());
         given(easyPostApiClient.createShipment(any())).willReturn(created);
 
@@ -186,6 +191,7 @@ class EasyPostInvoiceSaveServiceTest {
     // Helper
     // ─────────────────────────────────────────────────────────
 
+    // 서비스가 직렬화해 보내는 최소 shipment 요청 fixture다.
     private EasyPostCreateShipmentRequest buildRequest() {
         return EasyPostCreateShipmentRequest.builder()
                 .shipment(EasyPostCreateShipmentRequest.ShipmentBody.builder()
@@ -201,6 +207,7 @@ class EasyPostInvoiceSaveServiceTest {
                 .build();
     }
 
+    // createShipment 응답에서 rate 목록만 바꿔가며 재사용하기 위한 헬퍼다.
     private EasyPostShipmentResponse buildShipmentWithRates(String id,
                                                              List<EasyPostShipmentResponse.RateDto> rates) {
         EasyPostShipmentResponse r = new EasyPostShipmentResponse();
@@ -210,6 +217,7 @@ class EasyPostInvoiceSaveServiceTest {
         return r;
     }
 
+    // 가격 비교 테스트에서 반복되는 rate DTO 생성을 줄인다.
     private EasyPostShipmentResponse.RateDto buildRate(String id, String carrier, String rate) {
         EasyPostShipmentResponse.RateDto dto = new EasyPostShipmentResponse.RateDto();
         dto.setId(id);
@@ -218,6 +226,7 @@ class EasyPostInvoiceSaveServiceTest {
         return dto;
     }
 
+    // buyRate 이후 필요한 선택 운임, 라벨, 추적 정보가 모두 포함된 응답 fixture다.
     private EasyPostShipmentResponse buildBoughtShipment(String id, String carrier, String rate,
                                                           String labelUrl, String trackingUrl) {
         EasyPostShipmentResponse r = new EasyPostShipmentResponse();

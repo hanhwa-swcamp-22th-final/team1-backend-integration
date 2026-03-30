@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+// EasyPost에서 구매한 배송 라벨/추적 정보를 내부 송장으로 저장한다.
 @Entity
 @Table(name = "easypost_shipment_invoice")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -53,12 +54,14 @@ public class EasypostShipmentInvoice {
     @Column(name = "handover_at")
     private String handoverAt;
 
+    // 생성 시 감사 시각을 자동으로 기록한다.
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
 
+    // 수정 시 updatedAt만 갱신한다.
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();

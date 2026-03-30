@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
+// ShopifyApiClient가 주문 조회 URL과 헤더를 올바르게 만드는지 검증한다.
 @DisplayName("ShopifyApiClient Tests")
 class ShopifyApiClientTest {
 
@@ -29,6 +30,7 @@ class ShopifyApiClientTest {
 
     @BeforeEach
     void setUp() {
+        // 외부 Shopify 호출은 MockRestServiceServer로 고정해 순수 HTTP 계약만 본다.
         RestTemplate restTemplate = new RestTemplate();
         server = MockRestServiceServer.createServer(restTemplate);
 
@@ -132,6 +134,7 @@ class ShopifyApiClientTest {
     @Test
     @DisplayName("[RED→GREEN] 요청 URL에 스토어명과 api-version 포함")
     void getOrders_usesCorrectStoreUrl() {
+        // storeName/apiVersion 조합이 잘못되면 실제 API 호출이 모두 실패한다.
         // given
         server.expect(requestTo(
                       org.hamcrest.Matchers.containsString("test-store.myshopify.com/admin/api/2025-01/orders.json")))
@@ -150,6 +153,7 @@ class ShopifyApiClientTest {
     @Test
     @DisplayName("[RED→GREEN] 복수 주문 파싱")
     void getOrders_returnsMultipleOrders() {
+        // 목록 응답에서 여러 주문이 순서대로 파싱되는지 확인한다.
         // given
         server.expect(requestTo(org.hamcrest.Matchers.containsString("/admin/api/2025-01/orders.json")))
               .andExpect(method(HttpMethod.GET))

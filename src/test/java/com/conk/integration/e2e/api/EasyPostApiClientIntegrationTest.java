@@ -1,4 +1,6 @@
-package com.conk.integration.command.infrastructure.service;
+package com.conk.integration.e2e.api;
+import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
+
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
@@ -64,6 +66,7 @@ class EasyPostApiClientIntegrationTest {
                     .weight(65.9)
                     .build();
 
+    // 실제 샌드박스 shipment 생성 후 rate 목록이 내려오는지만 우선 검증한다.
     @Test
     @DisplayName("[샌드박스] createShipment - 실제 API 호출 후 rates 반환 확인")
     void createShipment_returnsRates_fromSandbox() {
@@ -87,6 +90,7 @@ class EasyPostApiClientIntegrationTest {
                         r.getCarrier(), r.getService(), r.getRate()));
     }
 
+    // 생성-구매-저장 전체 흐름을 샌드박스 환경에서 한 번에 검증한다.
     @Test
     @DisplayName("[샌드박스] createAndSaveInvoice - 전체 플로우 (createShipment → buyRate → DB 저장)")
     void createAndSaveInvoice_fullFlow_fromSandbox() {

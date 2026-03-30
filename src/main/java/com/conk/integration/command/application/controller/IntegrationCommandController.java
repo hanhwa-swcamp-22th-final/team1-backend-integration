@@ -1,0 +1,34 @@
+package com.conk.integration.command.application.controller;
+
+import com.conk.integration.command.application.service.ShopifyFulfillmentService;
+import com.conk.integration.common.ApiResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+// 통합 command API 엔드포인트를 노출한다.
+@RestController
+@RequestMapping("/integrations")
+@RequiredArgsConstructor
+public class IntegrationCommandController {
+
+    private final ShopifyFulfillmentService shopifyFulfillmentService;
+
+    /**
+     * INT-003 — 셀러 주문 fulfillment 생성
+     * POST /integrations/seller/orders/fulfillment/{orderId}
+     */
+    @PostMapping("/seller/orders/fulfillment/{orderId}")
+    public ResponseEntity<ApiResponse<Void>> createSellerOrderFulfillment(
+            @RequestHeader("Authorization") String authorization,
+            @PathVariable String orderId) {
+
+        // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
+        shopifyFulfillmentService.fulfill(orderId);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+}

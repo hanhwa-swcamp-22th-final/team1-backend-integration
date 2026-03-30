@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+// Shopify fulfillment 생성 후 주요 결과 필드만 읽어오는 응답 DTO다.
 @Getter
 @Setter
 @NoArgsConstructor
@@ -12,6 +13,7 @@ public class ShopifyFulfillmentResponse {
 
     private FulfillmentBody fulfillment;
 
+    // 실제 출고 생성 결과 본문이다.
     @Getter
     @Setter
     @NoArgsConstructor

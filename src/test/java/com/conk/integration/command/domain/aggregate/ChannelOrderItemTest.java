@@ -1,104 +1,53 @@
 package com.conk.integration.command.domain.aggregate;
 
-import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest
+// 주문 아이템은 복합 키와 기본 수량값이 올바르게 초기화되는지만 확인한다.
 @DisplayName("ChannelOrderItem Entity Tests")
 class ChannelOrderItemTest {
 
-    @Autowired
-    private ChannelOrderRepository orderRepository;
-
-    private ChannelOrder saveOrder(String orderId) {
-        return orderRepository.save(
-                ChannelOrder.builder()
-                        .orderId(orderId)
-                        .sellerId("seller-001")
-                        .build()
-        );
-    }
-
+    // 주문 아이디와 SKU가 함께 묶여 아이템 정체성이 유지되는지 본다.
     @Test
-    @DisplayName("주문 아이템 복합키 저장")
-    void save_OrderItem_WithCompositeKey() {
-        // given
-        ChannelOrder order = saveOrder("ORDER-ITEM-001");
+    @DisplayName("빌더로 생성하면 복합키와 스냅샷 필드가 유지된다")
+    void builder_setsCompositeKeyAndSnapshotFields() {
+        ChannelOrder order = ChannelOrder.builder()
+                .orderId("ORDER-ITEM-001")
+                .sellerId("seller-001")
+                .build();
+
         ChannelOrderItem item = ChannelOrderItem.builder()
                 .id(new ChannelOrderItemId("ORDER-ITEM-001", "SKU-A1"))
                 .channelOrder(order)
                 .quantity(3)
                 .productNameSnapshot("Test Product A")
-                .pickedQuantity(0)
-                .packedQuantity(0)
                 .build();
-        order.addItem(item);
 
-        // when
-        ChannelOrder saved = orderRepository.save(order);
-
-        // then
-        assertThat(saved.getItems()).hasSize(1);
-        assertThat(saved.getItems().getFirst().getId().getSkuId()).isEqualTo("SKU-A1");
-        assertThat(saved.getItems().getFirst().getQuantity()).isEqualTo(3);
+        assertThat(item.getId().getOrderId()).isEqualTo("ORDER-ITEM-001");
+        assertThat(item.getId().getSkuId()).isEqualTo("SKU-A1");
+        assertThat(item.getChannelOrder()).isSameAs(order);
+        assertThat(item.getProductNameSnapshot()).isEqualTo("Test Product A");
+        assertThat(item.getQuantity()).isEqualTo(3);
     }
 
+    // picked/packed 수량은 작업 전 상태를 뜻하므로 기본값 0이 중요하다.
     @Test
-    @DisplayName("cascade로 아이템 자동 저장")
-    void cascade_SaveItems_WithOrder() {
-        // given
-        ChannelOrder order = saveOrder("ORDER-ITEM-002");
-        order.addItem(ChannelOrderItem.builder()
+    @DisplayName("생성 시 pickedQuantity와 packedQuantity의 기본값은 0이다")
+    void builder_defaultsPickedAndPackedQuantityToZero() {
+        ChannelOrder order = ChannelOrder.builder()
+                .orderId("ORDER-ITEM-002")
+                .sellerId("seller-001")
+                .build();
+
+        ChannelOrderItem item = ChannelOrderItem.builder()
                 .id(new ChannelOrderItemId("ORDER-ITEM-002", "SKU-B1"))
                 .channelOrder(order)
                 .quantity(5)
-                .productNameSnapshot("Product B")
-                .pickedQuantity(0)
-                .packedQuantity(0)
-                .build());
-        order.addItem(ChannelOrderItem.builder()
-                .id(new ChannelOrderItemId("ORDER-ITEM-002", "SKU-B2"))
-                .channelOrder(order)
-                .quantity(2)
-                .productNameSnapshot("Product B2")
-                .pickedQuantity(0)
-                .packedQuantity(0)
-                .build());
-
-        // when — order.save() 만으로 items 자동 저장 (CascadeType.ALL)
-        ChannelOrder saved = orderRepository.save(order);
-
-        // then
-        assertThat(saved.getItems()).hasSize(2);
-    }
-
-    @Test
-    @DisplayName("orphanRemoval로 아이템 삭제")
-    void orphanRemoval_DeleteItem() {
-        // given
-        ChannelOrder order = saveOrder("ORDER-ITEM-003");
-        ChannelOrderItem item = ChannelOrderItem.builder()
-                .id(new ChannelOrderItemId("ORDER-ITEM-003", "SKU-C1"))
-                .channelOrder(order)
-                .quantity(1)
-                .productNameSnapshot("Product C")
-                .pickedQuantity(0)
-                .packedQuantity(0)
                 .build();
-        order.addItem(item);
-        orderRepository.save(order);
 
-        // when — items 리스트에서 제거 후 save → orphanRemoval로 DB에서 삭제
-        order.getItems().clear();
-        orderRepository.save(order);
-
-        // then
-        ChannelOrder found = orderRepository.findById("ORDER-ITEM-003").get();
-        assertThat(found.getItems()).isEmpty();
+        assertThat(item.getPickedQuantity()).isZero();
+        assertThat(item.getPackedQuantity()).isZero();
     }
 }

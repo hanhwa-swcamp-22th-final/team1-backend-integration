@@ -18,6 +18,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
+// EasyPost REST API 호출과 요청/응답 직렬화를 담당한다.
 @Service
 @RequiredArgsConstructor
 public class EasyPostApiClient {
@@ -26,6 +27,7 @@ public class EasyPostApiClient {
     private final EasyPostProperties properties;
     private final ObjectMapper objectMapper;  // Spring Bean 주입
 
+    // shipment 생성 API를 호출한다.
     public EasyPostShipmentResponse createShipment(EasyPostCreateShipmentRequest request) {
         try {
             Map<String, Object> body = toRequestMap(request);
@@ -46,6 +48,7 @@ public class EasyPostApiClient {
         }
     }
 
+    // 선택한 rate를 구매해 라벨과 추적 정보를 확정한다.
     public EasyPostShipmentResponse buyRate(String shipmentId, String rateId) {
         try {
             String jsonBody = objectMapper.writeValueAsString(Map.of("rate", Map.of("id", rateId)));
@@ -65,6 +68,7 @@ public class EasyPostApiClient {
         }
     }
 
+    // 요청 DTO를 EasyPost가 기대하는 snake_case 맵 구조로 바꾼다.
     private Map<String, Object> toRequestMap(EasyPostCreateShipmentRequest request) {
         EasyPostCreateShipmentRequest.ShipmentBody sb = request.getShipment();
         if (sb == null) {
@@ -83,6 +87,7 @@ public class EasyPostApiClient {
         return Map.of("shipment", shipment);
     }
 
+    // 주소 DTO에서 null이 아닌 필드만 골라 API 요청 body로 만든다.
     private Map<String, Object> addressToMap(EasyPostCreateShipmentRequest.AddressBody a) {
         Map<String, Object> map = new HashMap<>();
         putIfNotNull(map, "name", a.getName());
@@ -97,6 +102,7 @@ public class EasyPostApiClient {
         return map;
     }
 
+    // 소포 치수/무게도 null이 아닌 값만 전송한다.
     private Map<String, Object> parcelToMap(EasyPostCreateShipmentRequest.ParcelBody p) {
         Map<String, Object> map = new HashMap<>();
         putIfNotNull(map, "weight", p.getWeight());
@@ -106,12 +112,14 @@ public class EasyPostApiClient {
         return map;
     }
 
+    // EasyPost는 누락 필드를 허용하므로 null 값은 요청에서 제거한다.
     private void putIfNotNull(Map<String, Object> map, String key, Object value) {
         if (value != null) {
             map.put(key, value);
         }
     }
 
+    // API key 기반 Basic Auth 헤더를 생성한다.
     private HttpHeaders buildAuthHeaders() {
         String credentials = properties.getApiKey() + ":";
         String encoded = Base64.getEncoder().encodeToString(
