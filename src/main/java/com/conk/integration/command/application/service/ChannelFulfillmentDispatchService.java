@@ -1,13 +1,19 @@
 package com.conk.integration.command.application.service;
 
+import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
+import com.conk.integration.command.domain.aggregate.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
+import com.conk.integration.query.dto.FulfillmentTargetDto;
+import com.conk.integration.query.mapper.ChannelFulfillmentMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 // 주문/송장 조회와 채널별 sender 선택을 담당하는 fulfillment orchestration 서비스다.
 @Service
@@ -16,6 +22,7 @@ public class ChannelFulfillmentDispatchService {
 
     private final ChannelOrderRepository channelOrderRepository;
     private final EasypostShipmentInvoiceRepository invoiceRepository;
+    private final ChannelFulfillmentMapper channelFulfillmentMapper;
     private final List<ChannelFulfillmentSender> senders;
 
     public void fulfill(String orderId) {
@@ -35,5 +42,30 @@ public class ChannelFulfillmentDispatchService {
                 .orElseThrow(() -> new IllegalArgumentException("지원하지 않는 fulfillment 채널입니다: " + order.getOrderChannel()));
 
         sender.send(order, invoice);
+    }
+
+    // channelSyncYn=false인 미전송 주문을 채널별로 일괄 전송하고, 성공한 주문을 synced 처리한다.
+    @Transactional
+    public BulkFulfillmentResponse fulfillBulk(String sellerId, OrderChannel orderChannel) {
+        List<FulfillmentTargetDto> targets = channelFulfillmentMapper.findUnsyncedTargets(
+                sellerId, orderChannel.name());
+
+        if (targets.isEmpty()) {
+            return new BulkFulfillmentResponse(0, 0);
+        }
+
+        ChannelFulfillmentSender sender = senders.stream()
+                .filter(candidate -> candidate.supports(orderChannel))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("지원하지 않는 fulfillment 채널입니다: " + orderChannel));
+
+        sender.sendBulk(targets);
+
+        List<String> orderIds = targets.stream()
+                .map(FulfillmentTargetDto::getOrderId)
+                .collect(Collectors.toList());
+        channelOrderRepository.markAllSynced(orderIds);
+
+        return new BulkFulfillmentResponse(targets.size(), 0);
     }
 }

@@ -1,12 +1,13 @@
 package com.conk.integration.e2e.flow;
 
 import com.conk.integration.command.domain.aggregate.*;
+import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import com.conk.integration.command.domain.repository.*;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
-import com.conk.integration.command.application.service.ShopifyOrderSyncService;
-import com.conk.integration.command.infrastructure.service.ShopifyApiClient;
+import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
+import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
-import com.conk.integration.command.application.dto.response.ShopifyOrderDto;
+import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -57,7 +58,7 @@ class IntegrationTest {
 
     /* ---------- 외부 API — MockitoBean으로만 격리 ---------- */
     @MockitoBean
-    private ShopifyApiClient shopifyApiClient;
+    private ShopifyOrderClient shopifyOrderClient;
 
     @MockitoBean
     private ShopifyFulfillmentApiClient shopifyFulfillmentApiClient;
@@ -91,10 +92,10 @@ class IntegrationTest {
         @DisplayName("syncOrders() — Shopify 주문 2건 반환 시 DB에 2건이 저장된다")
         void syncOrders_persistsTwoOrders() {
             // given
-            ShopifyOrderDto dto1 = buildShopifyOrderDto(9001L, "#9001", "Alice", "100 Main St");
-            ShopifyOrderDto dto2 = buildShopifyOrderDto(9002L, "#9002", "Bob",   "200 Oak Ave");
+            ShopifyOrderResponse.OrderNode dto1 = buildShopifyOrderNode(9001L, "#9001", "Alice", "100 Main St");
+            ShopifyOrderResponse.OrderNode dto2 = buildShopifyOrderNode(9002L, "#9002", "Bob",   "200 Oak Ave");
 
-            given(shopifyApiClient.getOrders()).willReturn(List.of(dto1, dto2));
+            given(shopifyOrderClient.getOrders()).willReturn(List.of(dto1, dto2));
 
             // when
             shopifyOrderSyncService.syncOrders("seller-integration-A");
@@ -117,8 +118,8 @@ class IntegrationTest {
                     .sellerId("seller-integration-B").build());
 
             // Shopify API는 동일한 주문을 다시 반환
-            ShopifyOrderDto existingDto = buildShopifyOrderDto(9003L, "#9003", "Charlie", "300 Pine Rd");
-            given(shopifyApiClient.getOrders()).willReturn(List.of(existingDto));
+            ShopifyOrderResponse.OrderNode existingNode = buildShopifyOrderNode(9003L, "#9003", "Charlie", "300 Pine Rd");
+            given(shopifyOrderClient.getOrders()).willReturn(List.of(existingNode));
 
             // when
             shopifyOrderSyncService.syncOrders("seller-integration-B");
@@ -132,7 +133,7 @@ class IntegrationTest {
         @DisplayName("syncOrders() — Shopify API 주문이 0건이면 DB에 아무 것도 저장되지 않는다")
         void syncOrders_emptyResponse_savesNothing() {
             // given
-            given(shopifyApiClient.getOrders()).willReturn(List.of());
+            given(shopifyOrderClient.getOrders()).willReturn(List.of()); // empty
 
             // when
             shopifyOrderSyncService.syncOrders("seller-integration-C");
@@ -315,23 +316,23 @@ class IntegrationTest {
      * =================================================================== */
 
     /**
-     * ShopifyOrderDto 테스트 픽스처 생성
+     * ShopifyOrderResponse.OrderNode 테스트 픽스처 생성
      */
-    private ShopifyOrderDto buildShopifyOrderDto(long id, String name, String receiverName, String address) {
+    private ShopifyOrderResponse.OrderNode buildShopifyOrderNode(long id, String name, String receiverName, String address) {
         // Sync service가 참조하는 최소 필드만 채운다.
-        ShopifyOrderDto dto = new ShopifyOrderDto();
-        dto.setId(id);
-        dto.setName(name);
-        dto.setCreatedAt("2024-01-15T10:00:00+09:00");
+        ShopifyOrderResponse.OrderNode node = new ShopifyOrderResponse.OrderNode();
+        node.setId("gid://shopify/Order/" + id);
+        node.setName(name);
+        node.setCreatedAt("2024-01-15T10:00:00+09:00");
 
-        ShopifyOrderDto.ShippingAddress addr = new ShopifyOrderDto.ShippingAddress();
+        ShopifyOrderResponse.ShippingAddress addr = new ShopifyOrderResponse.ShippingAddress();
         addr.setName(receiverName);
         addr.setAddress1(address);
         addr.setCity("New York");
         addr.setProvinceCode("NY");
         addr.setZip("10001");
-        dto.setShippingAddress(addr);
+        node.setShippingAddress(addr);
 
-        return dto;
+        return node;
     }
 }

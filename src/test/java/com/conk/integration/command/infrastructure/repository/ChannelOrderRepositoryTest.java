@@ -2,7 +2,7 @@ package com.conk.integration.command.infrastructure.repository;
 
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.ChannelOrderItem;
-import com.conk.integration.command.domain.aggregate.ChannelOrderItemId;
+import com.conk.integration.command.domain.aggregate.embeddable.ChannelOrderItemId;
 import com.conk.integration.command.domain.aggregate.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import jakarta.persistence.EntityManager;
@@ -95,6 +95,52 @@ class ChannelOrderRepositoryTest {
         ChannelOrder reloaded = channelOrderRepository.findById("ORDER-ITEM-002").orElseThrow();
 
         assertThat(reloaded.getItems()).isEmpty();
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // markAllSynced()
+    // ─────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("markAllSynced()는 지정한 orderId 목록의 channelSyncYn을 true로 변경한다")
+    void markAllSynced_updatesChannelSyncYnToTrue() {
+        channelOrderRepository.saveAll(List.of(
+                baseOrder("SYNC-001", "seller-X"),
+                baseOrder("SYNC-002", "seller-X"),
+                baseOrder("SYNC-003", "seller-X")
+        ));
+        flushAndClear();
+
+        channelOrderRepository.markAllSynced(List.of("SYNC-001", "SYNC-002"));
+        flushAndClear();
+
+        assertThat(channelOrderRepository.findById("SYNC-001").orElseThrow().isChannelSyncYn()).isTrue();
+        assertThat(channelOrderRepository.findById("SYNC-002").orElseThrow().isChannelSyncYn()).isTrue();
+        assertThat(channelOrderRepository.findById("SYNC-003").orElseThrow().isChannelSyncYn()).isFalse();
+    }
+
+    @Test
+    @DisplayName("markAllSynced()는 빈 리스트를 전달해도 예외 없이 실행된다")
+    void markAllSynced_withEmptyList_doesNotThrow() {
+        channelOrderRepository.save(baseOrder("KEEP-001", "seller-Z"));
+        flushAndClear();
+
+        channelOrderRepository.markAllSynced(List.of());
+        flushAndClear();
+
+        assertThat(channelOrderRepository.findById("KEEP-001").orElseThrow().isChannelSyncYn()).isFalse();
+    }
+
+    @Test
+    @DisplayName("markAllSynced()는 목록에 없는 주문의 channelSyncYn을 변경하지 않는다")
+    void markAllSynced_doesNotAffectOrdersNotInList() {
+        channelOrderRepository.save(baseOrder("UNTOUCHED-001", "seller-Y"));
+        flushAndClear();
+
+        channelOrderRepository.markAllSynced(List.of("OTHER-999"));
+        flushAndClear();
+
+        assertThat(channelOrderRepository.findById("UNTOUCHED-001").orElseThrow().isChannelSyncYn()).isFalse();
     }
 
     // 저장/조회 테스트에 공통으로 쓰는 최소 주문 fixture다.

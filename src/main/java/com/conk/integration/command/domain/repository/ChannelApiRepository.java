@@ -1,7 +1,7 @@
 package com.conk.integration.command.domain.repository;
 
 import com.conk.integration.command.domain.aggregate.ChannelApi;
-import com.conk.integration.command.domain.aggregate.ChannelApiId;
+import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

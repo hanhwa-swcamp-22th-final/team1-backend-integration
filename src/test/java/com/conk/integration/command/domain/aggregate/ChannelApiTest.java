@@ -1,5 +1,7 @@
 package com.conk.integration.command.domain.aggregate;
 
+import com.conk.integration.command.domain.aggregate.embeddable.AuditFields;
+import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -18,13 +20,13 @@ class ChannelApiTest {
         ChannelApi api = ChannelApi.builder()
                 .id(new ChannelApiId("seller-001", "AMAZON"))
                 .channelApi("api-key-xyz-amazon")
-                .createdBy("tester")
+                .audit(AuditFields.builder().createdBy("tester").build())
                 .build();
 
         assertThat(api.getId().getSellerId()).isEqualTo("seller-001");
         assertThat(api.getId().getChannelName()).isEqualTo("AMAZON");
         assertThat(api.getChannelApi()).isEqualTo("api-key-xyz-amazon");
-        assertThat(api.getCreatedBy()).isEqualTo("tester");
+        assertThat(api.getAudit().getCreatedBy()).isEqualTo("tester");
     }
 
     // 감사 필드는 영속화 없이도 단순 값 보존이 가능해야 한다.
@@ -37,13 +39,15 @@ class ChannelApiTest {
         ChannelApi api = ChannelApi.builder()
                 .id(new ChannelApiId("seller-002", "SHOPIFY"))
                 .channelApi("api-key-shopify-001")
-                .createdAt(createdAt)
-                .updatedAt(updatedAt)
-                .updatedBy("auditor")
+                .audit(AuditFields.builder()
+                        .createdAt(createdAt)
+                        .updatedAt(updatedAt)
+                        .updatedBy("auditor")
+                        .build())
                 .build();
 
-        assertThat(api.getCreatedAt()).isEqualTo(createdAt);
-        assertThat(api.getUpdatedAt()).isEqualTo(updatedAt);
-        assertThat(api.getUpdatedBy()).isEqualTo("auditor");
+        assertThat(api.getAudit().getCreatedAt()).isEqualTo(createdAt);
+        assertThat(api.getAudit().getUpdatedAt()).isEqualTo(updatedAt);
+        assertThat(api.getAudit().getUpdatedBy()).isEqualTo("auditor");
     }
 }

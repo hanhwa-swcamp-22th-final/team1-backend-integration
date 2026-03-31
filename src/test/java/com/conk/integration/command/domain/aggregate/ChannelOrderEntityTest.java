@@ -1,6 +1,8 @@
 package com.conk.integration.command.domain.aggregate;
 
 import com.conk.integration.command.domain.aggregate.*;
+import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
+import com.conk.integration.command.domain.aggregate.embeddable.ChannelOrderItemId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
