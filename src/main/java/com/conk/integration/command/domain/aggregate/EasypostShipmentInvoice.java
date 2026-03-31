@@ -1,5 +1,6 @@
 package com.conk.integration.command.domain.aggregate;
 
+import com.conk.integration.command.domain.aggregate.embeddable.AuditFields;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -28,13 +29,9 @@ public class EasypostShipmentInvoice {
 
     private String labelFileUrl;
 
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    private String createdBy;
-
-    private String updatedBy;
+    @Embedded
+    @Builder.Default
+    private AuditFields audit = new AuditFields();
 
     // schema: VARCHAR(255) — not DATETIME
     private String issuedAt;
@@ -45,13 +42,14 @@ public class EasypostShipmentInvoice {
     // 생성 시 감사 시각을 자동으로 기록한다.
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        audit.setCreatedAt(now);
+        audit.setUpdatedAt(now);
     }
 
     // 수정 시 updatedAt만 갱신한다.
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        audit.setUpdatedAt(LocalDateTime.now());
     }
 }

@@ -1,5 +1,6 @@
 package com.conk.integration.command.domain.aggregate;
 
+import com.conk.integration.command.domain.aggregate.embeddable.AuditFields;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -49,13 +50,14 @@ public class ChannelOrder {
     // Cross-aggregate reference: invoice FK as plain String (no @ManyToOne)
     private String invoiceNo;
 
-    private LocalDateTime createdAt;
+    // 채널에 송장(운송장번호)이 반영되었는지 여부
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean channelSyncYn = false;
 
-    private LocalDateTime updatedAt;
-
-    private String createdBy;
-
-    private String updatedBy;
+    @Embedded
+    @Builder.Default
+    private AuditFields audit = new AuditFields();
 
     @Builder.Default
     @OneToMany(mappedBy = "channelOrder",
@@ -72,13 +74,14 @@ public class ChannelOrder {
     // 생성 시 감사 시각을 자동으로 채운다.
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        audit.setCreatedAt(now);
+        audit.setUpdatedAt(now);
     }
 
     // 수정 시 updatedAt만 갱신한다.
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        audit.setUpdatedAt(LocalDateTime.now());
     }
 }

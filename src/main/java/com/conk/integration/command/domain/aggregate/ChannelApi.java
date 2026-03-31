@@ -1,9 +1,9 @@
 package com.conk.integration.command.domain.aggregate;
 
+import com.conk.integration.command.domain.aggregate.embeddable.AuditFields;
+import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.time.LocalDateTime;
 
 // 셀러가 채널별로 연결한 API 자격 정보를 저장한다.
 @Entity
@@ -19,11 +19,7 @@ public class ChannelApi {
     @Column(nullable = false)
     private String channelApi;
 
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    private String createdBy;
-
-    private String updatedBy;
+    @Embedded
+    @Builder.Default
+    private AuditFields audit = new AuditFields();
 }
