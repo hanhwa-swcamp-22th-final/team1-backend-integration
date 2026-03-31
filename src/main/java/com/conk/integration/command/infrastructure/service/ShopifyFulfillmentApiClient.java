@@ -2,6 +2,7 @@ package com.conk.integration.command.infrastructure.service;
 
 import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRequest;
 import com.conk.integration.command.application.dto.response.ShopifyFulfillmentResponse;
+import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
 import com.conk.integration.query.dto.FulfillmentTargetDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -27,12 +28,13 @@ public class ShopifyFulfillmentApiClient {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 주문별 fulfillment 생성 요청을 전송한다.
-    public ShopifyFulfillmentResponse createFulfillment(String shopifyOrderId, ShopifyFulfillmentRequest request) {
+    public ShopifyFulfillmentResponse createFulfillment(String storeName, String accessToken,
+                                                        String shopifyOrderId, ShopifyFulfillmentRequest request) {
         try {
             String jsonBody = objectMapper.writeValueAsString(request);
-            HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildHeaders());
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildHeaders(accessToken));
             return restTemplate.exchange(
-                    properties.getFulfillmentsUrl(shopifyOrderId),
+                    properties.getFulfillmentsUrl(storeName, shopifyOrderId),
                     HttpMethod.POST,
                     entity,
                     ShopifyFulfillmentResponse.class
@@ -43,13 +45,13 @@ public class ShopifyFulfillmentApiClient {
     }
 
     // 여러 주문의 fulfillment를 GraphQL aliased mutation 1회 호출로 일괄 전송한다.
-    public void createBulkFulfillment(List<FulfillmentTargetDto> targets) {
+    public void createBulkFulfillment(String storeName, String accessToken, List<FulfillmentTargetDto> targets) {
         String mutation = buildBulkMutation(targets);
         try {
             String jsonBody = objectMapper.writeValueAsString(Map.of("query", mutation));
-            HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildHeaders());
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildHeaders(accessToken));
             restTemplate.exchange(
-                    properties.getGraphQLUrl(),
+                    properties.getGraphQLUrl(storeName),
                     HttpMethod.POST,
                     entity,
                     String.class
@@ -77,27 +79,17 @@ public class ShopifyFulfillmentApiClient {
                     i,
                     t.getFulfillmentOrderId(),
                     t.getInvoiceNo(),
-                    resolveCarrierCompany(t.getCarrierType())
+                    CarrierType.fromEasyPostName(t.getCarrierType()).toShopifyName()
             ));
         }
         sb.append("}");
         return sb.toString();
     }
 
-    // 운송사 문자열을 Shopify가 인식하는 표기로 변환한다.
-    private String resolveCarrierCompany(String carrierType) {
-        if (carrierType == null) return "USPS";
-        return switch (carrierType) {
-            case "UPS" -> "UPS";
-            case "FEDEX" -> "FedEx";
-            default -> "USPS";
-        };
-    }
-
     // 토큰과 JSON content-type을 포함한 Shopify 요청 헤더다.
-    private HttpHeaders buildHeaders() {
+    private HttpHeaders buildHeaders(String accessToken) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Shopify-Access-Token", properties.getAccessToken());
+        headers.set("X-Shopify-Access-Token", accessToken);
         headers.setContentType(MediaType.APPLICATION_JSON);
         return headers;
     }

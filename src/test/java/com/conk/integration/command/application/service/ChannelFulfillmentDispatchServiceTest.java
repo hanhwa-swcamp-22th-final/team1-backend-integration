@@ -143,7 +143,7 @@ class ChannelFulfillmentDispatchServiceTest {
 
         assertThat(response.getSuccessCount()).isZero();
         assertThat(response.getFailCount()).isZero();
-        verify(shopifySender, never()).sendBulk(any());
+        verify(shopifySender, never()).sendBulk(any(), any());
         verify(channelOrderRepository, never()).markAllSynced(any());
     }
 
@@ -160,7 +160,7 @@ class ChannelFulfillmentDispatchServiceTest {
 
         BulkFulfillmentResponse response = service().fulfillBulk("seller-001", OrderChannel.SHOPIFY);
 
-        verify(shopifySender).sendBulk(targets);
+        verify(shopifySender).sendBulk("seller-001", targets);
         verify(channelOrderRepository).markAllSynced(List.of("ORD-A", "ORD-B"));
         assertThat(response.getSuccessCount()).isEqualTo(2);
         assertThat(response.getFailCount()).isZero();
@@ -176,7 +176,7 @@ class ChannelFulfillmentDispatchServiceTest {
                 .willReturn(targets);
         given(shopifySender.supports(OrderChannel.SHOPIFY)).willReturn(true);
         org.mockito.Mockito.doThrow(new RuntimeException("Shopify 연결 실패"))
-                .when(shopifySender).sendBulk(targets);
+                .when(shopifySender).sendBulk("seller-001", targets);
 
         assertThatThrownBy(() -> service().fulfillBulk("seller-001", OrderChannel.SHOPIFY))
                 .isInstanceOf(RuntimeException.class)
@@ -195,7 +195,7 @@ class ChannelFulfillmentDispatchServiceTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("DB 연결 오류");
 
-        verify(shopifySender, never()).sendBulk(any());
+        verify(shopifySender, never()).sendBulk(any(), any());
         verify(channelOrderRepository, never()).markAllSynced(any());
     }
 
@@ -213,7 +213,7 @@ class ChannelFulfillmentDispatchServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("지원하지 않는 fulfillment 채널입니다");
 
-        verify(shopifySender, never()).sendBulk(any());
+        verify(shopifySender, never()).sendBulk(any(), any());
         verify(channelOrderRepository, never()).markAllSynced(any());
     }
 

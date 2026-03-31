@@ -59,7 +59,7 @@ public class ChannelFulfillmentDispatchService {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("지원하지 않는 fulfillment 채널입니다: " + orderChannel));
 
-        sender.sendBulk(targets);
+        sender.sendBulk(sellerId, targets);
 
         List<String> orderIds = targets.stream()
                 .map(FulfillmentTargetDto::getOrderId)

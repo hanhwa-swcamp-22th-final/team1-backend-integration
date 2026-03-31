@@ -59,13 +59,13 @@ public class ShopifyOrderClient {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Shopify GraphQL로 주문 목록과 fulfillmentOrder ID를 한 번에 조회한다.
-    public List<ShopifyOrderResponse.OrderNode> getOrders() {
+    public List<ShopifyOrderResponse.OrderNode> getOrders(String storeName, String accessToken) {
         try {
             String jsonBody = objectMapper.writeValueAsString(Map.of("query", ORDERS_QUERY));
-            HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildHeaders());
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildHeaders(accessToken));
 
             ShopifyOrderResponse response = restTemplate.exchange(
-                    properties.getGraphQLUrl(),
+                    properties.getGraphQLUrl(storeName),
                     HttpMethod.POST,
                     entity,
                     ShopifyOrderResponse.class
@@ -86,9 +86,9 @@ public class ShopifyOrderClient {
     }
 
     // 토큰과 JSON content-type을 포함한 Shopify 요청 헤더다.
-    private HttpHeaders buildHeaders() {
+    private HttpHeaders buildHeaders(String accessToken) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Shopify-Access-Token", properties.getAccessToken());
+        headers.set("X-Shopify-Access-Token", accessToken);
         headers.setContentType(MediaType.APPLICATION_JSON);
         return headers;
     }

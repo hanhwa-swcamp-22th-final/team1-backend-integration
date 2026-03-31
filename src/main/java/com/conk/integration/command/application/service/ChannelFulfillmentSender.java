@@ -15,7 +15,7 @@ public interface ChannelFulfillmentSender {
     void send(ChannelOrder order, EasypostShipmentInvoice invoice);
 
     // bulk 전송을 지원하는 채널은 반드시 재정의해야 한다.
-    default void sendBulk(List<FulfillmentTargetDto> targets) {
+    default void sendBulk(String sellerId, List<FulfillmentTargetDto> targets) {
         throw new UnsupportedOperationException("sendBulk is not supported for this channel");
     }
 }

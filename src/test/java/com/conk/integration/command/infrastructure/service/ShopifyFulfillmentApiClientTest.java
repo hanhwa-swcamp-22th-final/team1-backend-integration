@@ -40,8 +40,6 @@ class ShopifyFulfillmentApiClientTest {
         mockServer = MockRestServiceServer.createServer(restTemplate);
 
         ShopifyProperties properties = new ShopifyProperties();
-        properties.setStoreName(STORE_NAME);
-        properties.setAccessToken(ACCESS_TOKEN);
         properties.setApiVersion(API_VERSION);
 
         client = new ShopifyFulfillmentApiClient(restTemplate, properties);
@@ -58,7 +56,7 @@ class ShopifyFulfillmentApiClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess(fulfillmentResponseJson("98765"), MediaType.APPLICATION_JSON));
 
-        ShopifyFulfillmentResponse response = client.createFulfillment(SHOPIFY_ORDER_ID, buildRequest());
+        ShopifyFulfillmentResponse response = client.createFulfillment(STORE_NAME, ACCESS_TOKEN, SHOPIFY_ORDER_ID, buildRequest());
 
         assertThat(response.getFulfillment().getId()).isEqualTo(98765L);
         mockServer.verify();
@@ -72,7 +70,7 @@ class ShopifyFulfillmentApiClientTest {
                 .andExpect(header("X-Shopify-Access-Token", ACCESS_TOKEN))
                 .andRespond(withSuccess(fulfillmentResponseJson("11111"), MediaType.APPLICATION_JSON));
 
-        client.createFulfillment(SHOPIFY_ORDER_ID, buildRequest());
+        client.createFulfillment(STORE_NAME, ACCESS_TOKEN, SHOPIFY_ORDER_ID, buildRequest());
         mockServer.verify();
     }
 
@@ -84,7 +82,7 @@ class ShopifyFulfillmentApiClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess(fulfillmentResponseJson("22222"), MediaType.APPLICATION_JSON));
 
-        client.createFulfillment(anotherOrderId, buildRequest());
+        client.createFulfillment(STORE_NAME, ACCESS_TOKEN, anotherOrderId, buildRequest());
         mockServer.verify();
     }
 
@@ -94,7 +92,7 @@ class ShopifyFulfillmentApiClientTest {
         mockServer.expect(requestTo(fulfillmentsUrl(SHOPIFY_ORDER_ID)))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
-        assertThatThrownBy(() -> client.createFulfillment(SHOPIFY_ORDER_ID, buildRequest()))
+        assertThatThrownBy(() -> client.createFulfillment(STORE_NAME, ACCESS_TOKEN, SHOPIFY_ORDER_ID, buildRequest()))
                 .isInstanceOf(HttpClientErrorException.class)
                 .satisfies(e -> assertThat(((HttpClientErrorException) e).getStatusCode())
                         .isEqualTo(HttpStatus.UNAUTHORIZED));
@@ -106,7 +104,7 @@ class ShopifyFulfillmentApiClientTest {
         mockServer.expect(requestTo(fulfillmentsUrl(SHOPIFY_ORDER_ID)))
                 .andRespond(withStatus(HttpStatus.UNPROCESSABLE_ENTITY));
 
-        assertThatThrownBy(() -> client.createFulfillment(SHOPIFY_ORDER_ID, buildRequest()))
+        assertThatThrownBy(() -> client.createFulfillment(STORE_NAME, ACCESS_TOKEN, SHOPIFY_ORDER_ID, buildRequest()))
                 .isInstanceOf(HttpClientErrorException.class)
                 .satisfies(e -> assertThat(((HttpClientErrorException) e).getStatusCode())
                         .isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY));
@@ -118,7 +116,7 @@ class ShopifyFulfillmentApiClientTest {
         mockServer.expect(requestTo(fulfillmentsUrl(SHOPIFY_ORDER_ID)))
                 .andRespond(withServerError());
 
-        assertThatThrownBy(() -> client.createFulfillment(SHOPIFY_ORDER_ID, buildRequest()))
+        assertThatThrownBy(() -> client.createFulfillment(STORE_NAME, ACCESS_TOKEN, SHOPIFY_ORDER_ID, buildRequest()))
                 .isInstanceOf(HttpServerErrorException.class);
     }
 
@@ -135,7 +133,7 @@ class ShopifyFulfillmentApiClientTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andRespond(withSuccess("{\"data\":{}}", MediaType.APPLICATION_JSON));
 
-        client.createBulkFulfillment(List.of(
+        client.createBulkFulfillment(STORE_NAME, ACCESS_TOKEN, List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "TRACK-A", "USPS")
         ));
 
@@ -149,7 +147,7 @@ class ShopifyFulfillmentApiClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess("{\"data\":{}}", MediaType.APPLICATION_JSON));
 
-        client.createBulkFulfillment(List.of(
+        client.createBulkFulfillment(STORE_NAME, ACCESS_TOKEN, List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "TRACK-A", "UPS"),
                 buildTarget("ORD-B", "gid://shopify/FulfillmentOrder/2", "TRACK-B", "USPS"),
                 buildTarget("ORD-C", "gid://shopify/FulfillmentOrder/3", "TRACK-C", "FEDEX")
@@ -166,7 +164,7 @@ class ShopifyFulfillmentApiClientTest {
                 .andExpect(method(HttpMethod.POST))
                 .andRespond(withSuccess("{\"data\":{}}", MediaType.APPLICATION_JSON));
 
-        client.createBulkFulfillment(List.of());
+        client.createBulkFulfillment(STORE_NAME, ACCESS_TOKEN, List.of());
 
         mockServer.verify();
     }
@@ -177,7 +175,7 @@ class ShopifyFulfillmentApiClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
-        assertThatThrownBy(() -> client.createBulkFulfillment(List.of(
+        assertThatThrownBy(() -> client.createBulkFulfillment(STORE_NAME, ACCESS_TOKEN, List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "TRACK-A", "USPS"))))
                 .isInstanceOf(HttpClientErrorException.class)
                 .satisfies(e -> assertThat(((HttpClientErrorException) e).getStatusCode())
@@ -190,7 +188,7 @@ class ShopifyFulfillmentApiClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withServerError());
 
-        assertThatThrownBy(() -> client.createBulkFulfillment(List.of(
+        assertThatThrownBy(() -> client.createBulkFulfillment(STORE_NAME, ACCESS_TOKEN, List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "TRACK-A", "USPS"))))
                 .isInstanceOf(HttpServerErrorException.class);
     }

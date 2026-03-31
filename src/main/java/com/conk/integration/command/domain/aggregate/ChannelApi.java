@@ -19,6 +19,8 @@ public class ChannelApi {
     @Column(nullable = false)
     private String channelApi;
 
+    private String storeName;
+
     @Embedded
     @Builder.Default
     private AuditFields audit = new AuditFields();

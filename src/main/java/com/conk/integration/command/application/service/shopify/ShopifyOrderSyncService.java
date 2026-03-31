@@ -5,6 +5,8 @@ import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
+import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.query.mapper.ChannelApiMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,7 @@ public class ShopifyOrderSyncService {
 
     private final ShopifyOrderClient shopifyOrderClient;
     private final ChannelOrderRepository channelOrderRepository;
+    private final ChannelApiMapper channelApiMapper;
 
     /**
      * Shopify GraphQL API에서 주문 목록을 가져와 channel_order 테이블에 저장
@@ -33,7 +36,12 @@ public class ShopifyOrderSyncService {
      */
     @Transactional
     public void syncOrders(String sellerId) {
-        List<ShopifyOrderResponse.OrderNode> orders = shopifyOrderClient.getOrders();
+        ShopifyCredentialDto cred = channelApiMapper.findShopifyCredential(sellerId);
+        if (cred == null) {
+            throw new IllegalStateException("Shopify 자격증명을 찾을 수 없습니다: sellerId=" + sellerId);
+        }
+
+        List<ShopifyOrderResponse.OrderNode> orders = shopifyOrderClient.getOrders(cred.getStoreName(), cred.getAccessToken());
         log.info("Shopify GraphQL API에서 {}건 주문 조회 완료 (sellerId={})", orders.size(), sellerId);
 
         for (ShopifyOrderResponse.OrderNode node : orders) {

@@ -4,7 +4,7 @@ import com.conk.integration.command.application.dto.request.EasyPostCreateShipme
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
-import com.conk.integration.command.domain.aggregate.CarrierType;
+import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.OrderChannel;
@@ -13,6 +13,8 @@ import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRep
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
+import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.query.mapper.ChannelApiMapper;
 import com.conk.integration.query.mapper.ChannelFulfillmentMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -56,6 +58,9 @@ class CommandApplicationServiceTest {
         @Mock
         private ChannelOrderRepository channelOrderRepository;
 
+        @Mock
+        private ChannelApiMapper channelApiMapper;
+
         @InjectMocks
         private ShopifyOrderSyncService shopifyOrderSyncService;
 
@@ -66,7 +71,8 @@ class CommandApplicationServiceTest {
             ShopifyOrderResponse.OrderNode existingNode = buildOrderNode(1001L, "#1001");
             ShopifyOrderResponse.OrderNode newNode = buildOrderNode(1002L, "#1002");
 
-            given(shopifyOrderClient.getOrders()).willReturn(List.of(existingNode, newNode));
+            given(channelApiMapper.findShopifyCredential("seller-A")).willReturn(testCred());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existingNode, newNode));
             given(channelOrderRepository.existsById("1001")).willReturn(true);
             given(channelOrderRepository.existsById("1002")).willReturn(false);
 
@@ -79,7 +85,8 @@ class CommandApplicationServiceTest {
         @DisplayName("syncOrders() — 모든 주문이 이미 존재하면 save()가 호출되지 않는다")
         void syncOrders_savesNothing_whenAllExist() {
             // 전체가 중복이면 저장 호출이 완전히 없어야 한다.
-            given(shopifyOrderClient.getOrders())
+            given(channelApiMapper.findShopifyCredential("seller-B")).willReturn(testCred());
+            given(shopifyOrderClient.getOrders(anyString(), anyString()))
                     .willReturn(List.of(buildOrderNode(2001L, "#2001"), buildOrderNode(2002L, "#2002")));
             given(channelOrderRepository.existsById(anyString())).willReturn(true);
 
@@ -92,7 +99,8 @@ class CommandApplicationServiceTest {
         @DisplayName("syncOrders() — Shopify 주문 목록이 0건이면 save()가 호출되지 않는다")
         void syncOrders_savesNothing_whenEmptyOrders() {
             // 외부 API가 빈 목록을 주면 서비스는 조용히 종료해야 한다.
-            given(shopifyOrderClient.getOrders()).willReturn(List.of());
+            given(channelApiMapper.findShopifyCredential("seller-C")).willReturn(testCred());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of());
 
             shopifyOrderSyncService.syncOrders("seller-C");
 
@@ -106,6 +114,13 @@ class CommandApplicationServiceTest {
             node.setName(name);
             node.setCreatedAt("2024-01-15T10:00:00+09:00");
             return node;
+        }
+
+        private ShopifyCredentialDto testCred() {
+            ShopifyCredentialDto cred = new ShopifyCredentialDto();
+            cred.setStoreName("test-store");
+            cred.setAccessToken("test-token");
+            return cred;
         }
     }
 
@@ -208,14 +223,14 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("resolveCarrierType() — carrier 문자열에 따라 올바른 CarrierType을 반환한다")
-        void resolveCarrierType_mapsCorrectly() {
+        @DisplayName("fromEasyPostName() — carrier 문자열에 따라 올바른 CarrierType을 반환한다")
+        void fromEasyPostName_mapsCorrectly() {
             // 지원하지 않는 문자열은 기본 운송사로 안전하게 매핑한다.
-            assertThat(easyPostInvoiceSaveService.resolveCarrierType("UPS")).isEqualTo(CarrierType.UPS);
-            assertThat(easyPostInvoiceSaveService.resolveCarrierType("FEDEX")).isEqualTo(CarrierType.FEDEX);
-            assertThat(easyPostInvoiceSaveService.resolveCarrierType("USPS")).isEqualTo(CarrierType.USPS);
-            assertThat(easyPostInvoiceSaveService.resolveCarrierType(null)).isEqualTo(CarrierType.USPS);
-            assertThat(easyPostInvoiceSaveService.resolveCarrierType("UNKNOWN")).isEqualTo(CarrierType.USPS);
+            assertThat(CarrierType.fromEasyPostName("UPS")).isEqualTo(CarrierType.UPS);
+            assertThat(CarrierType.fromEasyPostName("FEDEX")).isEqualTo(CarrierType.FEDEX);
+            assertThat(CarrierType.fromEasyPostName("USPS")).isEqualTo(CarrierType.USPS);
+            assertThat(CarrierType.fromEasyPostName(null)).isEqualTo(CarrierType.USPS);
+            assertThat(CarrierType.fromEasyPostName("UNKNOWN")).isEqualTo(CarrierType.USPS);
         }
 
         // rate 비교 로직 테스트에서 반복되는 DTO 생성을 줄인다.

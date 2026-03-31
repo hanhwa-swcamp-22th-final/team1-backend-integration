@@ -1,6 +1,6 @@
 package com.conk.integration.command.infrastructure.repository;
 
-import com.conk.integration.command.domain.aggregate.CarrierType;
+import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
 import org.junit.jupiter.api.DisplayName;

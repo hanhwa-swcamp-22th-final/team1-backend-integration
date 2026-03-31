@@ -2,12 +2,13 @@ package com.conk.integration.command.application.service.shopify;
 
 import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRequest;
 import com.conk.integration.command.application.service.ChannelFulfillmentSender;
-import com.conk.integration.command.domain.aggregate.CarrierType;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.OrderChannel;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
 import com.conk.integration.query.dto.FulfillmentTargetDto;
+import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.query.mapper.ChannelApiMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +20,7 @@ import java.util.List;
 public class ShopifyFulfillmentSender implements ChannelFulfillmentSender {
 
     private final ShopifyFulfillmentApiClient shopifyFulfillmentApiClient;
+    private final ChannelApiMapper channelApiMapper;
 
     @Override
     public boolean supports(OrderChannel channel) {
@@ -27,32 +29,35 @@ public class ShopifyFulfillmentSender implements ChannelFulfillmentSender {
 
     @Override
     public void send(ChannelOrder order, EasypostShipmentInvoice invoice) {
+        ShopifyCredentialDto cred = findCredential(order.getSellerId());
+
         ShopifyFulfillmentRequest request = ShopifyFulfillmentRequest.builder()
                 .fulfillment(ShopifyFulfillmentRequest.FulfillmentBody.builder()
                         // Shopify가 기대하는 추적 정보 형식으로 송장 데이터를 변환한다.
                         .trackingInfo(ShopifyFulfillmentRequest.TrackingInfo.builder()
                                 .number(invoice.getInvoiceNo())
-                                .company(resolveCarrierCompany(invoice.getCarrierType()))
+                                .company(invoice.getCarrierType().toShopifyName())
                                 .build())
                         .notifyCustomer(true)
                         .build())
                 .build();
 
-        shopifyFulfillmentApiClient.createFulfillment(order.getChannelOrderNo(), request);
+        shopifyFulfillmentApiClient.createFulfillment(
+                cred.getStoreName(), cred.getAccessToken(), order.getChannelOrderNo(), request);
     }
 
     @Override
-    public void sendBulk(List<FulfillmentTargetDto> targets) {
-        shopifyFulfillmentApiClient.createBulkFulfillment(targets);
+    public void sendBulk(String sellerId, List<FulfillmentTargetDto> targets) {
+        ShopifyCredentialDto cred = findCredential(sellerId);
+        shopifyFulfillmentApiClient.createBulkFulfillment(cred.getStoreName(), cred.getAccessToken(), targets);
     }
 
-    // 내부 운송사 enum을 Shopify가 읽는 문자열로 변환한다.
-    String resolveCarrierCompany(CarrierType carrierType) {
-        if (carrierType == null) return "USPS";
-        return switch (carrierType) {
-            case UPS -> "UPS";
-            case FEDEX -> "FedEx";
-            default -> "USPS";
-        };
+    // sellerId로 Shopify 자격증명을 조회한다.
+    private ShopifyCredentialDto findCredential(String sellerId) {
+        ShopifyCredentialDto cred = channelApiMapper.findShopifyCredential(sellerId);
+        if (cred == null) {
+            throw new IllegalStateException("Shopify 자격증명을 찾을 수 없습니다: sellerId=" + sellerId);
+        }
+        return cred;
     }
 }

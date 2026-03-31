@@ -2,12 +2,15 @@ package com.conk.integration.e2e.flow;
 
 import com.conk.integration.command.domain.aggregate.*;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
+import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.repository.*;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
+import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.query.mapper.ChannelApiMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,6 +27,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.*;
@@ -63,6 +67,9 @@ class IntegrationTest {
     @MockitoBean
     private ShopifyFulfillmentApiClient shopifyFulfillmentApiClient;
 
+    @MockitoBean
+    private ChannelApiMapper channelApiMapper;
+
     /* ---------- 실제 Bean ---------- */
     @Autowired
     private ShopifyOrderSyncService shopifyOrderSyncService;
@@ -95,7 +102,8 @@ class IntegrationTest {
             ShopifyOrderResponse.OrderNode dto1 = buildShopifyOrderNode(9001L, "#9001", "Alice", "100 Main St");
             ShopifyOrderResponse.OrderNode dto2 = buildShopifyOrderNode(9002L, "#9002", "Bob",   "200 Oak Ave");
 
-            given(shopifyOrderClient.getOrders()).willReturn(List.of(dto1, dto2));
+            given(channelApiMapper.findShopifyCredential("seller-integration-A")).willReturn(testCred());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(dto1, dto2));
 
             // when
             shopifyOrderSyncService.syncOrders("seller-integration-A");
@@ -119,7 +127,8 @@ class IntegrationTest {
 
             // Shopify API는 동일한 주문을 다시 반환
             ShopifyOrderResponse.OrderNode existingNode = buildShopifyOrderNode(9003L, "#9003", "Charlie", "300 Pine Rd");
-            given(shopifyOrderClient.getOrders()).willReturn(List.of(existingNode));
+            given(channelApiMapper.findShopifyCredential("seller-integration-B")).willReturn(testCred());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existingNode));
 
             // when
             shopifyOrderSyncService.syncOrders("seller-integration-B");
@@ -133,7 +142,8 @@ class IntegrationTest {
         @DisplayName("syncOrders() — Shopify API 주문이 0건이면 DB에 아무 것도 저장되지 않는다")
         void syncOrders_emptyResponse_savesNothing() {
             // given
-            given(shopifyOrderClient.getOrders()).willReturn(List.of()); // empty
+            given(channelApiMapper.findShopifyCredential("seller-integration-C")).willReturn(testCred());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of());
 
             // when
             shopifyOrderSyncService.syncOrders("seller-integration-C");
@@ -171,12 +181,14 @@ class IntegrationTest {
                     .invoiceNo("INV-INTEGRATION-001")
                     .build());
 
+            given(channelApiMapper.findShopifyCredential("seller-X")).willReturn(testCred());
+
             // when
             fulfillmentDispatchService.fulfill("ORDER-INTG-001");
 
             // then — Shopify fulfillment API가 실제로 호출되었는지 검증
             then(shopifyFulfillmentApiClient).should(times(1))
-                    .createFulfillment(eq("#INTG-001"), any());
+                    .createFulfillment(anyString(), anyString(), eq("#INTG-001"), any());
         }
 
         @Test
@@ -314,6 +326,13 @@ class IntegrationTest {
     /* ===================================================================
      * 헬퍼 메서드
      * =================================================================== */
+
+    private ShopifyCredentialDto testCred() {
+        ShopifyCredentialDto cred = new ShopifyCredentialDto();
+        cred.setStoreName("test-store");
+        cred.setAccessToken("test-token");
+        return cred;
+    }
 
     /**
      * ShopifyOrderResponse.OrderNode 테스트 픽스처 생성
