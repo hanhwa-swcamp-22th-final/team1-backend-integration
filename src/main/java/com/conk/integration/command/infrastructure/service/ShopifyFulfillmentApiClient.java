@@ -27,7 +27,15 @@ public class ShopifyFulfillmentApiClient {
     private final ShopifyProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // 주문별 fulfillment 생성 요청을 전송한다.
+    /**
+     * 주문별 단건 fulfillment 생성 요청을 전송한다.
+     *
+     * @param storeName      Shopify 스토어명
+     * @param accessToken    Shopify Admin API 액세스 토큰
+     * @param shopifyOrderId Shopify 주문 ID
+     * @param request        fulfillment 생성 요청 바디
+     * @return Shopify fulfillment 응답
+     */
     public ShopifyFulfillmentResponse createFulfillment(String storeName, String accessToken,
                                                         String shopifyOrderId, ShopifyFulfillmentRequest request) {
         try {
@@ -40,11 +48,17 @@ public class ShopifyFulfillmentApiClient {
                     ShopifyFulfillmentResponse.class
             ).getBody();
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize Shopify fulfillment request", e);
+            throw new RuntimeException("Shopify fulfillment 요청을 직렬화하는데 실패했습니다", e);
         }
     }
 
-    // 여러 주문의 fulfillment를 GraphQL aliased mutation 1회 호출로 일괄 전송한다.
+    /**
+     * 여러 주문의 fulfillment를 GraphQL aliased mutation 1회 호출로 일괄 전송한다.
+     *
+     * @param storeName   Shopify 스토어명
+     * @param accessToken Shopify Admin API 액세스 토큰
+     * @param targets     fulfillment 전송 대상 목록
+     */
     public void createBulkFulfillment(String storeName, String accessToken, List<FulfillmentTargetDto> targets) {
         String mutation = buildBulkMutation(targets);
         try {
@@ -57,7 +71,7 @@ public class ShopifyFulfillmentApiClient {
                     String.class
             );
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize Shopify GraphQL bulk fulfillment request", e);
+            throw new RuntimeException("Shopify GraphQL bulk fulfillment 요청을 직렬화하는데 실패했습니다", e);
         }
     }
 

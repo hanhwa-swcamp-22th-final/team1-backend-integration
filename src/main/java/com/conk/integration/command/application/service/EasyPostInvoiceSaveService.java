@@ -23,8 +23,11 @@ public class EasyPostInvoiceSaveService {
     private final EasypostShipmentInvoiceRepository invoiceRepository;
 
     /**
-     * 배송 송장 생성 및 DB 저장
+     * 배송 송장을 생성하고 DB에 저장한다.
      * 1) shipment 생성 → 2) 최저가 rate 선택 → 3) rate 구매 → 4) DB 저장
+     *
+     * @param request EasyPost shipment 생성 요청
+     * @return 저장된 송장 엔티티
      */
     public EasypostShipmentInvoice createAndSaveInvoice(EasyPostCreateShipmentRequest request) {
         EasyPostShipmentResponse shipment = easyPostApiClient.createShipment(request);
@@ -41,12 +44,12 @@ public class EasyPostInvoiceSaveService {
     // 유효한 rate 문자열만 대상으로 최저 운임을 계산한다.
     EasyPostShipmentResponse.RateDto selectCheapestRate(List<EasyPostShipmentResponse.RateDto> rates) {
         if (rates == null || rates.isEmpty()) {
-            throw new IllegalStateException("No rates available for shipment");
+            throw new IllegalStateException("운임 정보가 없습니다");
         }
         return rates.stream()
                 .filter(r -> r.getRate() != null && isNumeric(r.getRate()))
                 .min(Comparator.comparingDouble(r -> Double.parseDouble(r.getRate())))
-                .orElseThrow(() -> new IllegalStateException("No valid rates available for shipment"));
+                .orElseThrow(() -> new IllegalStateException("유효한 운임 정보가 없습니다"));
     }
 
     // 외부 shipment 응답을 내부 송장 엔티티로 정규화한다.

@@ -122,7 +122,7 @@ class ShopifyOrderClientTest {
 
         assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("empty response");
+                .hasMessageContaining("응답이 비어있습니다");
     }
 
     @Test
@@ -133,7 +133,7 @@ class ShopifyOrderClientTest {
 
         assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("empty response");
+                .hasMessageContaining("응답이 비어있습니다");
     }
 
     @Test
@@ -144,7 +144,7 @@ class ShopifyOrderClientTest {
 
         assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("empty response");
+                .hasMessageContaining("응답이 비어있습니다");
     }
 
     @Test

@@ -8,7 +8,7 @@ import com.conk.integration.command.domain.aggregate.OrderChannel;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
 import com.conk.integration.query.dto.FulfillmentTargetDto;
 import com.conk.integration.query.dto.ShopifyCredentialDto;
-import com.conk.integration.query.mapper.ChannelApiMapper;
+import com.conk.integration.query.service.ChannelApiQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -20,7 +20,7 @@ import java.util.List;
 public class ShopifyFulfillmentSender implements ChannelFulfillmentSender {
 
     private final ShopifyFulfillmentApiClient shopifyFulfillmentApiClient;
-    private final ChannelApiMapper channelApiMapper;
+    private final ChannelApiQueryService channelApiQueryService;
 
     @Override
     public boolean supports(OrderChannel channel) {
@@ -29,7 +29,7 @@ public class ShopifyFulfillmentSender implements ChannelFulfillmentSender {
 
     @Override
     public void send(ChannelOrder order, EasypostShipmentInvoice invoice) {
-        ShopifyCredentialDto cred = findCredential(order.getSellerId());
+        ShopifyCredentialDto cred = channelApiQueryService.findShopifyCredential(order.getSellerId());
 
         ShopifyFulfillmentRequest request = ShopifyFulfillmentRequest.builder()
                 .fulfillment(ShopifyFulfillmentRequest.FulfillmentBody.builder()
@@ -48,16 +48,7 @@ public class ShopifyFulfillmentSender implements ChannelFulfillmentSender {
 
     @Override
     public void sendBulk(String sellerId, List<FulfillmentTargetDto> targets) {
-        ShopifyCredentialDto cred = findCredential(sellerId);
+        ShopifyCredentialDto cred = channelApiQueryService.findShopifyCredential(sellerId);
         shopifyFulfillmentApiClient.createBulkFulfillment(cred.getStoreName(), cred.getAccessToken(), targets);
-    }
-
-    // sellerId로 Shopify 자격증명을 조회한다.
-    private ShopifyCredentialDto findCredential(String sellerId) {
-        ShopifyCredentialDto cred = channelApiMapper.findShopifyCredential(sellerId);
-        if (cred == null) {
-            throw new IllegalStateException("Shopify 자격증명을 찾을 수 없습니다: sellerId=" + sellerId);
-        }
-        return cred;
     }
 }

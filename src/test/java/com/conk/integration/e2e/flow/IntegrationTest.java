@@ -10,7 +10,7 @@ import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.query.dto.ShopifyCredentialDto;
-import com.conk.integration.query.mapper.ChannelApiMapper;
+import com.conk.integration.query.service.ChannelApiQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -68,7 +68,7 @@ class IntegrationTest {
     private ShopifyFulfillmentApiClient shopifyFulfillmentApiClient;
 
     @MockitoBean
-    private ChannelApiMapper channelApiMapper;
+    private ChannelApiQueryService channelApiQueryService;
 
     /* ---------- 실제 Bean ---------- */
     @Autowired
@@ -102,7 +102,7 @@ class IntegrationTest {
             ShopifyOrderResponse.OrderNode dto1 = buildShopifyOrderNode(9001L, "#9001", "Alice", "100 Main St");
             ShopifyOrderResponse.OrderNode dto2 = buildShopifyOrderNode(9002L, "#9002", "Bob",   "200 Oak Ave");
 
-            given(channelApiMapper.findShopifyCredential("seller-integration-A")).willReturn(testCred());
+            given(channelApiQueryService.findShopifyCredential("seller-integration-A")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(dto1, dto2));
 
             // when
@@ -127,7 +127,7 @@ class IntegrationTest {
 
             // Shopify API는 동일한 주문을 다시 반환
             ShopifyOrderResponse.OrderNode existingNode = buildShopifyOrderNode(9003L, "#9003", "Charlie", "300 Pine Rd");
-            given(channelApiMapper.findShopifyCredential("seller-integration-B")).willReturn(testCred());
+            given(channelApiQueryService.findShopifyCredential("seller-integration-B")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existingNode));
 
             // when
@@ -142,7 +142,7 @@ class IntegrationTest {
         @DisplayName("syncOrders() — Shopify API 주문이 0건이면 DB에 아무 것도 저장되지 않는다")
         void syncOrders_emptyResponse_savesNothing() {
             // given
-            given(channelApiMapper.findShopifyCredential("seller-integration-C")).willReturn(testCred());
+            given(channelApiQueryService.findShopifyCredential("seller-integration-C")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of());
 
             // when
@@ -181,7 +181,7 @@ class IntegrationTest {
                     .invoiceNo("INV-INTEGRATION-001")
                     .build());
 
-            given(channelApiMapper.findShopifyCredential("seller-X")).willReturn(testCred());
+            given(channelApiQueryService.findShopifyCredential("seller-X")).willReturn(buildCredential());
 
             // when
             fulfillmentDispatchService.fulfill("ORDER-INTG-001");
@@ -327,7 +327,7 @@ class IntegrationTest {
      * 헬퍼 메서드
      * =================================================================== */
 
-    private ShopifyCredentialDto testCred() {
+    private ShopifyCredentialDto buildCredential() {
         ShopifyCredentialDto cred = new ShopifyCredentialDto();
         cred.setStoreName("test-store");
         cred.setAccessToken("test-token");

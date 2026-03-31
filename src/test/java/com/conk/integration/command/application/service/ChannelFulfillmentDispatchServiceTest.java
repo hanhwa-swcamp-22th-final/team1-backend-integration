@@ -8,6 +8,7 @@ import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.query.dto.FulfillmentTargetDto;
 import com.conk.integration.query.mapper.ChannelFulfillmentMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,8 +22,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.never;
+import static org.mockito.BDDMockito.willThrow;
 
 // fulfillment orchestration이 채널별 sender 선택과 예외 처리를 올바르게 수행하는지 본다.
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +35,14 @@ class ChannelFulfillmentDispatchServiceTest {
     @Mock private EasypostShipmentInvoiceRepository invoiceRepository;
     @Mock private ChannelFulfillmentMapper channelFulfillmentMapper;
     @Mock private ChannelFulfillmentSender shopifySender;
+
+    private ChannelFulfillmentDispatchService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new ChannelFulfillmentDispatchService(
+                channelOrderRepository, invoiceRepository, channelFulfillmentMapper, List.of(shopifySender));
+    }
 
     // ─────────────────────────────────────────────────────────
     // fulfill() — 단건
@@ -55,9 +65,9 @@ class ChannelFulfillmentDispatchServiceTest {
         given(invoiceRepository.findById("INV-001")).willReturn(Optional.of(invoice));
         given(shopifySender.supports(OrderChannel.SHOPIFY)).willReturn(true);
 
-        service().fulfill("ORD-001");
+        service.fulfill("ORD-001");
 
-        verify(shopifySender).send(order, invoice);
+        then(shopifySender).should().send(order, invoice);
     }
 
     @Test
@@ -65,7 +75,7 @@ class ChannelFulfillmentDispatchServiceTest {
     void fulfill_throwsWhenOrderNotFound() {
         given(channelOrderRepository.findById("NOT_EXIST")).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service().fulfill("NOT_EXIST"))
+        assertThatThrownBy(() -> service.fulfill("NOT_EXIST"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("NOT_EXIST");
     }
@@ -81,11 +91,11 @@ class ChannelFulfillmentDispatchServiceTest {
                 .build();
         given(channelOrderRepository.findById("ORD-002")).willReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> service().fulfill("ORD-002"))
+        assertThatThrownBy(() -> service.fulfill("ORD-002"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("송장이 발급되지 않은 주문");
 
-        verify(shopifySender, never()).send(any(), any());
+        then(shopifySender).should(never()).send(any(), any());
     }
 
     @Test
@@ -100,7 +110,7 @@ class ChannelFulfillmentDispatchServiceTest {
         given(channelOrderRepository.findById("ORD-003")).willReturn(Optional.of(order));
         given(invoiceRepository.findById("INV-MISSING")).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service().fulfill("ORD-003"))
+        assertThatThrownBy(() -> service.fulfill("ORD-003"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("INV-MISSING");
     }
@@ -122,11 +132,11 @@ class ChannelFulfillmentDispatchServiceTest {
         given(invoiceRepository.findById("INV-004")).willReturn(Optional.of(invoice));
         given(shopifySender.supports(OrderChannel.AMAZON)).willReturn(false);
 
-        assertThatThrownBy(() -> service().fulfill("ORD-004"))
+        assertThatThrownBy(() -> service.fulfill("ORD-004"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("지원하지 않는 fulfillment 채널입니다");
 
-        verify(shopifySender, never()).send(any(), any());
+        then(shopifySender).should(never()).send(any(), any());
     }
 
     // ─────────────────────────────────────────────────────────
@@ -139,29 +149,29 @@ class ChannelFulfillmentDispatchServiceTest {
         given(channelFulfillmentMapper.findUnsyncedTargets("seller-001", "SHOPIFY"))
                 .willReturn(List.of());
 
-        BulkFulfillmentResponse response = service().fulfillBulk("seller-001", OrderChannel.SHOPIFY);
+        BulkFulfillmentResponse response = service.fulfillBulk("seller-001", OrderChannel.SHOPIFY);
 
         assertThat(response.getSuccessCount()).isZero();
         assertThat(response.getFailCount()).isZero();
-        verify(shopifySender, never()).sendBulk(any(), any());
-        verify(channelOrderRepository, never()).markAllSynced(any());
+        then(shopifySender).should(never()).sendBulk(any(), any());
+        then(channelOrderRepository).should(never()).markAllSynced(any());
     }
 
     @Test
     @DisplayName("[GREEN] 미전송 대상 존재 시 sendBulk 호출 후 markAllSynced 호출")
     void fulfillBulk_callsSendBulkAndMarksSynced() {
         List<FulfillmentTargetDto> targets = List.of(
-                buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A"),
-                buildTarget("ORD-B", "gid://shopify/FulfillmentOrder/2", "INV-B")
+                buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "USPS"),
+                buildTarget("ORD-B", "gid://shopify/FulfillmentOrder/2", "INV-B", "USPS")
         );
         given(channelFulfillmentMapper.findUnsyncedTargets("seller-001", "SHOPIFY"))
                 .willReturn(targets);
         given(shopifySender.supports(OrderChannel.SHOPIFY)).willReturn(true);
 
-        BulkFulfillmentResponse response = service().fulfillBulk("seller-001", OrderChannel.SHOPIFY);
+        BulkFulfillmentResponse response = service.fulfillBulk("seller-001", OrderChannel.SHOPIFY);
 
-        verify(shopifySender).sendBulk("seller-001", targets);
-        verify(channelOrderRepository).markAllSynced(List.of("ORD-A", "ORD-B"));
+        then(shopifySender).should().sendBulk("seller-001", targets);
+        then(channelOrderRepository).should().markAllSynced(List.of("ORD-A", "ORD-B"));
         assertThat(response.getSuccessCount()).isEqualTo(2);
         assertThat(response.getFailCount()).isZero();
     }
@@ -170,19 +180,19 @@ class ChannelFulfillmentDispatchServiceTest {
     @DisplayName("[예외] sendBulk 실패 시 markAllSynced를 호출하지 않는다")
     void fulfillBulk_doesNotMarkSynced_whenSendBulkThrows() {
         List<FulfillmentTargetDto> targets = List.of(
-                buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A")
+                buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "USPS")
         );
         given(channelFulfillmentMapper.findUnsyncedTargets("seller-001", "SHOPIFY"))
                 .willReturn(targets);
         given(shopifySender.supports(OrderChannel.SHOPIFY)).willReturn(true);
-        org.mockito.Mockito.doThrow(new RuntimeException("Shopify 연결 실패"))
-                .when(shopifySender).sendBulk("seller-001", targets);
+        willThrow(new RuntimeException("Shopify 연결 실패"))
+                .given(shopifySender).sendBulk("seller-001", targets);
 
-        assertThatThrownBy(() -> service().fulfillBulk("seller-001", OrderChannel.SHOPIFY))
+        assertThatThrownBy(() -> service.fulfillBulk("seller-001", OrderChannel.SHOPIFY))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Shopify 연결 실패");
 
-        verify(channelOrderRepository, never()).markAllSynced(any());
+        then(channelOrderRepository).should(never()).markAllSynced(any());
     }
 
     @Test
@@ -191,51 +201,43 @@ class ChannelFulfillmentDispatchServiceTest {
         given(channelFulfillmentMapper.findUnsyncedTargets("seller-001", "SHOPIFY"))
                 .willThrow(new RuntimeException("DB 연결 오류"));
 
-        assertThatThrownBy(() -> service().fulfillBulk("seller-001", OrderChannel.SHOPIFY))
+        assertThatThrownBy(() -> service.fulfillBulk("seller-001", OrderChannel.SHOPIFY))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("DB 연결 오류");
 
-        verify(shopifySender, never()).sendBulk(any(), any());
-        verify(channelOrderRepository, never()).markAllSynced(any());
+        then(shopifySender).should(never()).sendBulk(any(), any());
+        then(channelOrderRepository).should(never()).markAllSynced(any());
     }
 
     @Test
     @DisplayName("[예외] 지원 sender가 없으면 sendBulk를 호출하지 않고 예외 발생")
     void fulfillBulk_throwsWhenNoSenderSupports() {
         List<FulfillmentTargetDto> targets = List.of(
-                buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A")
+                buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "USPS")
         );
         given(channelFulfillmentMapper.findUnsyncedTargets("seller-001", "SHOPIFY"))
                 .willReturn(targets);
         given(shopifySender.supports(OrderChannel.SHOPIFY)).willReturn(false);
 
-        assertThatThrownBy(() -> service().fulfillBulk("seller-001", OrderChannel.SHOPIFY))
+        assertThatThrownBy(() -> service.fulfillBulk("seller-001", OrderChannel.SHOPIFY))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("지원하지 않는 fulfillment 채널입니다");
 
-        verify(shopifySender, never()).sendBulk(any(), any());
-        verify(channelOrderRepository, never()).markAllSynced(any());
+        then(shopifySender).should(never()).sendBulk(any(), any());
+        then(channelOrderRepository).should(never()).markAllSynced(any());
     }
 
     // ─────────────────────────────────────────────────────────
     // Helper
     // ─────────────────────────────────────────────────────────
 
-    private ChannelFulfillmentDispatchService service() {
-        return new ChannelFulfillmentDispatchService(
-                channelOrderRepository,
-                invoiceRepository,
-                channelFulfillmentMapper,
-                List.of(shopifySender)
-        );
-    }
-
-    private FulfillmentTargetDto buildTarget(String orderId, String fulfillmentOrderId, String invoiceNo) {
+    private FulfillmentTargetDto buildTarget(String orderId, String fulfillmentOrderId,
+                                             String invoiceNo, String carrierType) {
         FulfillmentTargetDto dto = new FulfillmentTargetDto();
         dto.setOrderId(orderId);
         dto.setFulfillmentOrderId(fulfillmentOrderId);
         dto.setInvoiceNo(invoiceNo);
-        dto.setCarrierType("USPS");
+        dto.setCarrierType(carrierType);
         return dto;
     }
 }

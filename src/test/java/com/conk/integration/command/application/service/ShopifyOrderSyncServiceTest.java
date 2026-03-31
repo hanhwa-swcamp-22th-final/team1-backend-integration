@@ -7,7 +7,7 @@ import com.conk.integration.command.domain.aggregate.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
 import com.conk.integration.query.dto.ShopifyCredentialDto;
-import com.conk.integration.query.mapper.ChannelApiMapper;
+import com.conk.integration.query.service.ChannelApiQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,9 +26,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.never;
+import static org.mockito.BDDMockito.times;
 
 // Shopify 주문 동기화 서비스의 GraphQL 매핑, 중복 방지, 예외 전파를 검증한다.
 @ExtendWith(MockitoExtension.class)
@@ -37,14 +37,14 @@ class ShopifyOrderSyncServiceTest {
 
     @Mock private ShopifyOrderClient shopifyOrderClient;
     @Mock private ChannelOrderRepository channelOrderRepository;
-    @Mock private ChannelApiMapper channelApiMapper;
+    @Mock private ChannelApiQueryService channelApiQueryService;
 
     @InjectMocks
     private ShopifyOrderSyncService syncService;
 
     private static final String SELLER_ID = "seller-001";
 
-    private ShopifyCredentialDto testCred() {
+    private ShopifyCredentialDto buildCredential() {
         ShopifyCredentialDto dto = new ShopifyCredentialDto();
         dto.setStoreName("conktest");
         dto.setAccessToken("test-token");
@@ -61,13 +61,13 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/4502818226334", "#1001", "2024-01-15T10:00:00-05:00",
                 "gid://shopify/FulfillmentOrder/99");
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("4502818226334")).willReturn(false);
 
         syncService.syncOrders(SELLER_ID);
 
-        verify(channelOrderRepository, times(1)).save(any(ChannelOrder.class));
+        then(channelOrderRepository).should(times(1)).save(any(ChannelOrder.class));
     }
 
     @Test
@@ -76,13 +76,13 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/4502818226334", "#1001", "2024-01-15T10:00:00-05:00",
                 "gid://shopify/FulfillmentOrder/99");
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("4502818226334")).willReturn(true);
 
         syncService.syncOrders(SELLER_ID);
 
-        verify(channelOrderRepository, never()).save(any(ChannelOrder.class));
+        then(channelOrderRepository).should(never()).save(any(ChannelOrder.class));
     }
 
     @Test
@@ -95,7 +95,7 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode newTwo = buildOrderNode(
                 "gid://shopify/Order/1002", "#1002", "2024-01-15T00:00:00-05:00", null);
 
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existing, newOne, newTwo));
         given(channelOrderRepository.existsById("1000")).willReturn(true);
         given(channelOrderRepository.existsById("1001")).willReturn(false);
@@ -103,18 +103,18 @@ class ShopifyOrderSyncServiceTest {
 
         syncService.syncOrders(SELLER_ID);
 
-        verify(channelOrderRepository, times(2)).save(any(ChannelOrder.class));
+        then(channelOrderRepository).should(times(2)).save(any(ChannelOrder.class));
     }
 
     @Test
     @DisplayName("API 주문 목록이 빈 경우 save를 호출하지 않는다")
     void syncOrders_doesNotSave_whenNoOrdersReturned() {
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of());
 
         syncService.syncOrders(SELLER_ID);
 
-        verify(channelOrderRepository, never()).save(any(ChannelOrder.class));
+        then(channelOrderRepository).should(never()).save(any(ChannelOrder.class));
     }
 
     // ─────────────────────────────────────────────────────────
@@ -135,14 +135,14 @@ class ShopifyOrderSyncServiceTest {
         node.getShippingAddress().setZip("98101");
         node.getShippingAddress().setPhone("206-555-1234");
 
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("4502818226334")).willReturn(false);
 
         syncService.syncOrders(SELLER_ID);
 
         ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
-        verify(channelOrderRepository).save(captor.capture());
+        then(channelOrderRepository).should().save(captor.capture());
         ChannelOrder saved = captor.getValue();
 
         assertThat(saved.getOrderId()).isEqualTo("4502818226334");
@@ -165,14 +165,14 @@ class ShopifyOrderSyncServiceTest {
                 "gid://shopify/Order/5000", "#5000", "2024-01-20T10:00:00-05:00",
                 "gid://shopify/FulfillmentOrder/777");
 
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("5000")).willReturn(false);
 
         syncService.syncOrders(SELLER_ID);
 
         ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
-        verify(channelOrderRepository).save(captor.capture());
+        then(channelOrderRepository).should().save(captor.capture());
 
         assertThat(captor.getValue().getFulfillmentOrderId())
                 .isEqualTo("gid://shopify/FulfillmentOrder/777");
@@ -184,14 +184,14 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/6000", "#6000", "2024-01-20T10:00:00-05:00", null);
 
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("6000")).willReturn(false);
 
         syncService.syncOrders(SELLER_ID);
 
         ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
-        verify(channelOrderRepository).save(captor.capture());
+        then(channelOrderRepository).should().save(captor.capture());
 
         assertThat(captor.getValue().getFulfillmentOrderId()).isNull();
     }
@@ -205,14 +205,14 @@ class ShopifyOrderSyncServiceTest {
         node.setCreatedAt("2025-01-20T10:00:00-05:00");
         node.setShippingAddress(null);
 
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("9999")).willReturn(false);
 
         syncService.syncOrders(SELLER_ID);
 
         ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
-        verify(channelOrderRepository).save(captor.capture());
+        then(channelOrderRepository).should().save(captor.capture());
         ChannelOrder saved = captor.getValue();
         assertThat(saved.getOrderId()).isEqualTo("9999");
         assertThat(saved.getReceiverName()).isNull();
@@ -225,14 +225,14 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/8888", "#8888", null, null);
 
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("8888")).willReturn(false);
 
         syncService.syncOrders(SELLER_ID);
 
         ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
-        verify(channelOrderRepository).save(captor.capture());
+        then(channelOrderRepository).should().save(captor.capture());
         assertThat(captor.getValue().getOrderedAt()).isNull();
     }
 
@@ -246,14 +246,14 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/7777", "#7777", "   ", null);
 
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("7777")).willReturn(false);
 
         syncService.syncOrders(SELLER_ID);
 
         ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
-        verify(channelOrderRepository).save(captor.capture());
+        then(channelOrderRepository).should().save(captor.capture());
         assertThat(captor.getValue().getOrderedAt()).isNull();
     }
 
@@ -263,7 +263,7 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/1111", "#1111", "2024-01-15T10:00:00-05:00", null);
 
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("1111")).willReturn(false);
         given(channelOrderRepository.save(any())).willThrow(new RuntimeException("DB 저장 실패"));
@@ -276,7 +276,7 @@ class ShopifyOrderSyncServiceTest {
     @Test
     @DisplayName("API 호출 시 401이 발생하면 예외가 호출자에게 전파된다")
     void syncOrders_propagatesException_whenApiClientThrowsUnauthorized() {
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString()))
                 .willThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
 
@@ -284,19 +284,19 @@ class ShopifyOrderSyncServiceTest {
                 .isInstanceOf(HttpClientErrorException.class)
                 .satisfies(e -> assertThat(((HttpClientErrorException) e).getStatusCode())
                         .isEqualTo(HttpStatus.UNAUTHORIZED));
-        verify(channelOrderRepository, never()).save(any(ChannelOrder.class));
+        then(channelOrderRepository).should(never()).save(any(ChannelOrder.class));
     }
 
     @Test
     @DisplayName("API 호출 시 500이 발생하면 예외가 호출자에게 전파된다")
     void syncOrders_propagatesException_whenApiClientThrowsServerError() {
-        given(channelApiMapper.findShopifyCredential(SELLER_ID)).willReturn(testCred());
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString()))
                 .willThrow(new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR));
 
         assertThatThrownBy(() -> syncService.syncOrders("seller-001"))
                 .isInstanceOf(HttpServerErrorException.class);
-        verify(channelOrderRepository, never()).save(any(ChannelOrder.class));
+        then(channelOrderRepository).should(never()).save(any(ChannelOrder.class));
     }
 
     // ─────────────────────────────────────────────────────────

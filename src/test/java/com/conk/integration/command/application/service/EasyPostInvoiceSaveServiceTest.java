@@ -133,7 +133,7 @@ class EasyPostInvoiceSaveServiceTest {
     void selectCheapestRate_throwsWhenNull() {
         assertThatThrownBy(() -> service.selectCheapestRate(null))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No rates available");
+                .hasMessageContaining("운임 정보가 없습니다");
     }
 
     @Test
@@ -141,7 +141,7 @@ class EasyPostInvoiceSaveServiceTest {
     void selectCheapestRate_throwsWhenEmpty() {
         assertThatThrownBy(() -> service.selectCheapestRate(List.of()))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No rates available");
+                .hasMessageContaining("운임 정보가 없습니다");
     }
 
     // ─────────────────────────────────────────────────────────
