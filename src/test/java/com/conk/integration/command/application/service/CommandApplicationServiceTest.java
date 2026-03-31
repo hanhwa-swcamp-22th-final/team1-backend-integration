@@ -2,7 +2,8 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
-import com.conk.integration.command.application.dto.response.ShopifyOrderDto;
+import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
+import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
 import com.conk.integration.command.domain.aggregate.CarrierType;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
@@ -10,8 +11,9 @@ import com.conk.integration.command.domain.aggregate.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
-import com.conk.integration.command.infrastructure.service.ShopifyApiClient;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
+import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
+import com.conk.integration.query.mapper.ChannelFulfillmentMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -49,7 +51,7 @@ class CommandApplicationServiceTest {
     class ShopifyOrderSyncServiceTests {
 
         @Mock
-        private ShopifyApiClient shopifyApiClient;
+        private ShopifyOrderClient shopifyOrderClient;
 
         @Mock
         private ChannelOrderRepository channelOrderRepository;
@@ -61,10 +63,10 @@ class CommandApplicationServiceTest {
         @DisplayName("syncOrders() — 신규 주문만 DB에 저장된다 (이미 존재하는 주문 skip)")
         void syncOrders_savesOnlyNewOrders() {
             // 1001은 중복, 1002만 신규로 취급되도록 fixture를 구성한다.
-            ShopifyOrderDto existingDto = buildOrderDto(1001L, "#1001");
-            ShopifyOrderDto newDto = buildOrderDto(1002L, "#1002");
+            ShopifyOrderResponse.OrderNode existingNode = buildOrderNode(1001L, "#1001");
+            ShopifyOrderResponse.OrderNode newNode = buildOrderNode(1002L, "#1002");
 
-            given(shopifyApiClient.getOrders()).willReturn(List.of(existingDto, newDto));
+            given(shopifyOrderClient.getOrders()).willReturn(List.of(existingNode, newNode));
             given(channelOrderRepository.existsById("1001")).willReturn(true);
             given(channelOrderRepository.existsById("1002")).willReturn(false);
 
@@ -77,8 +79,8 @@ class CommandApplicationServiceTest {
         @DisplayName("syncOrders() — 모든 주문이 이미 존재하면 save()가 호출되지 않는다")
         void syncOrders_savesNothing_whenAllExist() {
             // 전체가 중복이면 저장 호출이 완전히 없어야 한다.
-            given(shopifyApiClient.getOrders())
-                    .willReturn(List.of(buildOrderDto(2001L, "#2001"), buildOrderDto(2002L, "#2002")));
+            given(shopifyOrderClient.getOrders())
+                    .willReturn(List.of(buildOrderNode(2001L, "#2001"), buildOrderNode(2002L, "#2002")));
             given(channelOrderRepository.existsById(anyString())).willReturn(true);
 
             shopifyOrderSyncService.syncOrders("seller-B");
@@ -90,20 +92,20 @@ class CommandApplicationServiceTest {
         @DisplayName("syncOrders() — Shopify 주문 목록이 0건이면 save()가 호출되지 않는다")
         void syncOrders_savesNothing_whenEmptyOrders() {
             // 외부 API가 빈 목록을 주면 서비스는 조용히 종료해야 한다.
-            given(shopifyApiClient.getOrders()).willReturn(List.of());
+            given(shopifyOrderClient.getOrders()).willReturn(List.of());
 
             shopifyOrderSyncService.syncOrders("seller-C");
 
             then(channelOrderRepository).should(never()).save(any());
         }
 
-        // Shopify API 응답에서 서비스가 실제로 참조하는 최소 필드만 채운다.
-        private ShopifyOrderDto buildOrderDto(long id, String name) {
-            ShopifyOrderDto dto = new ShopifyOrderDto();
-            dto.setId(id);
-            dto.setName(name);
-            dto.setCreatedAt("2024-01-15T10:00:00+09:00");
-            return dto;
+        // Shopify GraphQL 응답에서 서비스가 실제로 참조하는 최소 필드만 채운다.
+        private ShopifyOrderResponse.OrderNode buildOrderNode(long id, String name) {
+            ShopifyOrderResponse.OrderNode node = new ShopifyOrderResponse.OrderNode();
+            node.setId("gid://shopify/Order/" + id);
+            node.setName(name);
+            node.setCreatedAt("2024-01-15T10:00:00+09:00");
+            return node;
         }
     }
 
@@ -236,6 +238,9 @@ class CommandApplicationServiceTest {
         private EasypostShipmentInvoiceRepository invoiceRepository;
 
         @Mock
+        private ChannelFulfillmentMapper channelFulfillmentMapper;
+
+        @Mock
         private ChannelFulfillmentSender shopifySender;
 
         private ChannelFulfillmentDispatchService fulfillmentDispatchService;
@@ -263,6 +268,7 @@ class CommandApplicationServiceTest {
             fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
                     channelOrderRepository,
                     invoiceRepository,
+                    channelFulfillmentMapper,
                     List.of(shopifySender)
             );
 
@@ -281,6 +287,7 @@ class CommandApplicationServiceTest {
             fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
                     channelOrderRepository,
                     invoiceRepository,
+                    channelFulfillmentMapper,
                     List.of(shopifySender)
             );
 
@@ -306,6 +313,7 @@ class CommandApplicationServiceTest {
             fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
                     channelOrderRepository,
                     invoiceRepository,
+                    channelFulfillmentMapper,
                     List.of(shopifySender)
             );
 
@@ -332,6 +340,7 @@ class CommandApplicationServiceTest {
             fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
                     channelOrderRepository,
                     invoiceRepository,
+                    channelFulfillmentMapper,
                     List.of(shopifySender)
             );
 
@@ -362,6 +371,7 @@ class CommandApplicationServiceTest {
             fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
                     channelOrderRepository,
                     invoiceRepository,
+                    channelFulfillmentMapper,
                     List.of(shopifySender)
             );
 
