@@ -1,0 +1,46 @@
+name: "🚀 이슈 작성 (Form)"
+description: 항목별로 입력창이 나누어진 구조화된 템플릿입니다.
+title: "[TYPE] 이슈 제목을 입력하세요"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        작업을 시작하기 전, 아래 항목들을 차례대로 입력해 주세요. ✨
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: "📌 이슈 유형"
+      description: 어떤 종류의 작업인가요?
+      options:
+        - ✨ New Feature (기능 추가)
+        - 🐛 Bug Fix (버그 수정)
+        - ♻️ Refactoring (코드 개선)
+        - 📝 Documentation (문서화)
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: "🎯 이슈 목적"
+      placeholder: "이 작업을 왜 하는지, 어떤 문제를 해결하려는지 적어주세요."
+    validations:
+      required: true
+
+  - type: input
+    id: scope
+    attributes:
+      label: "📂 이슈가 다루는 파일 범위"
+      placeholder: "예: src/components/, api/user.js"
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: "✅ 작업 상세 내용"
+      description: "수행해야 할 세부 작업 목록을 적어주세요."
+      placeholder: "- [ ] UI 구현\n- [ ] API 연동"
+
