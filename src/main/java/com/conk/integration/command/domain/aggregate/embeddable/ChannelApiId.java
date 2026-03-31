@@ -1,4 +1,4 @@
-package com.conk.integration.command.domain.aggregate;
+package com.conk.integration.command.domain.aggregate.embeddable;
 
 import jakarta.persistence.Embeddable;
 import lombok.*;

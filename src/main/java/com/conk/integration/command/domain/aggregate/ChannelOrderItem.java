@@ -1,9 +1,9 @@
 package com.conk.integration.command.domain.aggregate;
 
+import com.conk.integration.command.domain.aggregate.embeddable.AuditFields;
+import com.conk.integration.command.domain.aggregate.embeddable.ChannelOrderItemId;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.time.LocalDateTime;
 
 // 주문에 속한 SKU 단위 수량/작업 상태를 저장하는 자식 엔티티다.
 @Entity
@@ -32,11 +32,7 @@ public class ChannelOrderItem {
     @Builder.Default
     private int packedQuantity = 0;
 
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    private String createdBy;
-
-    private String updatedBy;
+    @Embedded
+    @Builder.Default
+    private AuditFields audit = new AuditFields();
 }
