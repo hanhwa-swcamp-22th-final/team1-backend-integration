@@ -50,6 +50,9 @@ public class ChannelOrder {
     // Cross-aggregate reference: invoice FK as plain String (no @ManyToOne)
     private String invoiceNo;
 
+    // 채널 fulfillment order ID (e.g. Shopify FulfillmentOrder GID)
+    private String fulfillmentOrderId;
+
     // 채널에 송장(운송장번호)이 반영되었는지 여부
     @Column(nullable = false)
     @Builder.Default

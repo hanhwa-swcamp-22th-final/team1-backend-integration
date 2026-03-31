@@ -1,10 +1,11 @@
 package com.conk.integration.command.application.service;
 
-import com.conk.integration.command.application.dto.response.ShopifyOrderDto;
+import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
+import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
-import com.conk.integration.command.infrastructure.service.ShopifyApiClient;
+import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,108 +13,120 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
-// Shopify 주문 동기화 서비스의 매핑, 중복 방지, 예외 전파를 검증한다.
+// Shopify 주문 동기화 서비스의 GraphQL 매핑, 중복 방지, 예외 전파를 검증한다.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ShopifyOrderSyncService Tests")
 class ShopifyOrderSyncServiceTest {
 
-    @Mock private ShopifyApiClient shopifyApiClient;
+    @Mock private ShopifyOrderClient shopifyOrderClient;
     @Mock private ChannelOrderRepository channelOrderRepository;
 
     @InjectMocks
     private ShopifyOrderSyncService syncService;
 
     // ─────────────────────────────────────────────────────────
-    // Cycle 2: Shopify 주문 동기화 서비스
+    // 저장 / 중복 방지
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[RED→GREEN] 신규 주문을 channel_order 테이블에 저장")
+    @DisplayName("신규 주문을 channel_order 테이블에 저장한다")
     void syncOrders_savesNewOrderToRepository() {
-        // given
-        ShopifyOrderDto dto = buildOrderDto(4502818226334L, "#1001", "2024-01-15T10:00:00-05:00");
-        given(shopifyApiClient.getOrders()).willReturn(List.of(dto));
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/4502818226334", "#1001", "2024-01-15T10:00:00-05:00",
+                "gid://shopify/FulfillmentOrder/99");
+        given(shopifyOrderClient.getOrders()).willReturn(List.of(node));
         given(channelOrderRepository.existsById("4502818226334")).willReturn(false);
 
-        // when
         syncService.syncOrders("seller-001");
 
-        // then
         verify(channelOrderRepository, times(1)).save(any(ChannelOrder.class));
     }
 
     @Test
-    @DisplayName("[RED→GREEN] 이미 저장된 주문은 skip (중복 저장 방지)")
+    @DisplayName("이미 저장된 주문은 skip한다 (중복 저장 방지)")
     void syncOrders_skipsDuplicateOrder() {
-        // given
-        ShopifyOrderDto dto = buildOrderDto(4502818226334L, "#1001", "2024-01-15T10:00:00-05:00");
-        given(shopifyApiClient.getOrders()).willReturn(List.of(dto));
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/4502818226334", "#1001", "2024-01-15T10:00:00-05:00",
+                "gid://shopify/FulfillmentOrder/99");
+        given(shopifyOrderClient.getOrders()).willReturn(List.of(node));
         given(channelOrderRepository.existsById("4502818226334")).willReturn(true);
 
-        // when
         syncService.syncOrders("seller-001");
 
-        // then
         verify(channelOrderRepository, never()).save(any(ChannelOrder.class));
     }
 
     @Test
-    @DisplayName("[RED→GREEN] 여러 주문 중 신규 건만 저장")
+    @DisplayName("여러 주문 중 신규 건만 저장한다")
     void syncOrders_savesOnlyNewOrders_whenMixedExistence() {
-        // given
-        ShopifyOrderDto existing = buildOrderDto(1000L, "#1000", "2024-01-10T00:00:00-05:00");
-        ShopifyOrderDto newOne   = buildOrderDto(1001L, "#1001", "2024-01-14T00:00:00-05:00");
-        ShopifyOrderDto newTwo   = buildOrderDto(1002L, "#1002", "2024-01-15T00:00:00-05:00");
+        ShopifyOrderResponse.OrderNode existing = buildOrderNode(
+                "gid://shopify/Order/1000", "#1000", "2024-01-10T00:00:00-05:00", null);
+        ShopifyOrderResponse.OrderNode newOne = buildOrderNode(
+                "gid://shopify/Order/1001", "#1001", "2024-01-14T00:00:00-05:00", null);
+        ShopifyOrderResponse.OrderNode newTwo = buildOrderNode(
+                "gid://shopify/Order/1002", "#1002", "2024-01-15T00:00:00-05:00", null);
 
-        given(shopifyApiClient.getOrders()).willReturn(List.of(existing, newOne, newTwo));
+        given(shopifyOrderClient.getOrders()).willReturn(List.of(existing, newOne, newTwo));
         given(channelOrderRepository.existsById("1000")).willReturn(true);
         given(channelOrderRepository.existsById("1001")).willReturn(false);
         given(channelOrderRepository.existsById("1002")).willReturn(false);
 
-        // when
         syncService.syncOrders("seller-001");
 
-        // then
         verify(channelOrderRepository, times(2)).save(any(ChannelOrder.class));
     }
 
     @Test
-    @DisplayName("[RED→GREEN] 저장된 ChannelOrder 필드가 Shopify 응답과 올바르게 매핑")
-    void syncOrders_mapsFieldsCorrectly() {
-        // 주소 필드를 모두 채워 채널 주문 엔티티로의 매핑 누락이 없는지 본다.
-        ShopifyOrderDto dto = buildOrderDto(4502818226334L, "#1001", "2024-01-15T10:00:00-05:00");
-        dto.getShippingAddress().setName("Jane Smith");
-        dto.getShippingAddress().setAddress1("456 Oak Ave");
-        dto.getShippingAddress().setAddress2("Suite 100");
-        dto.getShippingAddress().setCity("Seattle");
-        dto.getShippingAddress().setProvinceCode("WA");
-        dto.getShippingAddress().setZip("98101");
-        dto.getShippingAddress().setPhone("206-555-1234");
+    @DisplayName("API 주문 목록이 빈 경우 save를 호출하지 않는다")
+    void syncOrders_doesNotSave_whenNoOrdersReturned() {
+        given(shopifyOrderClient.getOrders()).willReturn(List.of());
 
-        given(shopifyApiClient.getOrders()).willReturn(List.of(dto));
-        given(channelOrderRepository.existsById("4502818226334")).willReturn(false);
-
-        // when
         syncService.syncOrders("seller-001");
 
-        // then
+        verify(channelOrderRepository, never()).save(any(ChannelOrder.class));
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // 필드 매핑
+    // ─────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("GID에서 숫자 ID를 추출하고 주소/채널 필드를 정확히 매핑한다")
+    void syncOrders_mapsFieldsCorrectly() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/4502818226334", "#1001", "2024-01-15T10:00:00-05:00",
+                "gid://shopify/FulfillmentOrder/99");
+        node.getShippingAddress().setName("Jane Smith");
+        node.getShippingAddress().setAddress1("456 Oak Ave");
+        node.getShippingAddress().setAddress2("Suite 100");
+        node.getShippingAddress().setCity("Seattle");
+        node.getShippingAddress().setProvinceCode("WA");
+        node.getShippingAddress().setZip("98101");
+        node.getShippingAddress().setPhone("206-555-1234");
+
+        given(shopifyOrderClient.getOrders()).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("4502818226334")).willReturn(false);
+
+        syncService.syncOrders("seller-001");
+
         ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
         verify(channelOrderRepository).save(captor.capture());
-
         ChannelOrder saved = captor.getValue();
+
         assertThat(saved.getOrderId()).isEqualTo("4502818226334");
         assertThat(saved.getChannelOrderNo()).isEqualTo("#1001");
         assertThat(saved.getOrderChannel()).isEqualTo(OrderChannel.SHOPIFY);
@@ -128,30 +141,120 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("[RED→GREEN] API 주문 목록이 빈 경우 save 미호출")
-    void syncOrders_doesNotSave_whenNoOrdersReturned() {
-        // given
-        given(shopifyApiClient.getOrders()).willReturn(List.of());
+    @DisplayName("fulfillmentOrders 첫 번째 항목 GID가 fulfillmentOrderId로 저장된다")
+    void syncOrders_savesFulfillmentOrderId() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/5000", "#5000", "2024-01-20T10:00:00-05:00",
+                "gid://shopify/FulfillmentOrder/777");
 
-        // when
+        given(shopifyOrderClient.getOrders()).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("5000")).willReturn(false);
+
         syncService.syncOrders("seller-001");
 
-        // then
-        verify(channelOrderRepository, never()).save(any(ChannelOrder.class));
+        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+        verify(channelOrderRepository).save(captor.capture());
+
+        assertThat(captor.getValue().getFulfillmentOrderId())
+                .isEqualTo("gid://shopify/FulfillmentOrder/777");
+    }
+
+    @Test
+    @DisplayName("fulfillmentOrders가 없으면 fulfillmentOrderId=null로 저장된다")
+    void syncOrders_savesFulfillmentOrderIdAsNull_whenFulfillmentOrdersEmpty() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/6000", "#6000", "2024-01-20T10:00:00-05:00", null);
+
+        given(shopifyOrderClient.getOrders()).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("6000")).willReturn(false);
+
+        syncService.syncOrders("seller-001");
+
+        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+        verify(channelOrderRepository).save(captor.capture());
+
+        assertThat(captor.getValue().getFulfillmentOrderId()).isNull();
+    }
+
+    @Test
+    @DisplayName("shippingAddress가 null인 주문도 NPE 없이 저장 성공")
+    void syncOrders_savesOrder_whenShippingAddressIsNull() {
+        ShopifyOrderResponse.OrderNode node = new ShopifyOrderResponse.OrderNode();
+        node.setId("gid://shopify/Order/9999");
+        node.setName("#9999");
+        node.setCreatedAt("2025-01-20T10:00:00-05:00");
+        node.setShippingAddress(null);
+
+        given(shopifyOrderClient.getOrders()).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("9999")).willReturn(false);
+
+        syncService.syncOrders("seller-001");
+
+        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+        verify(channelOrderRepository).save(captor.capture());
+        ChannelOrder saved = captor.getValue();
+        assertThat(saved.getOrderId()).isEqualTo("9999");
+        assertThat(saved.getReceiverName()).isNull();
+        assertThat(saved.getShipToAddress1()).isNull();
+    }
+
+    @Test
+    @DisplayName("createdAt이 null이면 orderedAt=null로 저장 성공")
+    void syncOrders_savesOrder_whenCreatedAtIsNull() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/8888", "#8888", null, null);
+
+        given(shopifyOrderClient.getOrders()).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("8888")).willReturn(false);
+
+        syncService.syncOrders("seller-001");
+
+        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+        verify(channelOrderRepository).save(captor.capture());
+        assertThat(captor.getValue().getOrderedAt()).isNull();
     }
 
     // ─────────────────────────────────────────────────────────
-    // Cycle 3: 예외 상황
+    // 예외 전파
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[예외] API 호출 시 401이 발생하면 예외가 호출자에게 전파")
+    @DisplayName("createdAt이 공백 문자열이면 orderedAt=null로 저장된다")
+    void syncOrders_savesOrder_whenCreatedAtIsBlank() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/7777", "#7777", "   ", null);
+
+        given(shopifyOrderClient.getOrders()).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("7777")).willReturn(false);
+
+        syncService.syncOrders("seller-001");
+
+        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+        verify(channelOrderRepository).save(captor.capture());
+        assertThat(captor.getValue().getOrderedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("repository save 중 예외 발생 시 호출자에게 전파된다")
+    void syncOrders_propagatesException_whenRepositorySaveThrows() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/1111", "#1111", "2024-01-15T10:00:00-05:00", null);
+
+        given(shopifyOrderClient.getOrders()).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("1111")).willReturn(false);
+        given(channelOrderRepository.save(any())).willThrow(new RuntimeException("DB 저장 실패"));
+
+        assertThatThrownBy(() -> syncService.syncOrders("seller-001"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("DB 저장 실패");
+    }
+
+    @Test
+    @DisplayName("API 호출 시 401이 발생하면 예외가 호출자에게 전파된다")
     void syncOrders_propagatesException_whenApiClientThrowsUnauthorized() {
-        // given
-        given(shopifyApiClient.getOrders())
+        given(shopifyOrderClient.getOrders())
                 .willThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
 
-        // when & then
         assertThatThrownBy(() -> syncService.syncOrders("seller-001"))
                 .isInstanceOf(HttpClientErrorException.class)
                 .satisfies(e -> assertThat(((HttpClientErrorException) e).getStatusCode())
@@ -160,101 +263,46 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] API 호출 시 500이 발생하면 예외가 호출자에게 전파")
+    @DisplayName("API 호출 시 500이 발생하면 예외가 호출자에게 전파된다")
     void syncOrders_propagatesException_whenApiClientThrowsServerError() {
-        // given
-        given(shopifyApiClient.getOrders())
+        given(shopifyOrderClient.getOrders())
                 .willThrow(new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR));
 
-        // when & then
         assertThatThrownBy(() -> syncService.syncOrders("seller-001"))
                 .isInstanceOf(HttpServerErrorException.class);
         verify(channelOrderRepository, never()).save(any(ChannelOrder.class));
-    }
-
-    @Test
-    @DisplayName("[예외] shippingAddress가 null인 주문도 NPE 없이 저장 성공 (null 필드로 저장)")
-    void syncOrders_savesOrder_whenShippingAddressIsNull() {
-        // 외부 API 데이터가 불완전해도 최소 주문 저장은 가능해야 한다.
-        ShopifyOrderDto dto = new ShopifyOrderDto();
-        dto.setId(9999L);
-        dto.setName("#9999");
-        dto.setCreatedAt("2025-01-20T10:00:00-05:00");
-        dto.setFinancialStatus("paid");
-        dto.setShippingAddress(null);
-
-        given(shopifyApiClient.getOrders()).willReturn(List.of(dto));
-        given(channelOrderRepository.existsById("9999")).willReturn(false);
-
-        // when
-        syncService.syncOrders("seller-001");
-
-        // then
-        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
-        verify(channelOrderRepository).save(captor.capture());
-        ChannelOrder saved = captor.getValue();
-        assertThat(saved.getOrderId()).isEqualTo("9999");
-        assertThat(saved.getReceiverName()).isNull();
-        assertThat(saved.getReceiverPhoneNo()).isNull();
-        assertThat(saved.getShipToAddress1()).isNull();
-        assertThat(saved.getShipToCity()).isNull();
-    }
-
-    @Test
-    @DisplayName("[예외] createdAt이 null이면 orderedAt=null로 저장 성공")
-    void syncOrders_savesOrder_whenCreatedAtIsNull() {
-        // given
-        ShopifyOrderDto dto = buildOrderDto(8888L, "#8888", null);
-        given(shopifyApiClient.getOrders()).willReturn(List.of(dto));
-        given(channelOrderRepository.existsById("8888")).willReturn(false);
-
-        // when
-        syncService.syncOrders("seller-001");
-
-        // then
-        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
-        verify(channelOrderRepository).save(captor.capture());
-        assertThat(captor.getValue().getOrderedAt()).isNull();
-    }
-
-    @Test
-    @DisplayName("[예외] createdAt이 공백 문자열이면 orderedAt=null로 저장 성공")
-    void syncOrders_savesOrder_whenCreatedAtIsBlank() {
-        // given
-        ShopifyOrderDto dto = buildOrderDto(7777L, "#7777", "   ");
-        given(shopifyApiClient.getOrders()).willReturn(List.of(dto));
-        given(channelOrderRepository.existsById("7777")).willReturn(false);
-
-        // when
-        syncService.syncOrders("seller-001");
-
-        // then
-        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
-        verify(channelOrderRepository).save(captor.capture());
-        assertThat(captor.getValue().getOrderedAt()).isNull();
     }
 
     // ─────────────────────────────────────────────────────────
     // Helper
     // ─────────────────────────────────────────────────────────
 
-    // syncOrders가 소비하는 최소 Shopify 주문 응답 fixture다.
-    private ShopifyOrderDto buildOrderDto(Long id, String name, String createdAt) {
-        ShopifyOrderDto dto = new ShopifyOrderDto();
-        dto.setId(id);
-        dto.setName(name);
-        dto.setCreatedAt(createdAt);
-        dto.setFinancialStatus("paid");
+    private ShopifyOrderResponse.OrderNode buildOrderNode(String gidOrderId, String name,
+                                                          String createdAt, String gidFulfillmentOrderId) {
+        ShopifyOrderResponse.OrderNode node = new ShopifyOrderResponse.OrderNode();
+        node.setId(gidOrderId);
+        node.setName(name);
+        node.setCreatedAt(createdAt);
 
-        ShopifyOrderDto.ShippingAddress addr = new ShopifyOrderDto.ShippingAddress();
+        ShopifyOrderResponse.ShippingAddress addr = new ShopifyOrderResponse.ShippingAddress();
         addr.setName("John Doe");
         addr.setAddress1("123 Main St");
         addr.setCity("New York");
         addr.setProvinceCode("NY");
         addr.setZip("10001");
         addr.setPhone("555-1234");
-        dto.setShippingAddress(addr);
+        node.setShippingAddress(addr);
 
-        return dto;
+        if (gidFulfillmentOrderId != null) {
+            ShopifyOrderResponse.FulfillmentOrderNode foNode = new ShopifyOrderResponse.FulfillmentOrderNode();
+            foNode.setId(gidFulfillmentOrderId);
+            ShopifyOrderResponse.FulfillmentOrderEdge foEdge = new ShopifyOrderResponse.FulfillmentOrderEdge();
+            foEdge.setNode(foNode);
+            ShopifyOrderResponse.FulfillmentOrderConnection foConn = new ShopifyOrderResponse.FulfillmentOrderConnection();
+            foConn.setEdges(List.of(foEdge));
+            node.setFulfillmentOrders(foConn);
+        }
+
+        return node;
     }
 }

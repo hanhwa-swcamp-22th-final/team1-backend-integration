@@ -1,11 +1,14 @@
 package com.conk.integration.command.application.controller;
 
+import com.conk.integration.command.application.dto.request.BulkFulfillmentRequest;
+import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,5 +33,20 @@ public class IntegrationCommandController {
         // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
         fulfillmentDispatchService.fulfill(orderId);
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    /**
+     * INT-004 — 미전송 주문 일괄 fulfillment 전송
+     * POST /integrations/seller/orders/bulk-fulfillment
+     */
+    @PostMapping("/seller/orders/bulk-fulfillment")
+    public ResponseEntity<ApiResponse<BulkFulfillmentResponse>> createBulkFulfillment(
+            @RequestHeader("Authorization") String authorization,
+            @RequestBody BulkFulfillmentRequest request) {
+
+        // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
+        BulkFulfillmentResponse response = fulfillmentDispatchService.fulfillBulk(
+                request.getSellerId(), request.getOrderChannel());
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }
