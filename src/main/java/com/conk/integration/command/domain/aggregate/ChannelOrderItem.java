@@ -3,8 +3,6 @@ package com.conk.integration.command.domain.aggregate;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
-
 // 주문에 속한 SKU 단위 수량/작업 상태를 저장하는 자식 엔티티다.
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -32,11 +30,6 @@ public class ChannelOrderItem {
     @Builder.Default
     private int packedQuantity = 0;
 
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    private String createdBy;
-
-    private String updatedBy;
+    @Embedded
+    private AuditFields audit;
 }

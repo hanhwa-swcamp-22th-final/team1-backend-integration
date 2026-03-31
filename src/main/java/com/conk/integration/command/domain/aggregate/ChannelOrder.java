@@ -49,13 +49,8 @@ public class ChannelOrder {
     // Cross-aggregate reference: invoice FK as plain String (no @ManyToOne)
     private String invoiceNo;
 
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
-
-    private String createdBy;
-
-    private String updatedBy;
+    @Embedded
+    private AuditFields audit;
 
     @Builder.Default
     @OneToMany(mappedBy = "channelOrder",
@@ -72,13 +67,14 @@ public class ChannelOrder {
     // 생성 시 감사 시각을 자동으로 채운다.
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        if (audit == null) audit = new AuditFields();
+        audit.onCreate();
     }
 
     // 수정 시 updatedAt만 갱신한다.
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        if (audit == null) audit = new AuditFields();
+        audit.onUpdate();
     }
 }
