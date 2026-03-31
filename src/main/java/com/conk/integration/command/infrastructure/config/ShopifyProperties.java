@@ -28,4 +28,9 @@ public class ShopifyProperties {
     public String getFulfillmentsUrl(String shopifyOrderId) {
         return getBaseUrl() + "/admin/api/" + apiVersion + "/orders/" + shopifyOrderId + "/fulfillments.json";
     }
+
+    // GraphQL Admin API 엔드포인트.
+    public String getGraphQLUrl() {
+        return getBaseUrl() + "/admin/api/" + apiVersion + "/graphql.json";
+    }
 }

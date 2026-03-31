@@ -1,13 +1,17 @@
-package com.conk.integration.command.application.service;
+package com.conk.integration.command.application.service.shopify;
 
 import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRequest;
+import com.conk.integration.command.application.service.ChannelFulfillmentSender;
 import com.conk.integration.command.domain.aggregate.CarrierType;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.OrderChannel;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
+import com.conk.integration.query.dto.FulfillmentTargetDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 // Shopify 채널 주문을 fulfillment API 형식으로 변환해 전송한다.
 @Service
@@ -35,6 +39,11 @@ public class ShopifyFulfillmentSender implements ChannelFulfillmentSender {
                 .build();
 
         shopifyFulfillmentApiClient.createFulfillment(order.getChannelOrderNo(), request);
+    }
+
+    @Override
+    public void sendBulk(List<FulfillmentTargetDto> targets) {
+        shopifyFulfillmentApiClient.createBulkFulfillment(targets);
     }
 
     // 내부 운송사 enum을 Shopify가 읽는 문자열로 변환한다.
