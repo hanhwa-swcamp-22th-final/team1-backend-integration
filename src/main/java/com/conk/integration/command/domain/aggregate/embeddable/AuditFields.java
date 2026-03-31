@@ -1,4 +1,4 @@
-package com.conk.integration.command.domain.aggregate;
+package com.conk.integration.command.domain.aggregate.embeddable;
 
 import jakarta.persistence.Embeddable;
 import lombok.*;
@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 
 @Embeddable
 @Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -19,13 +20,4 @@ public class AuditFields {
     private String createdBy;
 
     private String updatedBy;
-
-    void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 }

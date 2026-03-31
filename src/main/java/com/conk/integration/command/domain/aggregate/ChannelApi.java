@@ -1,5 +1,7 @@
 package com.conk.integration.command.domain.aggregate;
 
+import com.conk.integration.command.domain.aggregate.embeddable.AuditFields;
+import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,5 +20,6 @@ public class ChannelApi {
     private String channelApi;
 
     @Embedded
-    private AuditFields audit;
+    @Builder.Default
+    private AuditFields audit = new AuditFields();
 }

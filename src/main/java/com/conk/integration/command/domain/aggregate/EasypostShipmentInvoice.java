@@ -1,7 +1,10 @@
 package com.conk.integration.command.domain.aggregate;
 
+import com.conk.integration.command.domain.aggregate.embeddable.AuditFields;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.time.LocalDateTime;
 
 // EasyPost에서 구매한 배송 라벨/추적 정보를 내부 송장으로 저장한다.
 @Entity
@@ -27,7 +30,8 @@ public class EasypostShipmentInvoice {
     private String labelFileUrl;
 
     @Embedded
-    private AuditFields audit;
+    @Builder.Default
+    private AuditFields audit = new AuditFields();
 
     // schema: VARCHAR(255) — not DATETIME
     private String issuedAt;
@@ -38,14 +42,14 @@ public class EasypostShipmentInvoice {
     // 생성 시 감사 시각을 자동으로 기록한다.
     @PrePersist
     protected void onCreate() {
-        if (audit == null) audit = new AuditFields();
-        audit.onCreate();
+        LocalDateTime now = LocalDateTime.now();
+        audit.setCreatedAt(now);
+        audit.setUpdatedAt(now);
     }
 
     // 수정 시 updatedAt만 갱신한다.
     @PreUpdate
     protected void onUpdate() {
-        if (audit == null) audit = new AuditFields();
-        audit.onUpdate();
+        audit.setUpdatedAt(LocalDateTime.now());
     }
 }
