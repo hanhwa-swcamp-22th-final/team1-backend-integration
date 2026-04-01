@@ -73,7 +73,9 @@ public class EasyPostInvoiceSaveService {
             try {
                 EasyPostCreateShipmentRequest request = buildRequestFromTarget(target, fromAddress, parcel);
                 EasypostShipmentInvoice invoice = createAndSaveInvoice(request);
-                channelOrderRepository.updateInvoiceNo(target.getOrderId(), invoice.getInvoiceNo());
+                channelOrderRepository.findById(target.getOrderId())
+                        .orElseThrow()
+                        .assignInvoice(invoice.getInvoiceNo());
                 successCount++;
             } catch (Exception e) {
                 failCount++;

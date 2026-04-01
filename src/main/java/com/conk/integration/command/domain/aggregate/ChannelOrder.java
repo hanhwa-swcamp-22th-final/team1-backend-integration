@@ -75,6 +75,16 @@ public class ChannelOrder {
         items.add(item);
     }
 
+    // 채널 동기화 완료 상태로 전환한다.
+    public void markAsSynced() {
+        this.channelSyncYn = true;
+    }
+
+    // 발급된 송장 번호를 주문에 반영한다.
+    public void assignInvoice(String invoiceNo) {
+        this.invoiceNo = invoiceNo;
+    }
+
     // 생성 시 감사 시각을 자동으로 채운다.
     @PrePersist
     protected void onCreate() {
