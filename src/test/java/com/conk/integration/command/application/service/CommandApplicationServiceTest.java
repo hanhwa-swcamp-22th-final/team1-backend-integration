@@ -4,16 +4,18 @@ import com.conk.integration.command.application.dto.request.EasyPostCreateShipme
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
-import com.conk.integration.command.domain.aggregate.CarrierType;
+import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
-import com.conk.integration.command.domain.aggregate.OrderChannel;
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
-import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
+import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.query.service.ChannelApiQueryService;
 import com.conk.integration.query.mapper.ChannelFulfillmentMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.times;
 import static org.mockito.BDDMockito.never;
+import static org.mockito.BDDMockito.willThrow;
 
 /**
  * [3단계] Command Application Service 단위 테스트 — Mockito
@@ -56,6 +59,9 @@ class CommandApplicationServiceTest {
         @Mock
         private ChannelOrderRepository channelOrderRepository;
 
+        @Mock
+        private ChannelApiQueryService channelApiQueryService;
+
         @InjectMocks
         private ShopifyOrderSyncService shopifyOrderSyncService;
 
@@ -66,7 +72,8 @@ class CommandApplicationServiceTest {
             ShopifyOrderResponse.OrderNode existingNode = buildOrderNode(1001L, "#1001");
             ShopifyOrderResponse.OrderNode newNode = buildOrderNode(1002L, "#1002");
 
-            given(shopifyOrderClient.getOrders()).willReturn(List.of(existingNode, newNode));
+            given(channelApiQueryService.findShopifyCredential("seller-A")).willReturn(buildCredential());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existingNode, newNode));
             given(channelOrderRepository.existsById("1001")).willReturn(true);
             given(channelOrderRepository.existsById("1002")).willReturn(false);
 
@@ -79,7 +86,8 @@ class CommandApplicationServiceTest {
         @DisplayName("syncOrders() — 모든 주문이 이미 존재하면 save()가 호출되지 않는다")
         void syncOrders_savesNothing_whenAllExist() {
             // 전체가 중복이면 저장 호출이 완전히 없어야 한다.
-            given(shopifyOrderClient.getOrders())
+            given(channelApiQueryService.findShopifyCredential("seller-B")).willReturn(buildCredential());
+            given(shopifyOrderClient.getOrders(anyString(), anyString()))
                     .willReturn(List.of(buildOrderNode(2001L, "#2001"), buildOrderNode(2002L, "#2002")));
             given(channelOrderRepository.existsById(anyString())).willReturn(true);
 
@@ -92,7 +100,8 @@ class CommandApplicationServiceTest {
         @DisplayName("syncOrders() — Shopify 주문 목록이 0건이면 save()가 호출되지 않는다")
         void syncOrders_savesNothing_whenEmptyOrders() {
             // 외부 API가 빈 목록을 주면 서비스는 조용히 종료해야 한다.
-            given(shopifyOrderClient.getOrders()).willReturn(List.of());
+            given(channelApiQueryService.findShopifyCredential("seller-C")).willReturn(buildCredential());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of());
 
             shopifyOrderSyncService.syncOrders("seller-C");
 
@@ -106,6 +115,13 @@ class CommandApplicationServiceTest {
             node.setName(name);
             node.setCreatedAt("2024-01-15T10:00:00+09:00");
             return node;
+        }
+
+        private ShopifyCredentialDto buildCredential() {
+            ShopifyCredentialDto cred = new ShopifyCredentialDto();
+            cred.setStoreName("test-store");
+            cred.setAccessToken("test-token");
+            return cred;
         }
     }
 
@@ -189,7 +205,7 @@ class CommandApplicationServiceTest {
             // 송장 구매를 진행할 수 없는 입력은 빠르게 실패시킨다.
             assertThatThrownBy(() -> easyPostInvoiceSaveService.selectCheapestRate(List.of()))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("No rates available");
+                    .hasMessageContaining("운임 정보가 없습니다");
         }
 
         @Test
@@ -208,14 +224,14 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("resolveCarrierType() — carrier 문자열에 따라 올바른 CarrierType을 반환한다")
-        void resolveCarrierType_mapsCorrectly() {
+        @DisplayName("fromEasyPostName() — carrier 문자열에 따라 올바른 CarrierType을 반환한다")
+        void fromEasyPostName_mapsCorrectly() {
             // 지원하지 않는 문자열은 기본 운송사로 안전하게 매핑한다.
-            assertThat(easyPostInvoiceSaveService.resolveCarrierType("UPS")).isEqualTo(CarrierType.UPS);
-            assertThat(easyPostInvoiceSaveService.resolveCarrierType("FEDEX")).isEqualTo(CarrierType.FEDEX);
-            assertThat(easyPostInvoiceSaveService.resolveCarrierType("USPS")).isEqualTo(CarrierType.USPS);
-            assertThat(easyPostInvoiceSaveService.resolveCarrierType(null)).isEqualTo(CarrierType.USPS);
-            assertThat(easyPostInvoiceSaveService.resolveCarrierType("UNKNOWN")).isEqualTo(CarrierType.USPS);
+            assertThat(CarrierType.fromEasyPostName("UPS")).isEqualTo(CarrierType.UPS);
+            assertThat(CarrierType.fromEasyPostName("FEDEX")).isEqualTo(CarrierType.FEDEX);
+            assertThat(CarrierType.fromEasyPostName("USPS")).isEqualTo(CarrierType.USPS);
+            assertThat(CarrierType.fromEasyPostName(null)).isEqualTo(CarrierType.USPS);
+            assertThat(CarrierType.fromEasyPostName("UNKNOWN")).isEqualTo(CarrierType.USPS);
         }
 
         // rate 비교 로직 테스트에서 반복되는 DTO 생성을 줄인다.
@@ -245,6 +261,12 @@ class CommandApplicationServiceTest {
 
         private ChannelFulfillmentDispatchService fulfillmentDispatchService;
 
+        @BeforeEach
+        void setUp() {
+            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
+                    channelOrderRepository, invoiceRepository, channelFulfillmentMapper, List.of(shopifySender));
+        }
+
         @Test
         @DisplayName("fulfill() — SHOPIFY 주문이면 지원 sender를 1회 호출한다")
         void fulfill_callsShopifyApi() {
@@ -265,13 +287,6 @@ class CommandApplicationServiceTest {
             given(invoiceRepository.findById("INV-001")).willReturn(Optional.of(invoice));
             given(shopifySender.supports(OrderChannel.SHOPIFY)).willReturn(true);
 
-            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
-                    channelOrderRepository,
-                    invoiceRepository,
-                    channelFulfillmentMapper,
-                    List.of(shopifySender)
-            );
-
             fulfillmentDispatchService.fulfill("O-001");
 
             then(shopifySender).should(times(1))
@@ -283,13 +298,6 @@ class CommandApplicationServiceTest {
         void fulfill_throwsWhenOrderNotFound() {
             // 주문 자체가 없으면 이후 출고 로직으로 진행하면 안 된다.
             given(channelOrderRepository.findById("O-NONE")).willReturn(Optional.empty());
-
-            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
-                    channelOrderRepository,
-                    invoiceRepository,
-                    channelFulfillmentMapper,
-                    List.of(shopifySender)
-            );
 
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-NONE"))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -310,13 +318,6 @@ class CommandApplicationServiceTest {
 
             given(channelOrderRepository.findById("O-002")).willReturn(Optional.of(order));
 
-            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
-                    channelOrderRepository,
-                    invoiceRepository,
-                    channelFulfillmentMapper,
-                    List.of(shopifySender)
-            );
-
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-002"))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("송장이 발급되지 않은 주문");
@@ -336,13 +337,6 @@ class CommandApplicationServiceTest {
 
             given(channelOrderRepository.findById("O-003")).willReturn(Optional.of(order));
             given(invoiceRepository.findById("INV-NOT-EXIST")).willReturn(Optional.empty());
-
-            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
-                    channelOrderRepository,
-                    invoiceRepository,
-                    channelFulfillmentMapper,
-                    List.of(shopifySender)
-            );
 
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-003"))
                     .isInstanceOf(IllegalStateException.class)
@@ -367,13 +361,6 @@ class CommandApplicationServiceTest {
             given(channelOrderRepository.findById("O-004")).willReturn(Optional.of(order));
             given(invoiceRepository.findById("INV-004")).willReturn(Optional.of(invoice));
             given(shopifySender.supports(OrderChannel.AMAZON)).willReturn(false);
-
-            fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
-                    channelOrderRepository,
-                    invoiceRepository,
-                    channelFulfillmentMapper,
-                    List.of(shopifySender)
-            );
 
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-004"))
                     .isInstanceOf(IllegalArgumentException.class)

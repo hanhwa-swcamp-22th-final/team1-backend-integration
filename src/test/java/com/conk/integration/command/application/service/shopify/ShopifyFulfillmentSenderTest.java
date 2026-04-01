@@ -1,12 +1,14 @@
 package com.conk.integration.command.application.service.shopify;
 
 import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRequest;
-import com.conk.integration.command.domain.aggregate.CarrierType;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
-import com.conk.integration.command.domain.aggregate.OrderChannel;
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
+import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
 import com.conk.integration.query.dto.FulfillmentTargetDto;
+import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.query.service.ChannelApiQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,9 +25,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 
 // Shopify sender가 채널 지원 여부와 요청 변환을 올바르게 수행하는지 검증한다.
 @ExtendWith(MockitoExtension.class)
@@ -35,8 +38,15 @@ class ShopifyFulfillmentSenderTest {
     @Mock
     private ShopifyFulfillmentApiClient shopifyFulfillmentApiClient;
 
+    @Mock
+    private ChannelApiQueryService channelApiQueryService;
+
     @InjectMocks
     private ShopifyFulfillmentSender sender;
+
+    private static final String SELLER_ID = "seller-001";
+    private static final String STORE_NAME = "conktest";
+    private static final String ACCESS_TOKEN = "test-token";
 
     // ─────────────────────────────────────────────────────────
     // supports()
@@ -57,11 +67,13 @@ class ShopifyFulfillmentSenderTest {
     @Test
     @DisplayName("send() — 주문/송장을 Shopify fulfillment 요청으로 변환해 API를 호출한다")
     void send_buildsRequestAndCallsApiClient() {
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-001")
                 .channelOrderNo("5678901234")
                 .orderChannel(OrderChannel.SHOPIFY)
-                .sellerId("seller-001")
+                .sellerId(SELLER_ID)
                 .invoiceNo("INV-001")
                 .build();
         EasypostShipmentInvoice invoice = EasypostShipmentInvoice.builder()
@@ -73,7 +85,8 @@ class ShopifyFulfillmentSenderTest {
 
         ArgumentCaptor<ShopifyFulfillmentRequest> requestCaptor =
                 ArgumentCaptor.forClass(ShopifyFulfillmentRequest.class);
-        verify(shopifyFulfillmentApiClient).createFulfillment(anyString(), requestCaptor.capture());
+        then(shopifyFulfillmentApiClient).should().createFulfillment(
+                eq(STORE_NAME), eq(ACCESS_TOKEN), anyString(), requestCaptor.capture());
         ShopifyFulfillmentRequest request = requestCaptor.getValue();
 
         assertThat(request.getFulfillment().getTrackingInfo().getNumber()).isEqualTo("INV-001");
@@ -84,11 +97,13 @@ class ShopifyFulfillmentSenderTest {
     @Test
     @DisplayName("send() — Shopify API client 예외를 그대로 전파한다")
     void send_propagatesExceptionFromClient() {
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-004")
                 .channelOrderNo("5678901234")
                 .orderChannel(OrderChannel.SHOPIFY)
-                .sellerId("seller-001")
+                .sellerId(SELLER_ID)
                 .invoiceNo("INV-004")
                 .build();
         EasypostShipmentInvoice invoice = EasypostShipmentInvoice.builder()
@@ -96,8 +111,8 @@ class ShopifyFulfillmentSenderTest {
                 .carrierType(CarrierType.USPS)
                 .build();
 
-        when(shopifyFulfillmentApiClient.createFulfillment(anyString(), any()))
-                .thenThrow(new HttpClientErrorException(HttpStatus.UNPROCESSABLE_ENTITY));
+        willThrow(new HttpClientErrorException(HttpStatus.UNPROCESSABLE_ENTITY))
+                .given(shopifyFulfillmentApiClient).createFulfillment(anyString(), anyString(), anyString(), any());
 
         assertThatThrownBy(() -> sender.send(order, invoice))
                 .isInstanceOf(HttpClientErrorException.class)
@@ -112,46 +127,44 @@ class ShopifyFulfillmentSenderTest {
     @Test
     @DisplayName("sendBulk() — FulfillmentTargetDto 목록을 그대로 apiClient.createBulkFulfillment()에 위임한다")
     void sendBulk_delegatesToApiClient() {
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+
         List<FulfillmentTargetDto> targets = List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "UPS"),
                 buildTarget("ORD-B", "gid://shopify/FulfillmentOrder/2", "INV-B", "USPS")
         );
 
-        sender.sendBulk(targets);
+        sender.sendBulk(SELLER_ID, targets);
 
-        verify(shopifyFulfillmentApiClient).createBulkFulfillment(targets);
+        then(shopifyFulfillmentApiClient).should().createBulkFulfillment(STORE_NAME, ACCESS_TOKEN, targets);
     }
 
     @Test
     @DisplayName("sendBulk() — apiClient 예외를 그대로 전파한다")
     void sendBulk_propagatesExceptionFromClient() {
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+
         List<FulfillmentTargetDto> targets = List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "USPS")
         );
 
-        doThrow(new HttpClientErrorException(HttpStatus.UNPROCESSABLE_ENTITY))
-                .when(shopifyFulfillmentApiClient).createBulkFulfillment(any());
+        willThrow(new HttpClientErrorException(HttpStatus.UNPROCESSABLE_ENTITY))
+                .given(shopifyFulfillmentApiClient).createBulkFulfillment(anyString(), anyString(), any());
 
-        assertThatThrownBy(() -> sender.sendBulk(targets))
+        assertThatThrownBy(() -> sender.sendBulk(SELLER_ID, targets))
                 .isInstanceOf(HttpClientErrorException.class);
-    }
-
-    // ─────────────────────────────────────────────────────────
-    // resolveCarrierCompany()
-    // ─────────────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("resolveCarrierCompany() — CarrierType에 따라 올바른 운송사 이름을 반환한다")
-    void resolveCarrierCompany_mapsCorrectly() {
-        assertThat(sender.resolveCarrierCompany(CarrierType.UPS)).isEqualTo("UPS");
-        assertThat(sender.resolveCarrierCompany(CarrierType.FEDEX)).isEqualTo("FedEx");
-        assertThat(sender.resolveCarrierCompany(CarrierType.USPS)).isEqualTo("USPS");
-        assertThat(sender.resolveCarrierCompany(null)).isEqualTo("USPS");
     }
 
     // ─────────────────────────────────────────────────────────
     // Helper
     // ─────────────────────────────────────────────────────────
+
+    private ShopifyCredentialDto buildCredential() {
+        ShopifyCredentialDto dto = new ShopifyCredentialDto();
+        dto.setStoreName(STORE_NAME);
+        dto.setAccessToken(ACCESS_TOKEN);
+        return dto;
+    }
 
     private FulfillmentTargetDto buildTarget(String orderId, String fulfillmentOrderId,
                                              String invoiceNo, String carrierType) {

@@ -2,8 +2,8 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
-import com.conk.integration.command.domain.aggregate.CarrierType;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
+import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +23,11 @@ public class EasyPostInvoiceSaveService {
     private final EasypostShipmentInvoiceRepository invoiceRepository;
 
     /**
-     * 배송 송장 생성 및 DB 저장
+     * 배송 송장을 생성하고 DB에 저장한다.
      * 1) shipment 생성 → 2) 최저가 rate 선택 → 3) rate 구매 → 4) DB 저장
+     *
+     * @param request EasyPost shipment 생성 요청
+     * @return 저장된 송장 엔티티
      */
     public EasypostShipmentInvoice createAndSaveInvoice(EasyPostCreateShipmentRequest request) {
         EasyPostShipmentResponse shipment = easyPostApiClient.createShipment(request);
@@ -41,12 +44,12 @@ public class EasyPostInvoiceSaveService {
     // 유효한 rate 문자열만 대상으로 최저 운임을 계산한다.
     EasyPostShipmentResponse.RateDto selectCheapestRate(List<EasyPostShipmentResponse.RateDto> rates) {
         if (rates == null || rates.isEmpty()) {
-            throw new IllegalStateException("No rates available for shipment");
+            throw new IllegalStateException("운임 정보가 없습니다");
         }
         return rates.stream()
                 .filter(r -> r.getRate() != null && isNumeric(r.getRate()))
                 .min(Comparator.comparingDouble(r -> Double.parseDouble(r.getRate())))
-                .orElseThrow(() -> new IllegalStateException("No valid rates available for shipment"));
+                .orElseThrow(() -> new IllegalStateException("유효한 운임 정보가 없습니다"));
     }
 
     // 외부 shipment 응답을 내부 송장 엔티티로 정규화한다.
@@ -62,7 +65,7 @@ public class EasyPostInvoiceSaveService {
         }
 
         CarrierType carrierType = selected != null
-                ? resolveCarrierType(selected.getCarrier())
+                ? CarrierType.fromEasyPostName(selected.getCarrier())
                 : CarrierType.USPS;
 
         return EasypostShipmentInvoice.builder()
@@ -73,16 +76,6 @@ public class EasyPostInvoiceSaveService {
                 .trackingUrl(trackingUrl)
                 .labelFileUrl(labelUrl)
                 .build();
-    }
-
-    // EasyPost carrier 문자열을 내부 enum으로 맞춘다.
-    CarrierType resolveCarrierType(String carrier) {
-        if (carrier == null) return CarrierType.USPS;
-        return switch (carrier.toUpperCase()) {
-            case "UPS" -> CarrierType.UPS;
-            case "FEDEX" -> CarrierType.FEDEX;
-            default -> CarrierType.USPS;
-        };
     }
 
     // tracker 공개 URL이 있으면 우선 사용하고, 없으면 trackingCode 기반 URL을 만든다.

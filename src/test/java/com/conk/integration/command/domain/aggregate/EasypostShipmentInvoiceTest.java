@@ -1,5 +1,6 @@
 package com.conk.integration.command.domain.aggregate;
 
+import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -31,12 +32,18 @@ class ShopifyApiClientIntegrationTest {
     @Autowired
     private ShopifyOrderClient shopifyOrderClient;
 
+    @Value("${shopify.sandbox.store-name:}")
+    private String storeName;
+
+    @Value("${shopify.sandbox.access-token:}")
+    private String accessToken;
+
     // 개발 스토어에서 실제 주문 목록을 읽고 최소 필드가 채워지는지 확인한다.
     @Test
     @DisplayName("주문 목록 조회 - 실제 개발 스토어 API 호출")
     void getOrders_returnsOrdersFromDevStore() {
         // when
-        List<ShopifyOrderResponse.OrderNode> orders = shopifyOrderClient.getOrders();
+        List<ShopifyOrderResponse.OrderNode> orders = shopifyOrderClient.getOrders(storeName, accessToken);
 
         // then
         assertThat(orders).isNotNull();

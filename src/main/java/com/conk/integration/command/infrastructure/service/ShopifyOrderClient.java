@@ -58,14 +58,20 @@ public class ShopifyOrderClient {
     private final ShopifyProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Shopify GraphQL로 주문 목록과 fulfillmentOrder ID를 한 번에 조회한다.
-    public List<ShopifyOrderResponse.OrderNode> getOrders() {
+    /**
+     * Shopify GraphQL로 주문 목록과 fulfillmentOrder ID를 한 번에 조회한다.
+     *
+     * @param storeName   Shopify 스토어명
+     * @param accessToken Shopify Admin API 액세스 토큰
+     * @return 주문 노드 목록
+     */
+    public List<ShopifyOrderResponse.OrderNode> getOrders(String storeName, String accessToken) {
         try {
             String jsonBody = objectMapper.writeValueAsString(Map.of("query", ORDERS_QUERY));
-            HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildHeaders());
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildHeaders(accessToken));
 
             ShopifyOrderResponse response = restTemplate.exchange(
-                    properties.getGraphQLUrl(),
+                    properties.getGraphQLUrl(storeName),
                     HttpMethod.POST,
                     entity,
                     ShopifyOrderResponse.class
@@ -73,7 +79,7 @@ public class ShopifyOrderClient {
 
             if (response == null || response.getData() == null
                     || response.getData().getOrders() == null) {
-                throw new IllegalStateException("Shopify GraphQL API returned empty response");
+                throw new IllegalStateException("Shopify GraphQL API 응답이 비어있습니다");
             }
 
             return response.getData().getOrders().getEdges().stream()
@@ -81,14 +87,14 @@ public class ShopifyOrderClient {
                     .toList();
 
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize Shopify GraphQL request", e);
+            throw new RuntimeException("Shopify GraphQL 요청을 직렬화하는데 실패했습니다", e);
         }
     }
 
     // 토큰과 JSON content-type을 포함한 Shopify 요청 헤더다.
-    private HttpHeaders buildHeaders() {
+    private HttpHeaders buildHeaders(String accessToken) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Shopify-Access-Token", properties.getAccessToken());
+        headers.set("X-Shopify-Access-Token", accessToken);
         headers.setContentType(MediaType.APPLICATION_JSON);
         return headers;
     }

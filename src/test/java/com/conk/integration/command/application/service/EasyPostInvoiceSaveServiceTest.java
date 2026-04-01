@@ -2,7 +2,7 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
-import com.conk.integration.command.domain.aggregate.CarrierType;
+import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
@@ -80,22 +80,22 @@ class EasyPostInvoiceSaveServiceTest {
 
     @Test
     @DisplayName("[GREEN] FedEx carrier는 FEDEX enum으로 매핑")
-    void resolveCarrierType_fedex() {
-        assertThat(service.resolveCarrierType("FedEx")).isEqualTo(CarrierType.FEDEX);
-        assertThat(service.resolveCarrierType("FEDEX")).isEqualTo(CarrierType.FEDEX);
+    void fromEasyPostName_fedex() {
+        assertThat(CarrierType.fromEasyPostName("FedEx")).isEqualTo(CarrierType.FEDEX);
+        assertThat(CarrierType.fromEasyPostName("FEDEX")).isEqualTo(CarrierType.FEDEX);
     }
 
     @Test
     @DisplayName("[GREEN] UPS carrier는 UPS enum으로 매핑")
-    void resolveCarrierType_ups() {
-        assertThat(service.resolveCarrierType("UPS")).isEqualTo(CarrierType.UPS);
+    void fromEasyPostName_ups() {
+        assertThat(CarrierType.fromEasyPostName("UPS")).isEqualTo(CarrierType.UPS);
     }
 
     @Test
     @DisplayName("[GREEN] 알 수 없는 carrier는 USPS enum으로 매핑")
-    void resolveCarrierType_unknown() {
-        assertThat(service.resolveCarrierType("DHL")).isEqualTo(CarrierType.USPS);
-        assertThat(service.resolveCarrierType(null)).isEqualTo(CarrierType.USPS);
+    void fromEasyPostName_unknown() {
+        assertThat(CarrierType.fromEasyPostName("DHL")).isEqualTo(CarrierType.USPS);
+        assertThat(CarrierType.fromEasyPostName(null)).isEqualTo(CarrierType.USPS);
     }
 
     @Test
@@ -133,7 +133,7 @@ class EasyPostInvoiceSaveServiceTest {
     void selectCheapestRate_throwsWhenNull() {
         assertThatThrownBy(() -> service.selectCheapestRate(null))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No rates available");
+                .hasMessageContaining("운임 정보가 없습니다");
     }
 
     @Test
@@ -141,7 +141,7 @@ class EasyPostInvoiceSaveServiceTest {
     void selectCheapestRate_throwsWhenEmpty() {
         assertThatThrownBy(() -> service.selectCheapestRate(List.of()))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("No rates available");
+                .hasMessageContaining("운임 정보가 없습니다");
     }
 
     // ─────────────────────────────────────────────────────────

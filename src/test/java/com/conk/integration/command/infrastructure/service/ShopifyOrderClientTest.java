@@ -37,8 +37,6 @@ class ShopifyOrderClientTest {
         mockServer = MockRestServiceServer.createServer(restTemplate);
 
         ShopifyProperties properties = new ShopifyProperties();
-        properties.setStoreName(STORE_NAME);
-        properties.setAccessToken(ACCESS_TOKEN);
         properties.setApiVersion(API_VERSION);
 
         client = new ShopifyOrderClient(restTemplate, properties);
@@ -56,7 +54,7 @@ class ShopifyOrderClientTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andRespond(withSuccess(ordersResponseJson(), MediaType.APPLICATION_JSON));
 
-        client.getOrders();
+        client.getOrders(STORE_NAME, ACCESS_TOKEN);
         mockServer.verify();
     }
 
@@ -67,7 +65,7 @@ class ShopifyOrderClientTest {
                 .andExpect(header("X-Shopify-Access-Token", ACCESS_TOKEN))
                 .andRespond(withSuccess(ordersResponseJson(), MediaType.APPLICATION_JSON));
 
-        client.getOrders();
+        client.getOrders(STORE_NAME, ACCESS_TOKEN);
         mockServer.verify();
     }
 
@@ -77,7 +75,7 @@ class ShopifyOrderClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess(ordersResponseJson(), MediaType.APPLICATION_JSON));
 
-        List<ShopifyOrderResponse.OrderNode> orders = client.getOrders();
+        List<ShopifyOrderResponse.OrderNode> orders = client.getOrders(STORE_NAME, ACCESS_TOKEN);
 
         assertThat(orders).hasSize(2);
         assertThat(orders.get(0).getId()).isEqualTo("gid://shopify/Order/1001");
@@ -92,7 +90,7 @@ class ShopifyOrderClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess(ordersResponseJson(), MediaType.APPLICATION_JSON));
 
-        List<ShopifyOrderResponse.OrderNode> orders = client.getOrders();
+        List<ShopifyOrderResponse.OrderNode> orders = client.getOrders(STORE_NAME, ACCESS_TOKEN);
 
         ShopifyOrderResponse.FulfillmentOrderConnection fo = orders.getFirst().getFulfillmentOrders();
         assertThat(fo).isNotNull();
@@ -107,7 +105,7 @@ class ShopifyOrderClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess(emptyOrdersResponseJson(), MediaType.APPLICATION_JSON));
 
-        List<ShopifyOrderResponse.OrderNode> orders = client.getOrders();
+        List<ShopifyOrderResponse.OrderNode> orders = client.getOrders(STORE_NAME, ACCESS_TOKEN);
 
         assertThat(orders).isEmpty();
     }
@@ -122,9 +120,9 @@ class ShopifyOrderClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("null", MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> client.getOrders())
+        assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("empty response");
+                .hasMessageContaining("응답이 비어있습니다");
     }
 
     @Test
@@ -133,9 +131,9 @@ class ShopifyOrderClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("{\"data\": null}", MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> client.getOrders())
+        assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("empty response");
+                .hasMessageContaining("응답이 비어있습니다");
     }
 
     @Test
@@ -144,9 +142,9 @@ class ShopifyOrderClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("{\"data\": {\"orders\": null}}", MediaType.APPLICATION_JSON));
 
-        assertThatThrownBy(() -> client.getOrders())
+        assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("empty response");
+                .hasMessageContaining("응답이 비어있습니다");
     }
 
     @Test
@@ -155,7 +153,7 @@ class ShopifyOrderClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
-        assertThatThrownBy(() -> client.getOrders())
+        assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
                 .isInstanceOf(HttpClientErrorException.class)
                 .satisfies(e -> assertThat(((HttpClientErrorException) e).getStatusCode())
                         .isEqualTo(HttpStatus.UNAUTHORIZED));
@@ -167,7 +165,7 @@ class ShopifyOrderClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withServerError());
 
-        assertThatThrownBy(() -> client.getOrders())
+        assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
                 .isInstanceOf(HttpServerErrorException.class);
     }
 
