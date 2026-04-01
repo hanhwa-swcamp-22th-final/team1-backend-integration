@@ -1,13 +1,18 @@
 package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
+import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
+import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
+import com.conk.integration.query.dto.InvoiceTargetDto;
+import com.conk.integration.query.mapper.ChannelOrderInvoiceMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
@@ -21,6 +26,8 @@ public class EasyPostInvoiceSaveService {
 
     private final EasyPostApiClient easyPostApiClient;
     private final EasypostShipmentInvoiceRepository invoiceRepository;
+    private final ChannelOrderRepository channelOrderRepository;
+    private final ChannelOrderInvoiceMapper channelOrderInvoiceMapper;
 
     /**
      * 배송 송장을 생성하고 DB에 저장한다.
@@ -39,6 +46,67 @@ public class EasyPostInvoiceSaveService {
 
         EasypostShipmentInvoice invoice = toInvoice(bought);
         return invoiceRepository.save(invoice);
+    }
+
+    /**
+     * invoiceNo가 없는 주문 전체에 대해 송장을 일괄 발급하고 DB에 반영한다.
+     * 개별 실패는 failCount로 집계하고 나머지 주문은 계속 처리한다.
+     *
+     * @param sellerId    대상 셀러
+     * @param fromAddress 발송 주소 (공통 적용)
+     * @param parcel      소포 정보 (공통 적용)
+     * @return 성공/실패 건수 요약
+     */
+    @Transactional
+    public BulkInvoiceResponse createAndSaveBulkInvoices(
+            String sellerId,
+            EasyPostCreateShipmentRequest.AddressBody fromAddress,
+            EasyPostCreateShipmentRequest.ParcelBody parcel) {
+
+        List<InvoiceTargetDto> targets = channelOrderInvoiceMapper.findOrdersWithoutInvoice(sellerId);
+        if (targets.isEmpty()) {
+            return new BulkInvoiceResponse(0, 0);
+        }
+
+        int successCount = 0, failCount = 0;
+        for (InvoiceTargetDto target : targets) {
+            try {
+                EasyPostCreateShipmentRequest request = buildRequestFromTarget(target, fromAddress, parcel);
+                EasypostShipmentInvoice invoice = createAndSaveInvoice(request);
+                channelOrderRepository.updateInvoiceNo(target.getOrderId(), invoice.getInvoiceNo());
+                successCount++;
+            } catch (Exception e) {
+                failCount++;
+            }
+        }
+        return new BulkInvoiceResponse(successCount, failCount);
+    }
+
+    // InvoiceTargetDto 주소 + 공통 fromAddress/parcel 로 EasyPost 요청을 조립한다.
+    // ChannelOrder에 country 컬럼이 없으므로 "US"로 고정한다.
+    private EasyPostCreateShipmentRequest buildRequestFromTarget(
+            InvoiceTargetDto target,
+            EasyPostCreateShipmentRequest.AddressBody fromAddress,
+            EasyPostCreateShipmentRequest.ParcelBody parcel) {
+
+        EasyPostCreateShipmentRequest.AddressBody toAddress =
+                EasyPostCreateShipmentRequest.AddressBody.builder()
+                        .name(target.getReceiverName())
+                        .phone(target.getReceiverPhoneNo())
+                        .street1(target.getShipToAddress1())
+                        .city(target.getShipToCity())
+                        .state(target.getShipToState())
+                        .zip(target.getShipToZipCode())
+                        .country("US")
+                        .build();
+
+        return EasyPostCreateShipmentRequest.builder()
+                .shipment(EasyPostCreateShipmentRequest.ShipmentBody.builder()
+                        .toAddress(toAddress)
+                        .fromAddress(fromAddress)
+                        .parcel(parcel)
+                        .build())
+                .build();
     }
 
     // 유효한 rate 문자열만 대상으로 최저 운임을 계산한다.

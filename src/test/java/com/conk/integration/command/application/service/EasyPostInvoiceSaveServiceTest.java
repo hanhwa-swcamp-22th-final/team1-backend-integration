@@ -1,11 +1,15 @@
 package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
+import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
+import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
+import com.conk.integration.query.dto.InvoiceTargetDto;
+import com.conk.integration.query.mapper.ChannelOrderInvoiceMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,7 +27,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.*;
 
 // EasyPost 송장 저장 서비스의 정상 흐름과 예외 전파를 Mockito로 검증한다.
@@ -33,6 +39,8 @@ class EasyPostInvoiceSaveServiceTest {
 
     @Mock private EasyPostApiClient easyPostApiClient;
     @Mock private EasypostShipmentInvoiceRepository invoiceRepository;
+    @Mock private ChannelOrderRepository channelOrderRepository;
+    @Mock private ChannelOrderInvoiceMapper channelOrderInvoiceMapper;
 
     @InjectMocks
     private EasyPostInvoiceSaveService service;
@@ -188,8 +196,125 @@ class EasyPostInvoiceSaveServiceTest {
     }
 
     // ─────────────────────────────────────────────────────────
+    // createAndSaveBulkInvoices()
+    // ─────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("[GREEN] 대상 2건 — EasyPost 2회 호출, updateInvoiceNo 2회 호출, successCount=2")
+    void createAndSaveBulkInvoices_fullHappyPath() {
+        List<InvoiceTargetDto> targets = List.of(
+                buildTarget("ORD-BULK-001"), buildTarget("ORD-BULK-002"));
+        given(channelOrderInvoiceMapper.findOrdersWithoutInvoice("seller-001")).willReturn(targets);
+
+        EasyPostShipmentResponse created1 = buildShipmentWithRates("shp_bulk_001",
+                List.of(buildRate("r1", "USPS", "5.50")));
+        EasyPostShipmentResponse bought1 = buildBoughtShipment("shp_bulk_001", "USPS", "5.50",
+                "https://label.url/001.pdf", "https://track.easypost.com/001");
+        EasyPostShipmentResponse created2 = buildShipmentWithRates("shp_bulk_002",
+                List.of(buildRate("r2", "USPS", "6.00")));
+        EasyPostShipmentResponse bought2 = buildBoughtShipment("shp_bulk_002", "USPS", "6.00",
+                "https://label.url/002.pdf", "https://track.easypost.com/002");
+
+        given(easyPostApiClient.createShipment(any()))
+                .willReturn(created1).willReturn(created2);
+        given(easyPostApiClient.buyRate("shp_bulk_001", "r1")).willReturn(bought1);
+        given(easyPostApiClient.buyRate("shp_bulk_002", "r2")).willReturn(bought2);
+        given(invoiceRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+        BulkInvoiceResponse response = service.createAndSaveBulkInvoices(
+                "seller-001", buildFromAddress(), buildParcel());
+
+        assertThat(response.getSuccessCount()).isEqualTo(2);
+        assertThat(response.getFailCount()).isZero();
+        verify(easyPostApiClient, times(2)).createShipment(any());
+        verify(channelOrderRepository).updateInvoiceNo(eq("ORD-BULK-001"), eq("shp_bulk_001"));
+        verify(channelOrderRepository).updateInvoiceNo(eq("ORD-BULK-002"), eq("shp_bulk_002"));
+    }
+
+    @Test
+    @DisplayName("[GREEN] 대상 없으면 API 미호출, BulkInvoiceResponse(0, 0) 반환")
+    void createAndSaveBulkInvoices_emptyTargets_returnsZero() {
+        given(channelOrderInvoiceMapper.findOrdersWithoutInvoice("seller-001")).willReturn(List.of());
+
+        BulkInvoiceResponse response = service.createAndSaveBulkInvoices(
+                "seller-001", buildFromAddress(), buildParcel());
+
+        assertThat(response.getSuccessCount()).isZero();
+        assertThat(response.getFailCount()).isZero();
+        verify(easyPostApiClient, never()).createShipment(any());
+        verify(channelOrderRepository, never()).updateInvoiceNo(any(), any());
+    }
+
+    @Test
+    @DisplayName("[GREEN] 1건 EasyPost 실패 시 failCount=1, 나머지 successCount=1")
+    void createAndSaveBulkInvoices_oneFailure_countedAsFail() {
+        List<InvoiceTargetDto> targets = List.of(
+                buildTarget("ORD-OK-001"), buildTarget("ORD-FAIL-001"));
+        given(channelOrderInvoiceMapper.findOrdersWithoutInvoice("seller-001")).willReturn(targets);
+
+        EasyPostShipmentResponse created = buildShipmentWithRates("shp_ok_001",
+                List.of(buildRate("r1", "USPS", "5.50")));
+        EasyPostShipmentResponse bought = buildBoughtShipment("shp_ok_001", "USPS", "5.50",
+                "https://label.url/ok.pdf", "https://track.easypost.com/ok");
+
+        given(easyPostApiClient.createShipment(any()))
+                .willReturn(created)
+                .willThrow(new RuntimeException("EasyPost 연결 오류"));
+        given(easyPostApiClient.buyRate("shp_ok_001", "r1")).willReturn(bought);
+        given(invoiceRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+        BulkInvoiceResponse response = service.createAndSaveBulkInvoices(
+                "seller-001", buildFromAddress(), buildParcel());
+
+        assertThat(response.getSuccessCount()).isEqualTo(1);
+        assertThat(response.getFailCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("[예외] mapper 조회 중 예외 발생 시 전파된다")
+    void createAndSaveBulkInvoices_propagatesMapperException() {
+        given(channelOrderInvoiceMapper.findOrdersWithoutInvoice("seller-001"))
+                .willThrow(new RuntimeException("DB 연결 오류"));
+
+        assertThatThrownBy(() -> service.createAndSaveBulkInvoices(
+                "seller-001", buildFromAddress(), buildParcel()))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("DB 연결 오류");
+
+        verify(easyPostApiClient, never()).createShipment(any());
+    }
+
+    // ─────────────────────────────────────────────────────────
     // Helper
     // ─────────────────────────────────────────────────────────
+
+    // bulk 테스트에서 반복되는 주문 타겟 fixture다.
+    private InvoiceTargetDto buildTarget(String orderId) {
+        InvoiceTargetDto dto = new InvoiceTargetDto();
+        dto.setOrderId(orderId);
+        dto.setReceiverName("Test Recipient");
+        dto.setReceiverPhoneNo("1234567890");
+        dto.setShipToAddress1("179 N Harbor Dr");
+        dto.setShipToCity("Redondo Beach");
+        dto.setShipToState("CA");
+        dto.setShipToZipCode("90277");
+        return dto;
+    }
+
+    // bulk 메서드에 전달하는 발송 주소 fixture다.
+    private EasyPostCreateShipmentRequest.AddressBody buildFromAddress() {
+        return EasyPostCreateShipmentRequest.AddressBody.builder()
+                .name("EasyPost").street1("417 Montgomery St")
+                .city("San Francisco").state("CA").zip("94104").country("US")
+                .build();
+    }
+
+    // bulk 메서드에 전달하는 소포 정보 fixture다.
+    private EasyPostCreateShipmentRequest.ParcelBody buildParcel() {
+        return EasyPostCreateShipmentRequest.ParcelBody.builder()
+                .weight(21.9).length(10.0).width(8.0).height(4.0)
+                .build();
+    }
 
     // 서비스가 직렬화해 보내는 최소 shipment 요청 fixture다.
     private EasyPostCreateShipmentRequest buildRequest() {
