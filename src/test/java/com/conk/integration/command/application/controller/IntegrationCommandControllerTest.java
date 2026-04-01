@@ -1,6 +1,7 @@
 package com.conk.integration.command.application.controller;
 
 import com.conk.integration.command.application.controller.IntegrationCommandController;
+import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
@@ -170,6 +171,65 @@ class IntegrationCommandControllerTest {
         @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
         void createShipmentInvoice_wrongMethod_returns405() throws Exception {
             mockMvc.perform(get("/integrations/seller/orders/invoice")
+                            .header("Authorization", "Bearer test-token"))
+                    .andExpect(status().isMethodNotAllowed());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /integrations/seller/orders/bulk-invoice — EasyPost 일괄 송장 발급 (INT-006)")
+    class CreateBulkShipmentInvoiceTests {
+
+        private static final String REQUEST_BODY = """
+                {"sellerId":"seller-001","fromAddress":{"name":"EasyPost","street1":"417 Montgomery St","city":"San Francisco","state":"CA","zip":"94104","country":"US"},"parcel":{"weight":21.9,"length":10.0,"width":8.0,"height":4.0}}
+                """;
+
+        @Test
+        @DisplayName("정상 요청 — HTTP 200과 success:true, data(successCount/failCount)가 반환된다")
+        void createBulkShipmentInvoice_returnsOk() throws Exception {
+            given(easyPostInvoiceSaveService.createAndSaveBulkInvoices(any(), any(), any()))
+                    .willReturn(new BulkInvoiceResponse(2, 0));
+
+            mockMvc.perform(post("/integrations/seller/orders/bulk-invoice")
+                            .header("Authorization", "Bearer test-token")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.successCount").value(2))
+                    .andExpect(jsonPath("$.data.failCount").value(0));
+        }
+
+        @Test
+        @DisplayName("Authorization 헤더가 없으면 HTTP 400이 반환된다")
+        void createBulkShipmentInvoice_missingAuthorization_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/orders/bulk-invoice")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: Authorization"));
+        }
+
+        @Test
+        @DisplayName("Service가 IllegalStateException을 던지면 HTTP 400이 반환된다")
+        void createBulkShipmentInvoice_serviceThrows_returns400() throws Exception {
+            given(easyPostInvoiceSaveService.createAndSaveBulkInvoices(any(), any(), any()))
+                    .willThrow(new IllegalStateException("DB 연결 오류"));
+
+            mockMvc.perform(post("/integrations/seller/orders/bulk-invoice")
+                            .header("Authorization", "Bearer test-token")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("DB 연결 오류"));
+        }
+
+        @Test
+        @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
+        void createBulkShipmentInvoice_wrongMethod_returns405() throws Exception {
+            mockMvc.perform(get("/integrations/seller/orders/bulk-invoice")
                             .header("Authorization", "Bearer test-token"))
                     .andExpect(status().isMethodNotAllowed());
         }

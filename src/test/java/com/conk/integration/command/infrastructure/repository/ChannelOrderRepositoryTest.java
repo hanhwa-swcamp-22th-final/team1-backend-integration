@@ -143,6 +143,28 @@ class ChannelOrderRepositoryTest {
         assertThat(channelOrderRepository.findById("UNTOUCHED-001").orElseThrow().isChannelSyncYn()).isFalse();
     }
 
+    // ─────────────────────────────────────────────────────────
+    // updateInvoiceNo()
+    // ─────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("updateInvoiceNo()는 해당 orderId의 invoiceNo를 업데이트한다")
+    void updateInvoiceNo_updatesCorrectOrder() {
+        channelOrderRepository.saveAll(List.of(
+                baseOrder("INV-UPD-001", "seller-A"),
+                baseOrder("INV-UPD-002", "seller-A")
+        ));
+        flushAndClear();
+
+        channelOrderRepository.updateInvoiceNo("INV-UPD-001", "shp_bulk_001");
+        flushAndClear();
+
+        assertThat(channelOrderRepository.findById("INV-UPD-001").orElseThrow().getInvoiceNo())
+                .isEqualTo("shp_bulk_001");
+        assertThat(channelOrderRepository.findById("INV-UPD-002").orElseThrow().getInvoiceNo())
+                .isNull();
+    }
+
     // 저장/조회 테스트에 공통으로 쓰는 최소 주문 fixture다.
     private ChannelOrder baseOrder(String orderId, String sellerId) {
         return ChannelOrder.builder()
