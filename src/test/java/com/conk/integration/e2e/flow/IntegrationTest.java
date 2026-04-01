@@ -5,6 +5,7 @@ import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.domain.repository.*;
+import com.conk.integration.query.mapper.ChannelApiMapper;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
@@ -86,6 +87,9 @@ class IntegrationTest {
 
     @Autowired
     private ChannelApiRepository channelApiRepository;
+
+    @Autowired
+    private ChannelApiMapper channelApiMapper;
 
     /* ===================================================================
      * 1) ShopifyOrderSyncService — 전체 흐름 (API → DB 저장)
@@ -310,12 +314,12 @@ class IntegrationTest {
         void saveAndFindChannelApi() {
             // given
             ChannelApiId id = new ChannelApiId("seller-intg", "SHOPIFY");
-            channelApiRepository.save(
+            channelApiRepository.saveAndFlush(
                     ChannelApi.builder().id(id).channelApi("shopify-api-token").build()
             );
 
             // when
-            List<ChannelApi> result = channelApiRepository.findByIdSellerId("seller-intg");
+            List<ChannelApi> result = channelApiMapper.findByIdSellerId("seller-intg");
 
             // then
             assertThat(result).hasSize(1);

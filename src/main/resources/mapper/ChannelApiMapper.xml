@@ -14,4 +14,41 @@
           AND  channel_name = 'SHOPIFY'
     </select>
 
+    <resultMap id="channelApiIdResultMap"
+               type="com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId">
+        <constructor>
+            <arg column="seller_id"   javaType="String"/>
+            <arg column="channel_name" javaType="String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="auditFieldsResultMap"
+               type="com.conk.integration.command.domain.aggregate.embeddable.AuditFields">
+        <result property="createdAt"  column="created_at"/>
+        <result property="updatedAt"  column="updated_at"/>
+        <result property="createdBy"  column="created_by"/>
+        <result property="updatedBy"  column="updated_by"/>
+    </resultMap>
+
+    <resultMap id="channelApiResultMap"
+               type="com.conk.integration.command.domain.aggregate.ChannelApi">
+        <constructor>
+            <arg resultMap="channelApiIdResultMap"
+                 javaType="com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId"/>
+            <arg column="channel_api" javaType="String"/>
+            <arg column="store_name"  javaType="String"/>
+            <arg resultMap="auditFieldsResultMap"
+                 javaType="com.conk.integration.command.domain.aggregate.embeddable.AuditFields"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findByIdSellerId"
+            parameterType="string"
+            resultMap="channelApiResultMap">
+        SELECT seller_id, channel_name, channel_api, store_name,
+               created_at, updated_at, created_by, updated_by
+        FROM   channel_api
+        WHERE  seller_id = #{sellerId}
+    </select>
+
 </mapper>
