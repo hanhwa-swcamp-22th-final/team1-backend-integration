@@ -16,6 +16,13 @@ public class SellerChannelOrderQueryService {
 
     private final SellerChannelOrderMapper channelOrderMapper;
 
+    /**
+     * 셀러의 주문 목록을 조회하고 표시용 상태/요약 필드를 계산해 반환한다.
+     *
+     * @param sellerId 셀러 식별자
+     * @return 주문 목록 (status, itemsSummary 필드 포함)
+     * @throws IllegalArgumentException sellerId가 null이거나 공백인 경우
+     */
     public List<SellerChannelOrderDto> getOrders(String sellerId) {
         validateSellerId(sellerId);
         // mapper 결과를 표시 전용 DTO로 일괄 변환한다.

@@ -27,7 +27,12 @@ public class EasyPostApiClient {
     private final EasyPostProperties properties;
     private final ObjectMapper objectMapper;  // Spring Bean 주입
 
-    // shipment 생성 API를 호출한다.
+    /**
+     * EasyPost API를 호출해 shipment를 생성하고 rate 목록을 반환한다.
+     *
+     * @param request shipment 생성 요청 (송수신 주소, 소포 정보)
+     * @return 생성된 shipment 응답 (rate 목록 포함)
+     */
     public EasyPostShipmentResponse createShipment(EasyPostCreateShipmentRequest request) {
         try {
             Map<String, Object> body = toRequestMap(request);
@@ -48,7 +53,13 @@ public class EasyPostApiClient {
         }
     }
 
-    // 선택한 rate를 구매해 라벨과 추적 정보를 확정한다.
+    /**
+     * 선택한 rate를 구매하고 라벨/추적 정보가 담긴 shipment 응답을 반환한다.
+     *
+     * @param shipmentId EasyPost shipment ID
+     * @param rateId     구매할 rate ID
+     * @return 구매 완료된 shipment 응답 (label URL, tracking URL 포함)
+     */
     public EasyPostShipmentResponse buyRate(String shipmentId, String rateId) {
         try {
             String jsonBody = objectMapper.writeValueAsString(Map.of("rate", Map.of("id", rateId)));

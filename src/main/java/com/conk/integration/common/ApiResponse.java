@@ -12,12 +12,22 @@ public class ApiResponse<T> {
     private boolean success;
     private T data;
 
-    // 정상 응답 팩토리 메서드.
+    /**
+     * 요청 성공 응답을 생성한다.
+     *
+     * @param data 응답 본문 데이터
+     * @return 성공 상태의 ApiResponse
+     */
     public static <T> ApiResponse<T> ok(T data) {
         return new ApiResponse<>(true, data);
     }
 
-    // 실패 응답 팩토리 메서드.
+    /**
+     * 요청 실패 응답을 생성한다.
+     *
+     * @param data 오류 정보 데이터
+     * @return 실패 상태의 ApiResponse
+     */
     public static <T> ApiResponse<T> fail(T data) {
         return new ApiResponse<>(false, data);
     }

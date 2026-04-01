@@ -14,6 +14,13 @@ public class SellerChannelCardQueryService {
 
     private final SellerChannelCardMapper channelCardMapper;
 
+    /**
+     * 셀러의 채널 연동 카드 목록을 조회하고 표시용 라벨을 부여해 반환한다.
+     *
+     * @param sellerId 셀러 식별자
+     * @return 채널별 카드 목록 (label 필드 포함)
+     * @throws IllegalArgumentException sellerId가 null이거나 공백인 경우
+     */
     public List<SellerChannelCardDto> getChannelCards(String sellerId) {
         validateSellerId(sellerId);
         List<SellerChannelCardDto> cards = channelCardMapper.findBySellerIdGroupedByChannel(sellerId);
