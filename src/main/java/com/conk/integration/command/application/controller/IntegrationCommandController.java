@@ -1,8 +1,10 @@
 package com.conk.integration.command.application.controller;
 
 import com.conk.integration.command.application.dto.request.BulkFulfillmentRequest;
+import com.conk.integration.command.application.dto.request.BulkInvoiceRequest;
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
+import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.EasyPostInvoiceResponse;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
@@ -67,5 +69,20 @@ public class IntegrationCommandController {
         // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
         EasypostShipmentInvoice invoice = easyPostInvoiceSaveService.createAndSaveInvoice(request);
         return ResponseEntity.ok(ApiResponse.ok(EasyPostInvoiceResponse.from(invoice)));
+    }
+
+    /**
+     * INT-006 — EasyPost 일괄 송장 발급
+     * POST /integrations/seller/orders/bulk-invoice
+     */
+    @PostMapping("/seller/orders/bulk-invoice")
+    public ResponseEntity<ApiResponse<BulkInvoiceResponse>> createBulkShipmentInvoice(
+            @RequestHeader("Authorization") String authorization,
+            @RequestBody BulkInvoiceRequest request) {
+
+        // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
+        BulkInvoiceResponse response = easyPostInvoiceSaveService.createAndSaveBulkInvoices(
+                request.getSellerId(), request.getFromAddress(), request.getParcel());
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

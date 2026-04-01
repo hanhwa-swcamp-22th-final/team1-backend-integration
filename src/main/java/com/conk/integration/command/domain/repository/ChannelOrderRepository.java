@@ -18,4 +18,9 @@ public interface ChannelOrderRepository extends JpaRepository<ChannelOrder, Stri
     @Modifying
     @Query("UPDATE ChannelOrder co SET co.channelSyncYn = true WHERE co.orderId IN :orderIds")
     void markAllSynced(@Param("orderIds") List<String> orderIds);
+
+    // 송장 발급 후 주문에 invoiceNo를 반영한다. clearAutomatically로 1차 캐시를 초기화해 이후 조회가 DB에서 읽히도록 한다.
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE ChannelOrder co SET co.invoiceNo = :invoiceNo WHERE co.orderId = :orderId")
+    void updateInvoiceNo(@Param("orderId") String orderId, @Param("invoiceNo") String invoiceNo);
 }

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.conk.integration.query.mapper.ChannelOrderInvoiceMapper">
+
+    <select id="findOrdersWithoutInvoice"
+            resultType="com.conk.integration.query.dto.InvoiceTargetDto">
+        SELECT
+            co.order_id           AS orderId,
+            co.receiver_name      AS receiverName,
+            co.receiver_phone_no  AS receiverPhoneNo,
+            co.ship_to_address1   AS shipToAddress1,
+            co.ship_to_city       AS shipToCity,
+            co.ship_to_state      AS shipToState,
+            co.ship_to_zip_code   AS shipToZipCode
+        FROM channel_order co
+        WHERE co.seller_id   = #{sellerId}
+          AND co.invoice_no  IS NULL
+    </select>
+
+</mapper>
