@@ -2,7 +2,7 @@ package com.conk.integration.command.application.service.shopify;
 
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
-import com.conk.integration.command.domain.aggregate.OrderChannel;
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
 import com.conk.integration.query.dto.ShopifyCredentialDto;

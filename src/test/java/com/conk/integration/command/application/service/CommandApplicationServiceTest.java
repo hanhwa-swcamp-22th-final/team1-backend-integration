@@ -7,11 +7,10 @@ import com.conk.integration.command.application.service.shopify.ShopifyOrderSync
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
-import com.conk.integration.command.domain.aggregate.OrderChannel;
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
-import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
 import com.conk.integration.query.dto.ShopifyCredentialDto;
 import com.conk.integration.query.service.ChannelApiQueryService;

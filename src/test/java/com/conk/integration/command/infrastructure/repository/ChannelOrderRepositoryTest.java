@@ -3,7 +3,7 @@ package com.conk.integration.command.infrastructure.repository;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.ChannelOrderItem;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelOrderItemId;
-import com.conk.integration.command.domain.aggregate.OrderChannel;
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;

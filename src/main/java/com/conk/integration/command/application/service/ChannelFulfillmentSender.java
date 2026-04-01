@@ -2,7 +2,7 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
-import com.conk.integration.command.domain.aggregate.OrderChannel;
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.query.dto.FulfillmentTargetDto;
 
 import java.util.List;

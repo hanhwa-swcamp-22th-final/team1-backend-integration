@@ -3,6 +3,7 @@ package com.conk.integration.e2e.flow;
 import com.conk.integration.command.domain.aggregate.*;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.domain.repository.*;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;

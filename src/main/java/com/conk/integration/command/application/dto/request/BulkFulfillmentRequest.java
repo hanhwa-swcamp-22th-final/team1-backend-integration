@@ -1,6 +1,6 @@
 package com.conk.integration.command.application.dto.request;
 
-import com.conk.integration.command.domain.aggregate.OrderChannel;
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

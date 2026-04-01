@@ -1,6 +1,7 @@
 package com.conk.integration.command.domain.aggregate;
 
 import com.conk.integration.command.domain.aggregate.embeddable.AuditFields;
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import jakarta.persistence.*;
 import lombok.*;
 
