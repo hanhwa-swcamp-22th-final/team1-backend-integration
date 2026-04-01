@@ -25,6 +25,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.never;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.mock;
 
 // fulfillment orchestration이 채널별 sender 선택과 예외 처리를 올바르게 수행하는지 본다.
 @ExtendWith(MockitoExtension.class)
@@ -154,24 +155,30 @@ class ChannelFulfillmentDispatchServiceTest {
         assertThat(response.getSuccessCount()).isZero();
         assertThat(response.getFailCount()).isZero();
         then(shopifySender).should(never()).sendBulk(any(), any());
-        then(channelOrderRepository).should(never()).markAllSynced(any());
+        then(channelOrderRepository).should(never()).findAllById(any());
     }
 
     @Test
-    @DisplayName("[GREEN] 미전송 대상 존재 시 sendBulk 호출 후 markAllSynced 호출")
+    @DisplayName("[GREEN] 미전송 대상 존재 시 sendBulk 호출 후 findAllById + markAsSynced 호출")
     void fulfillBulk_callsSendBulkAndMarksSynced() {
         List<FulfillmentTargetDto> targets = List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "USPS"),
                 buildTarget("ORD-B", "gid://shopify/FulfillmentOrder/2", "INV-B", "USPS")
         );
+        ChannelOrder mockOrderA = mock(ChannelOrder.class);
+        ChannelOrder mockOrderB = mock(ChannelOrder.class);
         given(channelFulfillmentMapper.findUnsyncedTargets("seller-001", "SHOPIFY"))
                 .willReturn(targets);
         given(shopifySender.supports(OrderChannel.SHOPIFY)).willReturn(true);
+        given(channelOrderRepository.findAllById(List.of("ORD-A", "ORD-B")))
+                .willReturn(List.of(mockOrderA, mockOrderB));
 
         BulkFulfillmentResponse response = service.fulfillBulk("seller-001", OrderChannel.SHOPIFY);
 
         then(shopifySender).should().sendBulk("seller-001", targets);
-        then(channelOrderRepository).should().markAllSynced(List.of("ORD-A", "ORD-B"));
+        then(channelOrderRepository).should().findAllById(List.of("ORD-A", "ORD-B"));
+        then(mockOrderA).should().markAsSynced();
+        then(mockOrderB).should().markAsSynced();
         assertThat(response.getSuccessCount()).isEqualTo(2);
         assertThat(response.getFailCount()).isZero();
     }
@@ -192,7 +199,7 @@ class ChannelFulfillmentDispatchServiceTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Shopify 연결 실패");
 
-        then(channelOrderRepository).should(never()).markAllSynced(any());
+        then(channelOrderRepository).should(never()).findAllById(any());
     }
 
     @Test
@@ -206,7 +213,7 @@ class ChannelFulfillmentDispatchServiceTest {
                 .hasMessageContaining("DB 연결 오류");
 
         then(shopifySender).should(never()).sendBulk(any(), any());
-        then(channelOrderRepository).should(never()).markAllSynced(any());
+        then(channelOrderRepository).should(never()).findAllById(any());
     }
 
     @Test
@@ -224,7 +231,7 @@ class ChannelFulfillmentDispatchServiceTest {
                 .hasMessageContaining("지원하지 않는 fulfillment 채널입니다");
 
         then(shopifySender).should(never()).sendBulk(any(), any());
-        then(channelOrderRepository).should(never()).markAllSynced(any());
+        then(channelOrderRepository).should(never()).findAllById(any());
     }
 
     // ─────────────────────────────────────────────────────────

@@ -77,7 +77,7 @@ public class ChannelFulfillmentDispatchService {
         List<String> orderIds = targets.stream()
                 .map(FulfillmentTargetDto::getOrderId)
                 .collect(Collectors.toList());
-        channelOrderRepository.markAllSynced(orderIds);
+        channelOrderRepository.findAllById(orderIds).forEach(ChannelOrder::markAsSynced);
 
         return new BulkFulfillmentResponse(targets.size(), 0);
     }
