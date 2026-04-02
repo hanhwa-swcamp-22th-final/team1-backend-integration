@@ -4,13 +4,16 @@ import com.conk.integration.command.application.dto.request.BulkFulfillmentReque
 import com.conk.integration.command.application.dto.request.BulkInvoiceRequest;
 import com.conk.integration.command.application.dto.request.ChannelOrderSyncRequest;
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
+import com.conk.integration.command.application.dto.request.ManualOrderInvoiceRequest;
 import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.application.dto.response.EasyPostInvoiceResponse;
+import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.command.application.service.ChannelOrderSyncDispatchService;
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
+import com.conk.integration.command.application.service.ManualOrderInvoiceService;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +34,7 @@ public class IntegrationCommandController {
     private final ChannelFulfillmentDispatchService fulfillmentDispatchService;
     private final EasyPostInvoiceSaveService easyPostInvoiceSaveService;
     private final ChannelOrderSyncDispatchService orderSyncDispatchService;
+    private final ManualOrderInvoiceService manualOrderInvoiceService;
 
     /**
      * INT-007 — 채널 주문 동기화
@@ -102,6 +106,19 @@ public class IntegrationCommandController {
         // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
         BulkInvoiceResponse response = easyPostInvoiceSaveService.createAndSaveBulkInvoices(
                 request.getSellerId(), request.getFromAddress(), request.getParcel());
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
+     * INT-008 — 수동 주문 기입 및 EasyPost 송장 발급
+     * POST /integrations/seller/orders/manual-invoice
+     */
+    @PostMapping("/seller/orders/manual-invoice")
+    public ResponseEntity<ApiResponse<ManualOrderInvoiceResponse>> createManualOrderInvoice(
+            @RequestHeader("X-Seller-Id") String sellerId,
+            @RequestBody ManualOrderInvoiceRequest request) {
+
+        ManualOrderInvoiceResponse response = manualOrderInvoiceService.issue(sellerId, request);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

@@ -51,6 +51,9 @@ public class ChannelOrder {
     // Cross-aggregate reference: invoice FK as plain String (no @ManyToOne)
     private String invoiceNo;
 
+    // EasyPost shipment ID — buyRate 이전에 기록해 crash 발생 시 추적에 사용한다.
+    private String shipmentId;
+
     // 채널 fulfillment order ID (e.g. Shopify FulfillmentOrder GID)
     private String fulfillmentOrderId;
 
@@ -83,6 +86,11 @@ public class ChannelOrder {
     // 발급된 송장 번호를 주문에 반영한다.
     public void assignInvoice(String invoiceNo) {
         this.invoiceNo = invoiceNo;
+    }
+
+    // createShipment 직후 shipmentId를 기록해 buyRate crash 시 추적을 가능하게 한다.
+    public void assignShipmentId(String shipmentId) {
+        this.shipmentId = shipmentId;
     }
 
     // 생성 시 감사 시각을 자동으로 채운다.
