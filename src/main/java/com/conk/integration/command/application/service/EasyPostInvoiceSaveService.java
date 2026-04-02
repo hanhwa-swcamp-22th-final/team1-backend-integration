@@ -1,12 +1,13 @@
 package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
+import com.conk.integration.command.application.dto.request.OrderInvoicePair;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
-import com.conk.integration.command.domain.repository.ChannelOrderRepository;
-import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
+import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
+import com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
 import com.conk.integration.query.dto.InvoiceTargetDto;
 import com.conk.integration.query.mapper.ChannelOrderInvoiceMapper;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,7 +28,7 @@ public class EasyPostInvoiceSaveService {
 
     private final EasyPostApiClient easyPostApiClient;
     private final EasypostShipmentInvoiceRepository invoiceRepository;
-    private final ChannelOrderRepository channelOrderRepository;
+    private final ChannelOrderCommandMapper channelOrderCommandMapper;
     private final ChannelOrderInvoiceMapper channelOrderInvoiceMapper;
 
     /**
@@ -69,17 +71,19 @@ public class EasyPostInvoiceSaveService {
         }
 
         int successCount = 0, failCount = 0;
+        List<OrderInvoicePair> successPairs = new ArrayList<>();
         for (InvoiceTargetDto target : targets) {
             try {
                 EasyPostCreateShipmentRequest request = buildRequestFromTarget(target, fromAddress, parcel);
                 EasypostShipmentInvoice invoice = createAndSaveInvoice(request);
-                channelOrderRepository.findById(target.getOrderId())
-                        .orElseThrow()
-                        .assignInvoice(invoice.getInvoiceNo());
+                successPairs.add(new OrderInvoicePair(target.getOrderId(), invoice.getInvoiceNo()));
                 successCount++;
             } catch (Exception e) {
                 failCount++;
             }
+        }
+        if (!successPairs.isEmpty()) {
+            channelOrderCommandMapper.bulkAssignInvoice(successPairs);
         }
         return new BulkInvoiceResponse(successCount, failCount);
     }

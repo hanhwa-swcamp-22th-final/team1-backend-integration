@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper">
+
+    <!-- channel_sync_yn을 true로 일괄 업데이트한다. -->
+    <update id="markAllSynced">
+        UPDATE channel_order
+        SET channel_sync_yn = true
+        WHERE order_id IN
+        <foreach collection="orderIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 주문별로 다른 invoiceNo를 한 번의 쿼리로 일괄 반영한다. -->
+    <update id="bulkAssignInvoice">
+        UPDATE channel_order
+        SET invoice_no = CASE order_id
+            <foreach collection="pairs" item="pair">
+                WHEN #{pair.orderId} THEN #{pair.invoiceNo}
+            </foreach>
+        END
+        WHERE order_id IN
+        <foreach collection="pairs" item="pair" open="(" separator="," close=")">
+            #{pair.orderId}
+        </foreach>
+    </update>
+
+</mapper>

@@ -8,12 +8,13 @@ import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
-import com.conk.integration.command.domain.repository.ChannelOrderRepository;
-import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
+import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
+import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
 import com.conk.integration.query.dto.ShopifyCredentialDto;
 import com.conk.integration.query.service.ChannelApiQueryService;
+import com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper;
 import com.conk.integration.query.mapper.ChannelFulfillmentMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -257,6 +258,9 @@ class CommandApplicationServiceTest {
         private ChannelFulfillmentMapper channelFulfillmentMapper;
 
         @Mock
+        private ChannelOrderCommandMapper channelOrderCommandMapper;
+
+        @Mock
         private ChannelFulfillmentSender shopifySender;
 
         private ChannelFulfillmentDispatchService fulfillmentDispatchService;
@@ -264,7 +268,8 @@ class CommandApplicationServiceTest {
         @BeforeEach
         void setUp() {
             fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
-                    channelOrderRepository, invoiceRepository, channelFulfillmentMapper, List.of(shopifySender));
+                    channelOrderRepository, invoiceRepository, channelFulfillmentMapper,
+                    channelOrderCommandMapper, List.of(shopifySender));
         }
 
         @Test
