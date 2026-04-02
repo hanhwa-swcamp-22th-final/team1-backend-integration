@@ -1,5 +1,6 @@
 package com.conk.integration.e2e.flow;
 
+import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.domain.aggregate.*;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
@@ -157,6 +158,53 @@ class IntegrationTest {
             List<ChannelOrder> result = channelOrderRepository.findBySellerId("seller-integration-C");
             assertThat(result).isEmpty();
         }
+
+        @Test
+        @DisplayName("syncOrders() — lineItems가 있으면 channel_order_item도 함께 저장된다")
+        void syncOrders_persistsChannelOrderItems_whenLineItemsPresent() {
+            // given
+            ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(9010L, "#9010", "Diana", "400 Elm St");
+            node.setLineItems(buildLineItemConnection("SKU-A", "Widget A", 2, null));
+
+            given(channelApiQueryService.findShopifyCredential("seller-integration-D")).willReturn(buildCredential());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
+
+            // when
+            shopifyOrderSyncService.syncOrders("seller-integration-D");
+
+            // then — DB에서 주문을 다시 조회해 items 확인
+            channelOrderRepository.flush();
+            ChannelOrder saved = channelOrderRepository.findById("9010").orElseThrow();
+            assertThat(saved.getItems()).hasSize(1);
+            assertThat(saved.getItems().get(0).getId().getSkuId()).isEqualTo("SKU-A");
+            assertThat(saved.getItems().get(0).getProductNameSnapshot()).isEqualTo("Widget A");
+            assertThat(saved.getItems().get(0).getQuantity()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("syncOrders() — 반환값에 savedCount와 skippedCount가 정확히 포함된다")
+        void syncOrders_returnsCorrectSavedAndSkippedCount() {
+            // given — 9020은 이미 DB에 존재, 9021은 신규
+            channelOrderRepository.save(ChannelOrder.builder()
+                    .orderId("9020").channelOrderNo("#9020")
+                    .orderChannel(OrderChannel.SHOPIFY)
+                    .sellerId("seller-integration-E").build());
+
+            ShopifyOrderResponse.OrderNode existing = buildShopifyOrderNode(9020L, "#9020", "Eve", "500 Pine St");
+            ShopifyOrderResponse.OrderNode newOne   = buildShopifyOrderNode(9021L, "#9021", "Frank", "600 Oak Ave");
+
+            given(channelApiQueryService.findShopifyCredential("seller-integration-E")).willReturn(buildCredential());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existing, newOne));
+
+            // when
+            ChannelOrderSyncResponse result = shopifyOrderSyncService.syncOrders("seller-integration-E");
+
+            // then
+            assertThat(result.getSavedCount()).isEqualTo(1);
+            assertThat(result.getSkippedCount()).isEqualTo(1);
+            assertThat(result.getOrders()).hasSize(1);
+            assertThat(result.getOrders().get(0).getOrderId()).isEqualTo("9021");
+        }
     }
 
     /* ===================================================================
@@ -301,7 +349,88 @@ class IntegrationTest {
     }
 
     /* ===================================================================
-     * 4) ChannelApiRepository — 전체 흐름 (저장 + 조회)
+     * 4) POST /integrations/seller/orders/sync — HTTP 전체 흐름
+     * =================================================================== */
+
+    @Nested
+    @DisplayName("POST /integrations/seller/orders/sync — HTTP 전체 흐름 통합 테스트")
+    class SyncOrdersHttpIntegrationTests {
+
+        // HTTP 요청 → Controller → DispatchService → SyncService → DB 저장 전체 흐름을 확인한다.
+        @Test
+        @DisplayName("정상 요청 — HTTP 200과 savedCount/skippedCount가 반환된다")
+        void syncOrders_e2e_returnsHttpOkWithCounts() throws Exception {
+            // given
+            ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(8001L, "#8001", "Alice", "100 Main St");
+            given(channelApiQueryService.findShopifyCredential("seller-http-A")).willReturn(buildCredential());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
+
+            // when & then
+            mockMvc.perform(post("/integrations/seller/orders/sync")
+                            .header("Authorization", "Bearer test-token")
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content("{\"sellerId\":\"seller-http-A\",\"orderChannel\":\"SHOPIFY\"}"))
+                    .andDo(print())
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.savedCount").value(1))
+                    .andExpect(jsonPath("$.data.skippedCount").value(0))
+                    .andExpect(jsonPath("$.data.orders").isArray())
+                    .andExpect(jsonPath("$.data.orders[0].orderId").value("8001"));
+        }
+
+        @Test
+        @DisplayName("sync 후 DB에 주문이 실제로 저장된다")
+        void syncOrders_e2e_persistsOrderToDb() throws Exception {
+            // given
+            ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(8002L, "#8002", "Bob", "200 Oak Ave");
+            node.setLineItems(buildLineItemConnection("SKU-HTTP-01", "Gadget B", 1, null));
+            given(channelApiQueryService.findShopifyCredential("seller-http-B")).willReturn(buildCredential());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
+
+            // when
+            mockMvc.perform(post("/integrations/seller/orders/sync")
+                            .header("Authorization", "Bearer test-token")
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content("{\"sellerId\":\"seller-http-B\",\"orderChannel\":\"SHOPIFY\"}"))
+                    .andExpect(status().isOk());
+
+            // then — DB 직접 조회
+            channelOrderRepository.flush();
+            ChannelOrder saved = channelOrderRepository.findById("8002").orElseThrow();
+            assertThat(saved.getChannelOrderNo()).isEqualTo("#8002");
+            assertThat(saved.getItems()).hasSize(1);
+            assertThat(saved.getItems().get(0).getId().getSkuId()).isEqualTo("SKU-HTTP-01");
+        }
+
+        @Test
+        @DisplayName("채널 크리덴셜이 없는 셀러 요청 시 HTTP 400이 반환된다")
+        void syncOrders_e2e_missingCredential_returns400() throws Exception {
+            // given — 크리덴셜 조회 시 예외 발생 (등록되지 않은 셀러)
+            given(channelApiQueryService.findShopifyCredential("seller-no-cred"))
+                    .willThrow(new IllegalArgumentException("채널 API 정보가 존재하지 않습니다"));
+
+            mockMvc.perform(post("/integrations/seller/orders/sync")
+                            .header("Authorization", "Bearer test-token")
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content("{\"sellerId\":\"seller-no-cred\",\"orderChannel\":\"SHOPIFY\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+        }
+
+        @Test
+        @DisplayName("Authorization 헤더 누락 시 HTTP 400이 반환된다")
+        void syncOrders_e2e_missingAuthHeader_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/orders/sync")
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content("{\"sellerId\":\"seller-http-D\",\"orderChannel\":\"SHOPIFY\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+        }
+    }
+
+    /* ===================================================================
+     * 5) ChannelApiRepository — 전체 흐름 (저장 + 조회)
      * =================================================================== */
 
     @Nested
@@ -358,5 +487,30 @@ class IntegrationTest {
         node.setShippingAddress(addr);
 
         return node;
+    }
+
+    /**
+     * ShopifyOrderResponse.LineItemConnection 테스트 픽스처 생성
+     */
+    private ShopifyOrderResponse.LineItemConnection buildLineItemConnection(
+            String sku, String title, int quantity, String gidVariantId) {
+
+        ShopifyOrderResponse.LineItemNode lineItemNode = new ShopifyOrderResponse.LineItemNode();
+        lineItemNode.setSku(sku);
+        lineItemNode.setTitle(title);
+        lineItemNode.setQuantity(quantity);
+
+        if (gidVariantId != null) {
+            ShopifyOrderResponse.VariantNode variantNode = new ShopifyOrderResponse.VariantNode();
+            variantNode.setId(gidVariantId);
+            lineItemNode.setVariant(variantNode);
+        }
+
+        ShopifyOrderResponse.LineItemEdge edge = new ShopifyOrderResponse.LineItemEdge();
+        edge.setNode(lineItemNode);
+
+        ShopifyOrderResponse.LineItemConnection connection = new ShopifyOrderResponse.LineItemConnection();
+        connection.setEdges(List.of(edge));
+        return connection;
     }
 }

@@ -48,6 +48,18 @@ public class ShopifyOrderClient {
                         }
                       }
                     }
+                    lineItems(first: 50) {
+                      edges {
+                        node {
+                          sku
+                          title
+                          quantity
+                          variant {
+                            id
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }

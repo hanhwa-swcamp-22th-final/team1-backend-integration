@@ -144,6 +144,7 @@ public class EasyPostInvoiceSaveService {
 
         return EasypostShipmentInvoice.builder()
                 .invoiceNo(response.getId())
+                .trackingCode(response.getTrackingCode())
                 .carrierType(carrierType)
                 .freightChargeAmt(freightChargeAmtCents)
                 .shipToAddress(shipToAddress)
