@@ -18,6 +18,8 @@ public class EasypostShipmentInvoice {
     @Id
     private String invoiceNo;
 
+    private String trackingCode;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
     private CarrierType carrierType;
