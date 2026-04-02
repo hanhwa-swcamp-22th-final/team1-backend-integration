@@ -1,4 +1,4 @@
-package com.conk.integration.command.domain.repository;
+package com.conk.integration.command.infrastructure.repository;
 
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import org.springframework.data.jpa.repository.JpaRepository;

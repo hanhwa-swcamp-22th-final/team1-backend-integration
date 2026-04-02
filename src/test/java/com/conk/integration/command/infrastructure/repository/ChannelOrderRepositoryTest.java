@@ -4,7 +4,6 @@ import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.ChannelOrderItem;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelOrderItemId;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
-import com.conk.integration.command.domain.repository.ChannelOrderRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.DisplayName;

@@ -2,7 +2,7 @@ package com.conk.integration.command.infrastructure.repository;
 
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
-import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
+import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
