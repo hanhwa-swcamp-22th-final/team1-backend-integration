@@ -2,7 +2,7 @@ package com.conk.integration.command.infrastructure.repository;
 
 import com.conk.integration.command.domain.aggregate.ChannelApi;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
-import com.conk.integration.command.domain.repository.ChannelApiRepository;
+import com.conk.integration.command.infrastructure.repository.ChannelApiRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

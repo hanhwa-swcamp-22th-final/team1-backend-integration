@@ -8,7 +8,7 @@ import com.conk.integration.command.application.service.EasyPostInvoiceSaveServi
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
-import com.conk.integration.command.domain.repository.ChannelOrderRepository;
+import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;

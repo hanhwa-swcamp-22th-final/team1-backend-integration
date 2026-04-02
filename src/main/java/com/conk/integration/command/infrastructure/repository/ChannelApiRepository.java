@@ -1,4 +1,4 @@
-package com.conk.integration.command.domain.repository;
+package com.conk.integration.command.infrastructure.repository;
 
 import com.conk.integration.command.domain.aggregate.ChannelApi;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;

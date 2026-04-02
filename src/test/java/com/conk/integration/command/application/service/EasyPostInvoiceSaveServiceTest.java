@@ -1,13 +1,13 @@
 package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
+import com.conk.integration.command.application.dto.request.OrderInvoicePair;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
-import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
-import com.conk.integration.command.domain.repository.ChannelOrderRepository;
-import com.conk.integration.command.domain.repository.EasypostShipmentInvoiceRepository;
+import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
+import com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
 import com.conk.integration.query.dto.InvoiceTargetDto;
 import com.conk.integration.query.mapper.ChannelOrderInvoiceMapper;
@@ -23,7 +23,6 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,7 +39,7 @@ class EasyPostInvoiceSaveServiceTest {
 
     @Mock private EasyPostApiClient easyPostApiClient;
     @Mock private EasypostShipmentInvoiceRepository invoiceRepository;
-    @Mock private ChannelOrderRepository channelOrderRepository;
+    @Mock private ChannelOrderCommandMapper channelOrderCommandMapper;
     @Mock private ChannelOrderInvoiceMapper channelOrderInvoiceMapper;
 
     @InjectMocks
@@ -201,7 +200,7 @@ class EasyPostInvoiceSaveServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] 대상 2건 — EasyPost 2회 호출, assignInvoice 2회 호출, successCount=2")
+    @DisplayName("[GREEN] 대상 2건 — EasyPost 2회 호출, bulkAssignInvoice 1회 호출, successCount=2")
     void createAndSaveBulkInvoices_fullHappyPath() {
         List<InvoiceTargetDto> targets = List.of(
                 buildTarget("ORD-BULK-001"), buildTarget("ORD-BULK-002"));
@@ -216,16 +215,13 @@ class EasyPostInvoiceSaveServiceTest {
         EasyPostShipmentResponse bought2 = buildBoughtShipment("shp_bulk_002", "USPS", "6.00",
                 "https://label.url/002.pdf", "https://track.easypost.com/002");
 
-        ChannelOrder mockOrder1 = mock(ChannelOrder.class);
-        ChannelOrder mockOrder2 = mock(ChannelOrder.class);
-
         given(easyPostApiClient.createShipment(any()))
                 .willReturn(created1).willReturn(created2);
         given(easyPostApiClient.buyRate("shp_bulk_001", "r1")).willReturn(bought1);
         given(easyPostApiClient.buyRate("shp_bulk_002", "r2")).willReturn(bought2);
         given(invoiceRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
-        given(channelOrderRepository.findById("ORD-BULK-001")).willReturn(Optional.of(mockOrder1));
-        given(channelOrderRepository.findById("ORD-BULK-002")).willReturn(Optional.of(mockOrder2));
+
+        ArgumentCaptor<List<OrderInvoicePair>> captor = ArgumentCaptor.forClass(List.class);
 
         BulkInvoiceResponse response = service.createAndSaveBulkInvoices(
                 "seller-001", buildFromAddress(), buildParcel());
@@ -233,8 +229,13 @@ class EasyPostInvoiceSaveServiceTest {
         assertThat(response.getSuccessCount()).isEqualTo(2);
         assertThat(response.getFailCount()).isZero();
         verify(easyPostApiClient, times(2)).createShipment(any());
-        verify(mockOrder1).assignInvoice("shp_bulk_001");
-        verify(mockOrder2).assignInvoice("shp_bulk_002");
+        verify(channelOrderCommandMapper).bulkAssignInvoice(captor.capture());
+        List<OrderInvoicePair> pairs = captor.getValue();
+        assertThat(pairs).hasSize(2);
+        assertThat(pairs.get(0).getOrderId()).isEqualTo("ORD-BULK-001");
+        assertThat(pairs.get(0).getInvoiceNo()).isEqualTo("shp_bulk_001");
+        assertThat(pairs.get(1).getOrderId()).isEqualTo("ORD-BULK-002");
+        assertThat(pairs.get(1).getInvoiceNo()).isEqualTo("shp_bulk_002");
     }
 
     @Test
@@ -248,7 +249,7 @@ class EasyPostInvoiceSaveServiceTest {
         assertThat(response.getSuccessCount()).isZero();
         assertThat(response.getFailCount()).isZero();
         verify(easyPostApiClient, never()).createShipment(any());
-        verify(channelOrderRepository, never()).findById(any());
+        verify(channelOrderCommandMapper, never()).bulkAssignInvoice(any());
     }
 
     @Test
@@ -268,13 +269,14 @@ class EasyPostInvoiceSaveServiceTest {
                 .willThrow(new RuntimeException("EasyPost 연결 오류"));
         given(easyPostApiClient.buyRate("shp_ok_001", "r1")).willReturn(bought);
         given(invoiceRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
-        given(channelOrderRepository.findById("ORD-OK-001")).willReturn(Optional.of(mock(ChannelOrder.class)));
 
         BulkInvoiceResponse response = service.createAndSaveBulkInvoices(
                 "seller-001", buildFromAddress(), buildParcel());
 
         assertThat(response.getSuccessCount()).isEqualTo(1);
         assertThat(response.getFailCount()).isEqualTo(1);
+        verify(channelOrderCommandMapper).bulkAssignInvoice(
+                List.of(new OrderInvoicePair("ORD-OK-001", "shp_ok_001")));
     }
 
     @Test

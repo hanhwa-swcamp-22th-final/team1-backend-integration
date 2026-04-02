@@ -41,3 +41,4 @@ src/main/resources/application-dev.yml
 /CLAUDE.md
 /docs/
 /.gradle-user-home/
+/.tmp/
