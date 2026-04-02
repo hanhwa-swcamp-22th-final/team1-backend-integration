@@ -66,6 +66,9 @@ public class ShopifyOrderResponse {
 
         @JsonProperty("fulfillmentOrders")
         private FulfillmentOrderConnection fulfillmentOrders;
+
+        @JsonProperty("lineItems")
+        private LineItemConnection lineItems;
     }
 
     @Getter
@@ -128,6 +131,52 @@ public class ShopifyOrderResponse {
     public static class FulfillmentOrderNode {
 
         // GID 형식: "gid://shopify/FulfillmentOrder/67890"
+        @JsonProperty("id")
+        private String id;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class LineItemConnection {
+
+        @JsonProperty("edges")
+        private List<LineItemEdge> edges;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class LineItemEdge {
+
+        @JsonProperty("node")
+        private LineItemNode node;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class LineItemNode {
+
+        @JsonProperty("sku")
+        private String sku;
+
+        @JsonProperty("title")
+        private String title;
+
+        @JsonProperty("quantity")
+        private int quantity;
+
+        @JsonProperty("variant")
+        private VariantNode variant;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class VariantNode {
+
+        // GID 형식: "gid://shopify/ProductVariant/12345"
         @JsonProperty("id")
         private String id;
     }

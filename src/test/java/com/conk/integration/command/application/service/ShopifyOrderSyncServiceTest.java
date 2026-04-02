@@ -1,8 +1,10 @@
 package com.conk.integration.command.application.service;
 
+import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
+import com.conk.integration.command.domain.aggregate.ChannelOrderItem;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
@@ -300,6 +302,93 @@ class ShopifyOrderSyncServiceTest {
     }
 
     // ─────────────────────────────────────────────────────────
+    // ChannelOrderItem 저장
+    // ─────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("line item의 sku가 있으면 sku를 skuId로 사용해 ChannelOrderItem을 저장한다")
+    void syncOrders_savesChannelOrderItem_whenSkuPresent() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/2000", "#2000", "2024-02-01T10:00:00-05:00", null);
+        node.setLineItems(buildLineItemConnection("SKU-001", "Product A", 3, null));
+
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("2000")).willReturn(false);
+
+        syncService.syncOrders(SELLER_ID);
+
+        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+        then(channelOrderRepository).should().save(captor.capture());
+        ChannelOrder saved = captor.getValue();
+
+        assertThat(saved.getItems()).hasSize(1);
+        ChannelOrderItem item = saved.getItems().get(0);
+        assertThat(item.getId().getSkuId()).isEqualTo("SKU-001");
+        assertThat(item.getProductNameSnapshot()).isEqualTo("Product A");
+        assertThat(item.getQuantity()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("sku가 비어있고 variant id가 있으면 variant GID 끝 숫자를 skuId로 사용한다")
+    void syncOrders_usesVariantIdAsSkuId_whenSkuIsBlank() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/3000", "#3000", "2024-02-01T10:00:00-05:00", null);
+        node.setLineItems(buildLineItemConnection("", "Product B", 1, "gid://shopify/ProductVariant/99999"));
+
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("3000")).willReturn(false);
+
+        syncService.syncOrders(SELLER_ID);
+
+        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+        then(channelOrderRepository).should().save(captor.capture());
+
+        assertThat(captor.getValue().getItems()).hasSize(1);
+        assertThat(captor.getValue().getItems().get(0).getId().getSkuId()).isEqualTo("99999");
+    }
+
+    @Test
+    @DisplayName("lineItems가 null이어도 주문 자체는 정상 저장된다")
+    void syncOrders_savesOrderWithoutItems_whenLineItemsIsNull() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/4000", "#4000", "2024-02-01T10:00:00-05:00", null);
+        node.setLineItems(null);
+
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("4000")).willReturn(false);
+
+        syncService.syncOrders(SELLER_ID);
+
+        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+        then(channelOrderRepository).should().save(captor.capture());
+        assertThat(captor.getValue().getItems()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("syncOrders 반환값에 savedCount와 skippedCount가 정확히 포함된다")
+    void syncOrders_returnsSavedAndSkippedCount() {
+        ShopifyOrderResponse.OrderNode existing = buildOrderNode(
+                "gid://shopify/Order/5000", "#5000", "2024-02-01T10:00:00-05:00", null);
+        ShopifyOrderResponse.OrderNode newOne = buildOrderNode(
+                "gid://shopify/Order/5001", "#5001", "2024-02-01T10:00:00-05:00", null);
+
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existing, newOne));
+        given(channelOrderRepository.existsById("5000")).willReturn(true);
+        given(channelOrderRepository.existsById("5001")).willReturn(false);
+
+        ChannelOrderSyncResponse result = syncService.syncOrders(SELLER_ID);
+
+        assertThat(result.getSavedCount()).isEqualTo(1);
+        assertThat(result.getSkippedCount()).isEqualTo(1);
+        assertThat(result.getOrders()).hasSize(1);
+        assertThat(result.getOrders().get(0).getOrderId()).isEqualTo("5001");
+    }
+
+    // ─────────────────────────────────────────────────────────
     // Helper
     // ─────────────────────────────────────────────────────────
 
@@ -330,5 +419,27 @@ class ShopifyOrderSyncServiceTest {
         }
 
         return node;
+    }
+
+    private ShopifyOrderResponse.LineItemConnection buildLineItemConnection(
+            String sku, String title, int quantity, String gidVariantId) {
+
+        ShopifyOrderResponse.LineItemNode lineItemNode = new ShopifyOrderResponse.LineItemNode();
+        lineItemNode.setSku(sku);
+        lineItemNode.setTitle(title);
+        lineItemNode.setQuantity(quantity);
+
+        if (gidVariantId != null) {
+            ShopifyOrderResponse.VariantNode variantNode = new ShopifyOrderResponse.VariantNode();
+            variantNode.setId(gidVariantId);
+            lineItemNode.setVariant(variantNode);
+        }
+
+        ShopifyOrderResponse.LineItemEdge edge = new ShopifyOrderResponse.LineItemEdge();
+        edge.setNode(lineItemNode);
+
+        ShopifyOrderResponse.LineItemConnection connection = new ShopifyOrderResponse.LineItemConnection();
+        connection.setEdges(List.of(edge));
+        return connection;
     }
 }

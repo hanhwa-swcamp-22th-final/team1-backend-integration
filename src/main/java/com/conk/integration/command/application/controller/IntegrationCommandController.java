@@ -2,11 +2,14 @@ package com.conk.integration.command.application.controller;
 
 import com.conk.integration.command.application.dto.request.BulkFulfillmentRequest;
 import com.conk.integration.command.application.dto.request.BulkInvoiceRequest;
+import com.conk.integration.command.application.dto.request.ChannelOrderSyncRequest;
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
+import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.application.dto.response.EasyPostInvoiceResponse;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
+import com.conk.integration.command.application.service.ChannelOrderSyncDispatchService;
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.common.ApiResponse;
@@ -27,6 +30,22 @@ public class IntegrationCommandController {
 
     private final ChannelFulfillmentDispatchService fulfillmentDispatchService;
     private final EasyPostInvoiceSaveService easyPostInvoiceSaveService;
+    private final ChannelOrderSyncDispatchService orderSyncDispatchService;
+
+    /**
+     * INT-007 — 채널 주문 동기화
+     * POST /integrations/seller/orders/sync
+     */
+    @PostMapping("/seller/orders/sync")
+    public ResponseEntity<ApiResponse<ChannelOrderSyncResponse>> syncChannelOrders(
+            @RequestHeader("Authorization") String authorization,
+            @RequestBody ChannelOrderSyncRequest request) {
+
+        // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
+        ChannelOrderSyncResponse response = orderSyncDispatchService.sync(
+                request.getSellerId(), request.getOrderChannel());
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
 
     /**
      * INT-003 — 셀러 주문 fulfillment 생성

@@ -1,8 +1,11 @@
 package com.conk.integration.command.application.controller;
 
 import com.conk.integration.command.application.controller.IntegrationCommandController;
+import java.util.List;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
+import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
+import com.conk.integration.command.application.service.ChannelOrderSyncDispatchService;
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
@@ -41,6 +44,9 @@ class IntegrationCommandControllerTest {
 
     @MockitoBean
     private EasyPostInvoiceSaveService easyPostInvoiceSaveService;
+
+    @MockitoBean
+    private ChannelOrderSyncDispatchService orderSyncDispatchService;
 
     @Nested
     @DisplayName("POST /integrations/seller/orders/fulfillment/{orderId} — fulfillment 생성 (INT-003)")
@@ -230,6 +236,65 @@ class IntegrationCommandControllerTest {
         @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
         void createBulkShipmentInvoice_wrongMethod_returns405() throws Exception {
             mockMvc.perform(get("/integrations/seller/orders/bulk-invoice")
+                            .header("Authorization", "Bearer test-token"))
+                    .andExpect(status().isMethodNotAllowed());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /integrations/seller/orders/sync — 채널 주문 동기화 (INT-007)")
+    class SyncChannelOrdersTests {
+
+        private static final String REQUEST_BODY = """
+                {"sellerId":"seller-001","orderChannel":"SHOPIFY"}
+                """;
+
+        @Test
+        @DisplayName("정상 요청 — HTTP 200과 success:true, data(savedCount/skippedCount)가 반환된다")
+        void syncChannelOrders_validRequest_returns200() throws Exception {
+            ChannelOrderSyncResponse response = new ChannelOrderSyncResponse(3, 1, List.of());
+            given(orderSyncDispatchService.sync(any(), any())).willReturn(response);
+
+            mockMvc.perform(post("/integrations/seller/orders/sync")
+                            .header("Authorization", "Bearer test-token")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.savedCount").value(3))
+                    .andExpect(jsonPath("$.data.skippedCount").value(1));
+        }
+
+        @Test
+        @DisplayName("Authorization 헤더가 없으면 HTTP 400이 반환된다")
+        void syncChannelOrders_missingAuthorization_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/orders/sync")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: Authorization"));
+        }
+
+        @Test
+        @DisplayName("Service가 IllegalArgumentException을 던지면 HTTP 400이 반환된다")
+        void syncChannelOrders_serviceThrows_returns400() throws Exception {
+            given(orderSyncDispatchService.sync(any(), any()))
+                    .willThrow(new IllegalArgumentException("지원하지 않는 채널"));
+
+            mockMvc.perform(post("/integrations/seller/orders/sync")
+                            .header("Authorization", "Bearer test-token")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("지원하지 않는 채널"));
+        }
+
+        @Test
+        @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
+        void syncChannelOrders_wrongMethod_returns405() throws Exception {
+            mockMvc.perform(get("/integrations/seller/orders/sync")
                             .header("Authorization", "Bearer test-token"))
                     .andExpect(status().isMethodNotAllowed());
         }
