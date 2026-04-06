@@ -2,6 +2,7 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.request.OrderInvoicePair;
+import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
@@ -137,18 +138,18 @@ class EasyPostInvoiceSaveServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[예외] rates가 null이면 IllegalStateException")
+    @DisplayName("[예외] rates가 null이면 BusinessException(INT-104)")
     void selectCheapestRate_throwsWhenNull() {
         assertThatThrownBy(() -> service.selectCheapestRate(null))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("운임 정보가 없습니다");
     }
 
     @Test
-    @DisplayName("[예외] rates가 빈 리스트이면 IllegalStateException")
+    @DisplayName("[예외] rates가 빈 리스트이면 BusinessException(INT-104)")
     void selectCheapestRate_throwsWhenEmpty() {
         assertThatThrownBy(() -> service.selectCheapestRate(List.of()))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("운임 정보가 없습니다");
     }
 
@@ -184,14 +185,14 @@ class EasyPostInvoiceSaveServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] createShipment 응답에 rates가 없으면 IllegalStateException")
+    @DisplayName("[예외] createShipment 응답에 rates가 없으면 BusinessException(INT-104)")
     void createAndSaveInvoice_throwsWhenNoRates() {
         // 구매 가능한 rate가 없으면 저장 전에 즉시 실패해야 한다.
         EasyPostShipmentResponse created = buildShipmentWithRates("shp_001", List.of());
         given(easyPostApiClient.createShipment(any())).willReturn(created);
 
         assertThatThrownBy(() -> service.createAndSaveInvoice(buildRequest()))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(BusinessException.class);
         verify(invoiceRepository, never()).save(any());
     }
 

@@ -14,6 +14,8 @@ import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApi
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.query.dto.ShopifyCredentialDto;
 import com.conk.integration.query.service.ChannelApiQueryService;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -245,15 +247,15 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("fulfill() — DB에 주문이 없으면 IllegalArgumentException이 발생한다")
+        @DisplayName("fulfill() — DB에 주문이 없으면 BusinessException(INT-101)이 발생한다")
         void fulfill_throwsWhenOrderNotInDb() {
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("ORDER-NOT-EXIST"))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("ChannelOrder를 찾을 수 없습니다");
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("주문을 찾을 수 없습니다");
         }
 
         @Test
-        @DisplayName("fulfill() — 주문에 invoiceNo가 없으면 IllegalStateException이 발생한다")
+        @DisplayName("fulfill() — 주문에 invoiceNo가 없으면 BusinessException(INT-202)이 발생한다")
         void fulfill_throwsWhenNoInvoiceInOrder() {
             // given — invoiceNo가 없는 주문
             channelOrderRepository.save(ChannelOrder.builder()
@@ -266,7 +268,7 @@ class IntegrationTest {
 
             // when & then
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("ORDER-NO-INV"))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("송장이 발급되지 않은 주문");
         }
     }
@@ -404,18 +406,19 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("채널 크리덴셜이 없는 셀러 요청 시 HTTP 400이 반환된다")
-        void syncOrders_e2e_missingCredential_returns400() throws Exception {
+        @DisplayName("채널 크리덴셜이 없는 셀러 요청 시 HTTP 404가 반환된다")
+        void syncOrders_e2e_missingCredential_returns404() throws Exception {
             // given — 크리덴셜 조회 시 예외 발생 (등록되지 않은 셀러)
             given(channelApiQueryService.findShopifyCredential("seller-no-cred"))
-                    .willThrow(new IllegalArgumentException("채널 API 정보가 존재하지 않습니다"));
+                    .willThrow(new BusinessException(ErrorCode.CHANNEL_CREDENTIALS_NOT_FOUND, "채널 API 정보가 존재하지 않습니다"));
 
             mockMvc.perform(post("/integrations/seller/orders/sync")
                             .header("Authorization", "Bearer test-token")
                             .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                             .content("{\"sellerId\":\"seller-no-cred\",\"orderChannel\":\"SHOPIFY\"}"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.success").value(false));
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-103"));
         }
 
         @Test

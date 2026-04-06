@@ -2,6 +2,7 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
+import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
@@ -201,11 +202,11 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("selectCheapestRate() — rates가 비어있으면 IllegalStateException을 던진다")
+        @DisplayName("selectCheapestRate() — rates가 비어있으면 BusinessException(INT-104)을 던진다")
         void selectCheapestRate_throwsWhenEmpty() {
             // 송장 구매를 진행할 수 없는 입력은 빠르게 실패시킨다.
             assertThatThrownBy(() -> easyPostInvoiceSaveService.selectCheapestRate(List.of()))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("운임 정보가 없습니다");
         }
 
@@ -299,18 +300,18 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("fulfill() — 주문이 없으면 IllegalArgumentException을 던진다")
+        @DisplayName("fulfill() — 주문이 없으면 BusinessException(INT-101)을 던진다")
         void fulfill_throwsWhenOrderNotFound() {
             // 주문 자체가 없으면 이후 출고 로직으로 진행하면 안 된다.
             given(channelOrderRepository.findById("O-NONE")).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-NONE"))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("ChannelOrder를 찾을 수 없습니다");
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("주문을 찾을 수 없습니다");
         }
 
         @Test
-        @DisplayName("fulfill() — invoiceNo가 null이면 IllegalStateException을 던진다")
+        @DisplayName("fulfill() — invoiceNo가 null이면 BusinessException(INT-202)을 던진다")
         void fulfill_throwsWhenInvoiceNoIsNull() {
             // 송장 참조가 빠진 주문은 출고 API 호출 전 단계에서 막아야 한다.
             ChannelOrder order = ChannelOrder.builder()
@@ -324,12 +325,12 @@ class CommandApplicationServiceTest {
             given(channelOrderRepository.findById("O-002")).willReturn(Optional.of(order));
 
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-002"))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("송장이 발급되지 않은 주문");
         }
 
         @Test
-        @DisplayName("fulfill() — invoice가 DB에 없으면 IllegalStateException을 던진다")
+        @DisplayName("fulfill() — invoice가 DB에 없으면 BusinessException(INT-102)을 던진다")
         void fulfill_throwsWhenInvoiceNotInDb() {
             // 주문에는 참조가 있지만 실제 송장이 없을 때의 불일치 케이스다.
             ChannelOrder order = ChannelOrder.builder()
@@ -344,12 +345,12 @@ class CommandApplicationServiceTest {
             given(invoiceRepository.findById("INV-NOT-EXIST")).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-003"))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("EasypostShipmentInvoice를 찾을 수 없습니다");
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessageContaining("송장을 찾을 수 없습니다");
         }
 
         @Test
-        @DisplayName("fulfill() — 지원 sender가 없으면 IllegalArgumentException을 던진다")
+        @DisplayName("fulfill() — 지원 sender가 없으면 BusinessException(INT-004)을 던진다")
         void fulfill_throwsWhenSenderNotSupported() {
             ChannelOrder order = ChannelOrder.builder()
                     .orderId("O-004")
@@ -368,7 +369,7 @@ class CommandApplicationServiceTest {
             given(shopifySender.supports(OrderChannel.AMAZON)).willReturn(false);
 
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("O-004"))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("지원하지 않는 fulfillment 채널입니다");
         }
     }
