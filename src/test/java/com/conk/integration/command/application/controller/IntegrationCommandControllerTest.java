@@ -4,9 +4,11 @@ import com.conk.integration.command.application.controller.IntegrationCommandCon
 import java.util.List;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
+import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.command.application.service.ChannelOrderSyncDispatchService;
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
+import com.conk.integration.command.application.service.ManualOrderInvoiceService;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.common.exception.GlobalExceptionHandler;
@@ -21,6 +23,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.doThrow;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -47,6 +50,9 @@ class IntegrationCommandControllerTest {
 
     @MockitoBean
     private ChannelOrderSyncDispatchService orderSyncDispatchService;
+
+    @MockitoBean
+    private ManualOrderInvoiceService manualOrderInvoiceService;
 
     @Nested
     @DisplayName("POST /integrations/seller/orders/fulfillment/{orderId} — fulfillment 생성 (INT-003)")
@@ -297,6 +303,115 @@ class IntegrationCommandControllerTest {
             mockMvc.perform(get("/integrations/seller/orders/sync")
                             .header("Authorization", "Bearer test-token"))
                     .andExpect(status().isMethodNotAllowed());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /integrations/seller/orders/manual-invoice — 수동 주문 기입 및 송장 발급 (INT-008)")
+    class CreateManualOrderInvoiceTests {
+
+        private static final String REQUEST_BODY = """
+                {
+                  "orderId": "ORD-MANUAL-001",
+                  "receiverName": "홍길동",
+                  "receiverPhoneNo": "010-1234-5678",
+                  "shipToAddress1": "123 Main St",
+                  "shipToState": "CA",
+                  "shipToCity": "Los Angeles",
+                  "shipToZipCode": "90001",
+                  "items": [{"skuId": "SKU-001", "productNameSnapshot": "상품명", "quantity": 2}],
+                  "fromAddress": {"name": "CONK Warehouse", "street1": "456 Warehouse Blvd",
+                                  "city": "Los Angeles", "state": "CA", "zip": "90002", "country": "US"},
+                  "parcel": {"weight": 10.0, "length": 10.0, "width": 8.0, "height": 4.0}
+                }
+                """;
+
+        @Test
+        @DisplayName("정상 요청 — HTTP 200과 success:true, data(주문+송장 정보)가 반환된다")
+        void createManualOrderInvoice_returnsOk() throws Exception {
+            List<ManualOrderInvoiceResponse.OrderItemBody> items =
+                    List.of(new ManualOrderInvoiceResponse.OrderItemBody("SKU-001", "상품명", 2));
+            ManualOrderInvoiceResponse response = new ManualOrderInvoiceResponse(
+                    "ORD-MANUAL-001", "홍길동", "123 Main St, Los Angeles, CA, 90001",
+                    items, "shp_manual_001", "TRK-001", "USPS", 550,
+                    "https://track.easypost.com/TRK-001", "https://label.url/shp_manual_001.pdf"
+            );
+            given(manualOrderInvoiceService.issue(anyString(), any())).willReturn(response);
+
+            mockMvc.perform(post("/integrations/seller/orders/manual-invoice")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.orderId").value("ORD-MANUAL-001"))
+                    .andExpect(jsonPath("$.data.invoiceNo").value("shp_manual_001"))
+                    .andExpect(jsonPath("$.data.carrierType").value("USPS"))
+                    .andExpect(jsonPath("$.data.freightChargeAmt").value(550))
+                    .andExpect(jsonPath("$.data.items[0].skuId").value("SKU-001"));
+        }
+
+        @Test
+        @DisplayName("X-Seller-Id 헤더가 없으면 HTTP 400이 반환된다")
+        void createManualOrderInvoice_missingSellerIdHeader_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/orders/manual-invoice")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: X-Seller-Id"));
+        }
+
+        @Test
+        @DisplayName("이미 송장이 발급된 주문 재요청 → HTTP 400이 반환된다")
+        void createManualOrderInvoice_alreadyInvoiced_returns400() throws Exception {
+            given(manualOrderInvoiceService.issue(anyString(), any()))
+                    .willThrow(new IllegalStateException("이미 송장이 발급된 주문입니다: ORD-MANUAL-001"));
+
+            mockMvc.perform(post("/integrations/seller/orders/manual-invoice")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("이미 송장이 발급된 주문입니다: ORD-MANUAL-001"));
+        }
+
+        @Test
+        @DisplayName("EasyPost 오류 발생 → HTTP 400이 반환된다")
+        void createManualOrderInvoice_easyPostFails_returns400() throws Exception {
+            given(manualOrderInvoiceService.issue(anyString(), any()))
+                    .willThrow(new IllegalStateException("운임 정보가 없습니다"));
+
+            mockMvc.perform(post("/integrations/seller/orders/manual-invoice")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("운임 정보가 없습니다"));
+        }
+
+        @Test
+        @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
+        void createManualOrderInvoice_wrongMethod_returns405() throws Exception {
+            mockMvc.perform(get("/integrations/seller/orders/manual-invoice")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isMethodNotAllowed());
+        }
+
+        @Test
+        @DisplayName("Service에서 예상치 못한 RuntimeException 발생 시 HTTP 500이 반환된다")
+        void createManualOrderInvoice_unexpectedError_returns500() throws Exception {
+            given(manualOrderInvoiceService.issue(anyString(), any()))
+                    .willThrow(new RuntimeException("예상치 못한 서버 오류"));
+
+            mockMvc.perform(post("/integrations/seller/orders/manual-invoice")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.success").value(false));
         }
     }
 }
