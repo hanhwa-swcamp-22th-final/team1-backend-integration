@@ -4,6 +4,8 @@ import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRe
 import com.conk.integration.command.application.dto.response.ShopifyFulfillmentResponse;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.query.dto.FulfillmentTargetDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,7 +50,7 @@ public class ShopifyFulfillmentApiClient {
                     ShopifyFulfillmentResponse.class
             ).getBody();
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Shopify fulfillment 요청을 직렬화하는데 실패했습니다", e);
+            throw new BusinessException(ErrorCode.SHOPIFY_SERIALIZATION_FAILED);
         }
     }
 
@@ -71,7 +73,7 @@ public class ShopifyFulfillmentApiClient {
                     String.class
             );
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Shopify GraphQL bulk fulfillment 요청을 직렬화하는데 실패했습니다", e);
+            throw new BusinessException(ErrorCode.SHOPIFY_SERIALIZATION_FAILED);
         }
     }
 

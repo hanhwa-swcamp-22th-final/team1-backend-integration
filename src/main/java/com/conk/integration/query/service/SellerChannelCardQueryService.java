@@ -1,5 +1,7 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.mapper.SellerChannelCardMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +21,7 @@ public class SellerChannelCardQueryService {
      *
      * @param sellerId 셀러 식별자
      * @return 채널별 카드 목록 (label 필드 포함)
-     * @throws IllegalArgumentException sellerId가 null이거나 공백인 경우
+     * @throws BusinessException sellerId가 null이거나 공백인 경우 (INT-001)
      */
     public List<SellerChannelCardDto> getChannelCards(String sellerId) {
         validateSellerId(sellerId);
@@ -44,7 +46,7 @@ public class SellerChannelCardQueryService {
     // 모든 셀러 기준 조회 API는 X-Seller-Id 입력 검증을 공통으로 수행한다.
     private void validateSellerId(String sellerId) {
         if (sellerId == null || sellerId.isBlank()) {
-            throw new IllegalArgumentException("sellerId는 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_SELLER_ID);
         }
     }
 }

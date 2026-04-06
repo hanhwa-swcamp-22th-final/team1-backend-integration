@@ -2,6 +2,8 @@ package com.conk.integration.command.infrastructure.service;
 
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -91,7 +93,7 @@ public class ShopifyOrderClient {
 
             if (response == null || response.getData() == null
                     || response.getData().getOrders() == null) {
-                throw new IllegalStateException("Shopify GraphQL API 응답이 비어있습니다");
+                throw new BusinessException(ErrorCode.SHOPIFY_EMPTY_RESPONSE);
             }
 
             return response.getData().getOrders().getEdges().stream()
@@ -99,7 +101,7 @@ public class ShopifyOrderClient {
                     .toList();
 
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Shopify GraphQL 요청을 직렬화하는데 실패했습니다", e);
+            throw new BusinessException(ErrorCode.SHOPIFY_SERIALIZATION_FAILED);
         }
     }
 

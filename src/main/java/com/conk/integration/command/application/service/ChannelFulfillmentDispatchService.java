@@ -2,6 +2,8 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
@@ -31,24 +33,23 @@ public class ChannelFulfillmentDispatchService {
      * 단건 주문을 채널 fulfillment API로 전송한다.
      *
      * @param orderId 내부 주문 ID
-     * @throws IllegalArgumentException 주문 또는 지원 sender가 없는 경우
-     * @throws IllegalStateException    송장이 발급되지 않았거나 송장 엔티티가 없는 경우
+     * @throws BusinessException 주문이 없는 경우 (INT-101), 송장 미발급 (INT-202), 지원하지 않는 채널 (INT-004)
      */
     public void fulfill(String orderId) {
         ChannelOrder order = channelOrderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("ChannelOrder를 찾을 수 없습니다: " + orderId));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다: " + orderId));
 
         if (order.getInvoiceNo() == null) {
-            throw new IllegalStateException("송장이 발급되지 않은 주문입니다: " + orderId);
+            throw new BusinessException(ErrorCode.ORDER_NOT_INVOICED, "송장이 발급되지 않은 주문입니다: " + orderId);
         }
 
         EasypostShipmentInvoice invoice = invoiceRepository.findById(order.getInvoiceNo())
-                .orElseThrow(() -> new IllegalStateException("EasypostShipmentInvoice를 찾을 수 없습니다: " + order.getInvoiceNo()));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVOICE_NOT_FOUND, "송장을 찾을 수 없습니다: " + order.getInvoiceNo()));
 
         ChannelFulfillmentSender sender = senders.stream()
                 .filter(candidate -> candidate.supports(order.getOrderChannel()))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("지원하지 않는 fulfillment 채널입니다: " + order.getOrderChannel()));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL, "지원하지 않는 fulfillment 채널입니다: " + order.getOrderChannel()));
 
         sender.send(order, invoice);
     }
@@ -72,7 +73,7 @@ public class ChannelFulfillmentDispatchService {
         ChannelFulfillmentSender sender = senders.stream()
                 .filter(candidate -> candidate.supports(orderChannel))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("지원하지 않는 fulfillment 채널입니다: " + orderChannel));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL, "지원하지 않는 fulfillment 채널입니다: " + orderChannel));
 
         sender.sendBulk(sellerId, targets);
 

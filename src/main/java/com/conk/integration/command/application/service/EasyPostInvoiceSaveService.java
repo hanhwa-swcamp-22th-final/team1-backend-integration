@@ -2,6 +2,8 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.request.OrderInvoicePair;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
@@ -118,12 +120,12 @@ public class EasyPostInvoiceSaveService {
     // 유효한 rate 문자열만 대상으로 최저 운임을 계산한다.
     EasyPostShipmentResponse.RateDto selectCheapestRate(List<EasyPostShipmentResponse.RateDto> rates) {
         if (rates == null || rates.isEmpty()) {
-            throw new IllegalStateException("운임 정보가 없습니다");
+            throw new BusinessException(ErrorCode.NO_SHIPPING_RATES);
         }
         return rates.stream()
                 .filter(r -> r.getRate() != null && isNumeric(r.getRate()))
                 .min(Comparator.comparingDouble(r -> Double.parseDouble(r.getRate())))
-                .orElseThrow(() -> new IllegalStateException("유효한 운임 정보가 없습니다"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NO_SHIPPING_RATES));
     }
 
     // 외부 shipment 응답을 내부 송장 엔티티로 정규화한다.
