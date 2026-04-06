@@ -2,6 +2,7 @@ package com.conk.integration.command.infrastructure.service;
 
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
+import com.conk.integration.common.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -115,36 +116,33 @@ class ShopifyOrderClientTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[예외] API body가 null이면 IllegalStateException")
+    @DisplayName("[예외] API body가 null이면 BusinessException(INT-301)")
     void getOrders_throwsWhenResponseBodyIsNull() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("null", MediaType.APPLICATION_JSON));
 
         assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("응답이 비어있습니다");
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test
-    @DisplayName("[예외] data 필드가 null이면 IllegalStateException")
+    @DisplayName("[예외] data 필드가 null이면 BusinessException(INT-301)")
     void getOrders_throwsWhenDataIsNull() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("{\"data\": null}", MediaType.APPLICATION_JSON));
 
         assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("응답이 비어있습니다");
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test
-    @DisplayName("[예외] orders 필드가 null이면 IllegalStateException")
+    @DisplayName("[예외] orders 필드가 null이면 BusinessException(INT-301)")
     void getOrders_throwsWhenOrdersIsNull() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("{\"data\": {\"orders\": null}}", MediaType.APPLICATION_JSON));
 
         assertThatThrownBy(() -> client.getOrders(STORE_NAME, ACCESS_TOKEN))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("응답이 비어있습니다");
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test

@@ -2,6 +2,8 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.request.ManualOrderInvoiceRequest;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
@@ -69,7 +71,7 @@ public class ManualOrderInvoiceService {
         return channelOrderRepository.findById(request.getOrderId())
                 .map(existing -> {
                     if (existing.getInvoiceNo() != null) {
-                        throw new IllegalStateException("이미 송장이 발급된 주문입니다: " + request.getOrderId());
+                        throw new BusinessException(ErrorCode.INVOICE_ALREADY_EXISTS, "이미 송장이 발급된 주문입니다: " + request.getOrderId());
                     }
                     return existing;
                 })
@@ -132,12 +134,12 @@ public class ManualOrderInvoiceService {
 
     private EasyPostShipmentResponse.RateDto selectCheapestRate(List<EasyPostShipmentResponse.RateDto> rates) {
         if (rates == null || rates.isEmpty()) {
-            throw new IllegalStateException("운임 정보가 없습니다");
+            throw new BusinessException(ErrorCode.NO_SHIPPING_RATES);
         }
         return rates.stream()
                 .filter(r -> r.getRate() != null && isNumeric(r.getRate()))
                 .min(Comparator.comparingDouble(r -> Double.parseDouble(r.getRate())))
-                .orElseThrow(() -> new IllegalStateException("유효한 운임 정보가 없습니다"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NO_SHIPPING_RATES));
     }
 
     private EasypostShipmentInvoice toInvoice(EasyPostShipmentResponse response) {

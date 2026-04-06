@@ -3,6 +3,8 @@ package com.conk.integration.command.infrastructure.service;
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.infrastructure.config.EasyPostProperties;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -45,11 +47,11 @@ public class EasyPostApiClient {
                     EasyPostShipmentResponse.class
             ).getBody();
             if (response == null) {
-                throw new IllegalStateException("EasyPost createShipment returned empty response");
+                throw new BusinessException(ErrorCode.EASYPOST_EMPTY_RESPONSE);
             }
             return response;
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize EasyPost request", e);
+            throw new BusinessException(ErrorCode.EASYPOST_SERIALIZATION_FAILED);
         }
     }
 
@@ -71,11 +73,11 @@ public class EasyPostApiClient {
                     EasyPostShipmentResponse.class
             ).getBody();
             if (response == null) {
-                throw new IllegalStateException("EasyPost buyRate returned empty response");
+                throw new BusinessException(ErrorCode.EASYPOST_EMPTY_RESPONSE);
             }
             return response;
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Failed to serialize buyRate request", e);
+            throw new BusinessException(ErrorCode.EASYPOST_SERIALIZATION_FAILED);
         }
     }
 
@@ -83,7 +85,7 @@ public class EasyPostApiClient {
     private Map<String, Object> toRequestMap(EasyPostCreateShipmentRequest request) {
         EasyPostCreateShipmentRequest.ShipmentBody sb = request.getShipment();
         if (sb == null) {
-            throw new IllegalArgumentException("ShipmentBody must not be null");
+            throw new BusinessException(ErrorCode.SHIPMENT_BODY_REQUIRED);
         }
         Map<String, Object> shipment = new HashMap<>();
         if (sb.getToAddress() != null) {

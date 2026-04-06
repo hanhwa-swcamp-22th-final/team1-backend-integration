@@ -1,5 +1,7 @@
 package com.conk.integration.query.controller;
 
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.query.controller.IntegrationQueryController;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
@@ -104,17 +106,18 @@ class IntegrationQueryControllerTest {
         }
 
         @Test
-        @DisplayName("Service가 IllegalArgumentException 던지면 HTTP 400이 반환된다")
+        @DisplayName("Service가 BusinessException(INT-001) 던지면 HTTP 400이 반환된다")
         void getSellerChannelCards_serviceThrowsIllegalArg_returns400() throws Exception {
             // given
             given(channelCardQueryService.getChannelCards(""))
-                    .willThrow(new IllegalArgumentException("sellerId는 필수입니다."));
+                    .willThrow(new BusinessException(ErrorCode.INVALID_SELLER_ID));
 
             // when & then — GlobalExceptionHandler에 의해 400 변환
             mockMvc.perform(get("/integrations/seller/channels")
                             .header("X-Seller-Id", ""))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-001"))
                     .andExpect(jsonPath("$.message").value("sellerId는 필수입니다."));
         }
 

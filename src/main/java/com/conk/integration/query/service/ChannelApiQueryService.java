@@ -1,5 +1,7 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.query.dto.ShopifyCredentialDto;
 import com.conk.integration.query.mapper.ChannelApiMapper;
 import lombok.RequiredArgsConstructor;
@@ -17,12 +19,12 @@ public class ChannelApiQueryService {
      *
      * @param sellerId 셀러 식별자
      * @return storeName + accessToken이 담긴 자격증명 DTO
-     * @throws IllegalStateException 자격증명이 등록되지 않은 경우
+     * @throws BusinessException 자격증명이 등록되지 않은 경우 (INT-103)
      */
     public ShopifyCredentialDto findShopifyCredential(String sellerId) {
         ShopifyCredentialDto cred = channelApiMapper.findShopifyCredential(sellerId);
         if (cred == null) {
-            throw new IllegalStateException("Shopify 자격증명을 찾을 수 없습니다: sellerId=" + sellerId);
+            throw new BusinessException(ErrorCode.CHANNEL_CREDENTIALS_NOT_FOUND, "Shopify 자격증명을 찾을 수 없습니다: sellerId=" + sellerId);
         }
         return cred;
     }

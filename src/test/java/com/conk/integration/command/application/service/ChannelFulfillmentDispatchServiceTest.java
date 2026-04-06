@@ -2,6 +2,7 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
+import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
@@ -75,17 +76,17 @@ class ChannelFulfillmentDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] 주문이 없으면 IllegalArgumentException")
+    @DisplayName("[예외] 주문이 없으면 BusinessException(INT-101)")
     void fulfill_throwsWhenOrderNotFound() {
         given(channelOrderRepository.findById("NOT_EXIST")).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.fulfill("NOT_EXIST"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("NOT_EXIST");
     }
 
     @Test
-    @DisplayName("[예외] invoiceNo가 없으면 IllegalStateException")
+    @DisplayName("[예외] invoiceNo가 없으면 BusinessException(INT-202)")
     void fulfill_throwsWhenInvoiceNoIsNull() {
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-002")
@@ -96,14 +97,14 @@ class ChannelFulfillmentDispatchServiceTest {
         given(channelOrderRepository.findById("ORD-002")).willReturn(Optional.of(order));
 
         assertThatThrownBy(() -> service.fulfill("ORD-002"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("송장이 발급되지 않은 주문");
 
         then(shopifySender).should(never()).send(any(), any());
     }
 
     @Test
-    @DisplayName("[예외] 송장 엔티티가 없으면 IllegalStateException")
+    @DisplayName("[예외] 송장 엔티티가 없으면 BusinessException(INT-102)")
     void fulfill_throwsWhenInvoiceNotFound() {
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-003")
@@ -115,12 +116,12 @@ class ChannelFulfillmentDispatchServiceTest {
         given(invoiceRepository.findById("INV-MISSING")).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.fulfill("ORD-003"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("INV-MISSING");
     }
 
     @Test
-    @DisplayName("[예외] 지원 sender가 없으면 IllegalArgumentException")
+    @DisplayName("[예외] 지원 sender가 없으면 BusinessException(INT-004)")
     void fulfill_throwsWhenSenderNotSupported() {
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-004")
@@ -137,7 +138,7 @@ class ChannelFulfillmentDispatchServiceTest {
         given(shopifySender.supports(OrderChannel.AMAZON)).willReturn(false);
 
         assertThatThrownBy(() -> service.fulfill("ORD-004"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("지원하지 않는 fulfillment 채널입니다");
 
         then(shopifySender).should(never()).send(any(), any());
@@ -214,7 +215,7 @@ class ChannelFulfillmentDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] 지원 sender가 없으면 sendBulk를 호출하지 않고 예외 발생")
+    @DisplayName("[예외] 지원 sender가 없으면 sendBulk를 호출하지 않고 BusinessException(INT-004) 예외 발생")
     void fulfillBulk_throwsWhenNoSenderSupports() {
         List<FulfillmentTargetDto> targets = List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "USPS")
@@ -224,7 +225,7 @@ class ChannelFulfillmentDispatchServiceTest {
         given(shopifySender.supports(OrderChannel.SHOPIFY)).willReturn(false);
 
         assertThatThrownBy(() -> service.fulfillBulk("seller-001", OrderChannel.SHOPIFY))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("지원하지 않는 fulfillment 채널입니다");
 
         then(shopifySender).should(never()).sendBulk(any(), any());

@@ -1,5 +1,7 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
 import com.conk.integration.query.mapper.SellerChannelOrderMapper;
@@ -21,7 +23,7 @@ public class SellerChannelOrderQueryService {
      *
      * @param sellerId 셀러 식별자
      * @return 주문 목록 (status, itemsSummary 필드 포함)
-     * @throws IllegalArgumentException sellerId가 null이거나 공백인 경우
+     * @throws BusinessException sellerId가 null이거나 공백인 경우 (INT-001)
      */
     public List<SellerChannelOrderDto> getOrders(String sellerId) {
         validateSellerId(sellerId);
@@ -64,7 +66,7 @@ public class SellerChannelOrderQueryService {
     // 조회 API 공통 입력 검증.
     private void validateSellerId(String sellerId) {
         if (sellerId == null || sellerId.isBlank()) {
-            throw new IllegalArgumentException("sellerId는 필수입니다.");
+            throw new BusinessException(ErrorCode.INVALID_SELLER_ID);
         }
     }
 }

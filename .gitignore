@@ -42,3 +42,4 @@ src/main/resources/application-dev.yml
 /docs/
 /.gradle-user-home/
 /.tmp/
+/tmp/

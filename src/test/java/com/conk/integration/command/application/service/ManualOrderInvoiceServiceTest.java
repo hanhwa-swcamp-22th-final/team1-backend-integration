@@ -2,6 +2,7 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.request.ManualOrderInvoiceRequest;
+import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
@@ -161,13 +162,13 @@ class ManualOrderInvoiceServiceTest {
     class ExceptionCases {
 
         @Test
-        @DisplayName("[예외] 이미 invoiceNo가 있는 주문 재요청 → IllegalStateException")
+        @DisplayName("[예외] 이미 invoiceNo가 있는 주문 재요청 → BusinessException(INT-201)")
         void issue_alreadyInvoiced_throwsIllegalState() {
             ChannelOrder alreadyInvoiced = buildOrder("ORD-DONE", "shp_existing");
             given(channelOrderRepository.findById("ORD-DONE")).willReturn(Optional.of(alreadyInvoiced));
 
             assertThatThrownBy(() -> service.issue("seller-001", buildRequest("ORD-DONE")))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("이미 송장이 발급된 주문입니다");
 
             verify(easyPostApiClient, never()).createShipment(any());
@@ -209,7 +210,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[예외] rates가 없으면 IllegalStateException")
+        @DisplayName("[예외] rates가 없으면 BusinessException(INT-104)")
         void issue_noRates_throwsIllegalState() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-006", null));
@@ -218,7 +219,7 @@ class ManualOrderInvoiceServiceTest {
             given(easyPostApiClient.createShipment(any())).willReturn(created);
 
             assertThatThrownBy(() -> service.issue("seller-001", buildRequest("ORD-006")))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("운임 정보가 없습니다");
         }
 

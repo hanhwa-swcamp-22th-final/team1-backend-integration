@@ -3,6 +3,8 @@ package com.conk.integration.command.application.service;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.query.dto.FulfillmentTargetDto;
 
 import java.util.List;
@@ -32,9 +34,9 @@ public interface ChannelFulfillmentSender {
      *
      * @param sellerId 셀러 식별자
      * @param targets  전송 대상 DTO 목록
-     * @throws UnsupportedOperationException 채널이 bulk 전송을 지원하지 않는 경우
+     * @throws BusinessException 채널이 bulk 전송을 지원하지 않는 경우 (INT-003)
      */
     default void sendBulk(String sellerId, List<FulfillmentTargetDto> targets) {
-        throw new UnsupportedOperationException("sendBulk is not supported for this channel");
+        throw new BusinessException(ErrorCode.UNSUPPORTED_BULK_FULFILLMENT);
     }
 }

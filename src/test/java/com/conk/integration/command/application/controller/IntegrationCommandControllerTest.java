@@ -11,6 +11,8 @@ import com.conk.integration.command.application.service.EasyPostInvoiceSaveServi
 import com.conk.integration.command.application.service.ManualOrderInvoiceService;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.common.exception.GlobalExceptionHandler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -82,30 +84,32 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Service가 IllegalArgumentException을 던지면 HTTP 400이 반환된다")
-        void createSellerOrderFulfillment_illegalArgument_returns400() throws Exception {
-            doThrow(new IllegalArgumentException("ChannelOrder를 찾을 수 없습니다: ORD-404"))
+        @DisplayName("주문이 없으면 HTTP 404가 반환된다")
+        void createSellerOrderFulfillment_orderNotFound_returns404() throws Exception {
+            doThrow(new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다: ORD-404"))
                     .when(fulfillmentDispatchService)
                     .fulfill("ORD-404");
 
             mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-404")
                             .header("Authorization", "Bearer test-token"))
-                    .andExpect(status().isBadRequest())
+                    .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.message").value("ChannelOrder를 찾을 수 없습니다: ORD-404"));
+                    .andExpect(jsonPath("$.code").value("INT-101"))
+                    .andExpect(jsonPath("$.message").value("주문을 찾을 수 없습니다: ORD-404"));
         }
 
         @Test
-        @DisplayName("Service가 IllegalStateException을 던지면 HTTP 400이 반환된다")
-        void createSellerOrderFulfillment_illegalState_returns400() throws Exception {
-            doThrow(new IllegalStateException("송장이 발급되지 않은 주문입니다: ORD-20260330-0001"))
+        @DisplayName("송장 미발급 주문이면 HTTP 409가 반환된다")
+        void createSellerOrderFulfillment_orderNotInvoiced_returns409() throws Exception {
+            doThrow(new BusinessException(ErrorCode.ORDER_NOT_INVOICED, "송장이 발급되지 않은 주문입니다: ORD-20260330-0001"))
                     .when(fulfillmentDispatchService)
                     .fulfill("ORD-20260330-0001");
 
             mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001")
                             .header("Authorization", "Bearer test-token"))
-                    .andExpect(status().isBadRequest())
+                    .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-202"))
                     .andExpect(jsonPath("$.message").value("송장이 발급되지 않은 주문입니다: ORD-20260330-0001"));
         }
 
@@ -165,18 +169,19 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Service가 IllegalStateException을 던지면 HTTP 400이 반환된다")
-        void createShipmentInvoice_illegalState_returns400() throws Exception {
+        @DisplayName("운임 정보가 없으면 HTTP 404가 반환된다")
+        void createShipmentInvoice_noRates_returns404() throws Exception {
             given(easyPostInvoiceSaveService.createAndSaveInvoice(any()))
-                    .willThrow(new IllegalStateException("운임 정보가 없습니다"));
+                    .willThrow(new BusinessException(ErrorCode.NO_SHIPPING_RATES));
 
             mockMvc.perform(post("/integrations/seller/orders/invoice")
                             .header("Authorization", "Bearer test-token")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
-                    .andExpect(status().isBadRequest())
+                    .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.message").value("운임 정보가 없습니다"));
+                    .andExpect(jsonPath("$.code").value("INT-104"))
+                    .andExpect(jsonPath("$.message").value("운임 정보가 없습니다."));
         }
 
         @Test
@@ -224,17 +229,18 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Service가 IllegalStateException을 던지면 HTTP 400이 반환된다")
-        void createBulkShipmentInvoice_serviceThrows_returns400() throws Exception {
+        @DisplayName("예기치 못한 서버 오류는 HTTP 500이 반환된다")
+        void createBulkShipmentInvoice_unexpectedError_returns500() throws Exception {
             given(easyPostInvoiceSaveService.createAndSaveBulkInvoices(any(), any(), any()))
-                    .willThrow(new IllegalStateException("DB 연결 오류"));
+                    .willThrow(new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "DB 연결 오류"));
 
             mockMvc.perform(post("/integrations/seller/orders/bulk-invoice")
                             .header("Authorization", "Bearer test-token")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
-                    .andExpect(status().isBadRequest())
+                    .andExpect(status().isInternalServerError())
                     .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-500"))
                     .andExpect(jsonPath("$.message").value("DB 연결 오류"));
         }
 
@@ -283,10 +289,10 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Service가 IllegalArgumentException을 던지면 HTTP 400이 반환된다")
+        @DisplayName("Service가 BusinessException(INT-004)을 던지면 HTTP 400이 반환된다")
         void syncChannelOrders_serviceThrows_returns400() throws Exception {
             given(orderSyncDispatchService.sync(any(), any()))
-                    .willThrow(new IllegalArgumentException("지원하지 않는 채널"));
+                    .willThrow(new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL, "지원하지 않는 채널"));
 
             mockMvc.perform(post("/integrations/seller/orders/sync")
                             .header("Authorization", "Bearer test-token")
@@ -294,6 +300,7 @@ class IntegrationCommandControllerTest {
                             .content(REQUEST_BODY))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-004"))
                     .andExpect(jsonPath("$.message").value("지원하지 않는 채널"));
         }
 
@@ -363,33 +370,35 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("이미 송장이 발급된 주문 재요청 → HTTP 400이 반환된다")
-        void createManualOrderInvoice_alreadyInvoiced_returns400() throws Exception {
+        @DisplayName("이미 송장이 발급된 주문 재요청 → HTTP 409이 반환된다")
+        void createManualOrderInvoice_alreadyInvoiced_returns409() throws Exception {
             given(manualOrderInvoiceService.issue(anyString(), any()))
-                    .willThrow(new IllegalStateException("이미 송장이 발급된 주문입니다: ORD-MANUAL-001"));
+                    .willThrow(new BusinessException(ErrorCode.INVOICE_ALREADY_EXISTS, "이미 송장이 발급된 주문입니다: ORD-MANUAL-001"));
 
             mockMvc.perform(post("/integrations/seller/orders/manual-invoice")
                             .header("X-Seller-Id", "seller-001")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
-                    .andExpect(status().isBadRequest())
+                    .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-201"))
                     .andExpect(jsonPath("$.message").value("이미 송장이 발급된 주문입니다: ORD-MANUAL-001"));
         }
 
         @Test
-        @DisplayName("EasyPost 오류 발생 → HTTP 400이 반환된다")
-        void createManualOrderInvoice_easyPostFails_returns400() throws Exception {
+        @DisplayName("EasyPost 운임 정보 없음 → HTTP 404이 반환된다")
+        void createManualOrderInvoice_easyPostFails_returns404() throws Exception {
             given(manualOrderInvoiceService.issue(anyString(), any()))
-                    .willThrow(new IllegalStateException("운임 정보가 없습니다"));
+                    .willThrow(new BusinessException(ErrorCode.NO_SHIPPING_RATES));
 
             mockMvc.perform(post("/integrations/seller/orders/manual-invoice")
                             .header("X-Seller-Id", "seller-001")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
-                    .andExpect(status().isBadRequest())
+                    .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.message").value("운임 정보가 없습니다"));
+                    .andExpect(jsonPath("$.code").value("INT-104"))
+                    .andExpect(jsonPath("$.message").value("운임 정보가 없습니다."));
         }
 
         @Test

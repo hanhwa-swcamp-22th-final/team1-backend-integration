@@ -1,5 +1,6 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
 import com.conk.integration.query.mapper.SellerChannelOrderMapper;
@@ -147,18 +148,18 @@ class SellerChannelOrderQueryServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[예외] sellerId null → IllegalArgumentException, mapper 미호출")
+    @DisplayName("[예외] sellerId null → BusinessException(INT-001), mapper 미호출")
     void getOrders_throwsWhenSellerIdNull() {
         assertThatThrownBy(() -> service.getOrders(null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class);
         verifyNoInteractions(channelOrderMapper);
     }
 
     @Test
-    @DisplayName("[예외] sellerId 공백 → IllegalArgumentException, mapper 미호출")
+    @DisplayName("[예외] sellerId 공백 → BusinessException(INT-001), mapper 미호출")
     void getOrders_throwsWhenSellerIdBlank() {
         assertThatThrownBy(() -> service.getOrders("  "))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class);
         verifyNoInteractions(channelOrderMapper);
     }
 

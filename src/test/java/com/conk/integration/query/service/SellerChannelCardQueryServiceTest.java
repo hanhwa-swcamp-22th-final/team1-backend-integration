@@ -1,5 +1,6 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.mapper.SellerChannelCardMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -133,18 +134,18 @@ class SellerChannelCardQueryServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[예외] sellerId null → IllegalArgumentException, mapper 미호출")
+    @DisplayName("[예외] sellerId null → BusinessException(INT-001), mapper 미호출")
     void getChannelCards_throwsWhenSellerIdNull() {
         assertThatThrownBy(() -> service.getChannelCards(null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class);
         verifyNoInteractions(channelCardMapper);
     }
 
     @Test
-    @DisplayName("[예외] sellerId 공백 → IllegalArgumentException, mapper 미호출")
+    @DisplayName("[예외] sellerId 공백 → BusinessException(INT-001), mapper 미호출")
     void getChannelCards_throwsWhenSellerIdBlank() {
         assertThatThrownBy(() -> service.getChannelCards("   "))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class);
         verifyNoInteractions(channelCardMapper);
     }
 

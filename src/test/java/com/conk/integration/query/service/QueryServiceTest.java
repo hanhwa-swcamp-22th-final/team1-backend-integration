@@ -1,5 +1,6 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
@@ -83,20 +84,20 @@ class QueryServiceTest {
         }
 
         @Test
-        @DisplayName("getOrders() — sellerId가 null이면 IllegalArgumentException을 던진다")
+        @DisplayName("getOrders() — sellerId가 null이면 BusinessException을 던진다")
         void getOrders_throwsWhenSellerIdIsNull() {
             // 조회 계층에서도 sellerId 검증을 먼저 수행한다.
             assertThatThrownBy(() -> sellerChannelOrderQueryService.getOrders(null))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("sellerId는 필수");
         }
 
         @Test
-        @DisplayName("getOrders() — sellerId가 빈 문자열이면 IllegalArgumentException을 던진다")
+        @DisplayName("getOrders() — sellerId가 빈 문자열이면 BusinessException을 던진다")
         void getOrders_throwsWhenSellerIdIsBlank() {
             // 공백 문자열은 의미 있는 조회 키가 아니므로 즉시 차단한다.
             assertThatThrownBy(() -> sellerChannelOrderQueryService.getOrders("   "))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("sellerId는 필수");
         }
 
@@ -205,20 +206,20 @@ class QueryServiceTest {
         }
 
         @Test
-        @DisplayName("getChannelCards() — sellerId가 null이면 IllegalArgumentException을 던진다")
+        @DisplayName("getChannelCards() — sellerId가 null이면 BusinessException을 던진다")
         void getChannelCards_throwsWhenSellerIdIsNull() {
-            // 카드 조회도 주문 조회와 동일한 입력 검증 규칙을 따른다.
+            // 조회 계층에서도 sellerId 검증을 먼저 수행한다.
             assertThatThrownBy(() -> sellerChannelCardQueryService.getChannelCards(null))
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("sellerId는 필수");
         }
 
         @Test
-        @DisplayName("getChannelCards() — sellerId가 빈 문자열이면 IllegalArgumentException을 던진다")
+        @DisplayName("getChannelCards() — sellerId가 빈 문자열이면 BusinessException을 던진다")
         void getChannelCards_throwsWhenSellerIdIsBlank() {
-            // 공백 sellerId는 mapper까지 전달하지 않는다.
-            assertThatThrownBy(() -> sellerChannelCardQueryService.getChannelCards("  "))
-                    .isInstanceOf(IllegalArgumentException.class)
+            // 공백 문자열은 의미 있는 조회 키가 아니므로 즉시 차단한다.
+            assertThatThrownBy(() -> sellerChannelCardQueryService.getChannelCards("   "))
+                    .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("sellerId는 필수");
         }
 
