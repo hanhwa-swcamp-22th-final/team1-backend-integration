@@ -1,17 +1,15 @@
 spring:
   application:
-    name:
-      team1-backend-integration
+    name: team1-backend-integration
   jpa:
     hibernate:
-      ddl-auto: create
+      # create → update: 재시작해도 기존 데이터 유지
+      ddl-auto: update
       naming:
         physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
     properties:
       hibernate:
         format_sql: true
-  profiles:
-    active: dev
 logging:
   level:
     org.hibernate.SQL: debug
@@ -27,3 +25,12 @@ shopify:
 
 easypost:
   base-url: https://api.easypost.com
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
