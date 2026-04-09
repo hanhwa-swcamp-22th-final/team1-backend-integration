@@ -4,8 +4,10 @@ import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.query.controller.IntegrationQueryController;
 import com.conk.integration.query.dto.SellerChannelCardDto;
+import com.conk.integration.query.dto.SellerChannelDetailDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.service.SellerChannelCardQueryService;
+import com.conk.integration.query.service.SellerChannelDetailQueryService;
 import com.conk.integration.query.service.SellerChannelOrderQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -41,6 +43,9 @@ class IntegrationQueryControllerTest {
 
     @MockitoBean
     private SellerChannelCardQueryService channelCardQueryService;
+
+    @MockitoBean
+    private SellerChannelDetailQueryService channelDetailQueryService;
 
     @MockitoBean
     private SellerChannelOrderQueryService channelOrderQueryService;
@@ -142,6 +147,57 @@ class IntegrationQueryControllerTest {
                     .andExpect(jsonPath("$.data", hasSize(2)))
                     .andExpect(jsonPath("$.data[0].key").value("SHOPIFY"))
                     .andExpect(jsonPath("$.data[1].key").value("AMAZON"));
+        }
+    }
+
+    /* ===================================================================
+     * GET /integrations/seller/channels/{channelKey}
+     * =================================================================== */
+
+    @Nested
+    @DisplayName("GET /integrations/seller/channels/{channelKey} — 채널 연결 상세 조회")
+    class GetSellerChannelDetailTests {
+
+        @Test
+        @DisplayName("정상 요청 — HTTP 200과 채널 연결 상세가 반환된다")
+        void getSellerChannelDetail_returnsOk() throws Exception {
+            SellerChannelDetailDto detail = new SellerChannelDetailDto(
+                    "SHOPIFY",
+                    "my-shopify-store",
+                    "shpat_xxxxxxxx",
+                    LocalDateTime.of(2026, 1, 15, 9, 0));
+
+            given(channelDetailQueryService.getChannelDetail("seller-A", "SHOPIFY"))
+                    .willReturn(detail);
+
+            mockMvc.perform(get("/integrations/seller/channels/SHOPIFY")
+                            .header("X-Seller-Id", "seller-A"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.channelName").value("SHOPIFY"))
+                    .andExpect(jsonPath("$.data.storeName").value("my-shopify-store"))
+                    .andExpect(jsonPath("$.data.channelApi").value("shpat_xxxxxxxx"));
+        }
+
+        @Test
+        @DisplayName("X-Seller-Id 헤더가 없으면 HTTP 400이 반환된다")
+        void getSellerChannelDetail_missingHeader_returns400() throws Exception {
+            mockMvc.perform(get("/integrations/seller/channels/SHOPIFY"))
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("연결 정보가 없으면 HTTP 404가 반환된다")
+        void getSellerChannelDetail_notFound_returns404() throws Exception {
+            given(channelDetailQueryService.getChannelDetail("seller-A", "SHOPIFY"))
+                    .willThrow(new BusinessException(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND));
+
+            mockMvc.perform(get("/integrations/seller/channels/SHOPIFY")
+                            .header("X-Seller-Id", "seller-A"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-404"))
+                    .andExpect(jsonPath("$.message").value("연결된 채널 정보를 찾을 수 없습니다."));
         }
     }
 

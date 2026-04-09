@@ -16,4 +16,8 @@ public interface ChannelApiMapper {
 
     // 특정 셀러의 모든 채널 API 설정을 조회한다.
     List<ChannelApi> findByIdSellerId(@Param("sellerId") String sellerId);
+
+    // 특정 셀러의 특정 채널 API 설정을 조회한다.
+    ChannelApi findBySellerIdAndChannelName(@Param("sellerId") String sellerId,
+                                            @Param("channelName") String channelName);
 }

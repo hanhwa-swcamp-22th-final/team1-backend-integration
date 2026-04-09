@@ -51,4 +51,13 @@
         WHERE  seller_id = #{sellerId}
     </select>
 
+    <select id="findBySellerIdAndChannelName"
+            resultMap="channelApiResultMap">
+        SELECT seller_id, channel_name, channel_api, store_name,
+               created_at, updated_at, created_by, updated_by
+        FROM   channel_api
+        WHERE  seller_id = #{sellerId}
+          AND  channel_name = #{channelName}
+    </select>
+
 </mapper>

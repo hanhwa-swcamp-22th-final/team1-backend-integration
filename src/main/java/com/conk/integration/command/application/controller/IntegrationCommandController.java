@@ -7,6 +7,7 @@ import com.conk.integration.command.application.dto.request.EasyPostCreateShipme
 import com.conk.integration.command.application.dto.request.ManualOrderInvoiceRequest;
 import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
+import com.conk.integration.command.application.dto.response.ChannelOrderImportResponse;
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.application.dto.response.EasyPostInvoiceResponse;
 import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
@@ -15,7 +16,10 @@ import com.conk.integration.command.application.service.ChannelOrderSyncDispatch
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
 import com.conk.integration.command.application.service.ManualOrderInvoiceService;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.common.ApiResponse;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,7 +41,7 @@ public class IntegrationCommandController {
     private final ManualOrderInvoiceService manualOrderInvoiceService;
 
     /**
-     * INT-007 — 채널 주문 동기화
+     * 채널 주문 동기화
      * POST /integrations/seller/orders/sync
      */
     @PostMapping("/seller/orders/sync")
@@ -51,7 +55,21 @@ public class IntegrationCommandController {
     }
 
     /**
-     * INT-003 — 셀러 주문 fulfillment 생성
+     * 채널 주문 가져오기
+     * POST /integrations/seller/channels/{channelKey}/import-orders
+     */
+    @PostMapping("/seller/channels/{channelKey}/import-orders")
+    public ResponseEntity<ApiResponse<ChannelOrderImportResponse>> importChannelOrders(
+            @RequestHeader("X-Seller-Id") String sellerId,
+            @PathVariable String channelKey) {
+
+        OrderChannel orderChannel = toOrderChannel(channelKey);
+        ChannelOrderSyncResponse response = orderSyncDispatchService.sync(sellerId, orderChannel);
+        return ResponseEntity.ok(ApiResponse.ok(ChannelOrderImportResponse.from(response)));
+    }
+
+    /**
+     * 셀러 주문 fulfillment 생성
      * POST /integrations/seller/orders/fulfillment/{orderId}
      */
     @PostMapping("/seller/orders/fulfillment/{orderId}")
@@ -63,7 +81,7 @@ public class IntegrationCommandController {
     }
 
     /**
-     * INT-004 — 미전송 주문 일괄 fulfillment 전송
+     * 미전송 주문 일괄 fulfillment 전송
      * POST /integrations/seller/orders/bulk-fulfillment
      */
     @PostMapping("/seller/orders/bulk-fulfillment")
@@ -77,7 +95,7 @@ public class IntegrationCommandController {
     }
 
     /**
-     * INT-005 — EasyPost 단건 송장 발급
+     * EasyPost 단건 송장 발급
      * POST /integrations/seller/orders/invoice
      */
     @PostMapping("/seller/orders/invoice")
@@ -89,7 +107,7 @@ public class IntegrationCommandController {
     }
 
     /**
-     * INT-006 — EasyPost 일괄 송장 발급
+     * EasyPost 일괄 송장 발급
      * POST /integrations/seller/orders/bulk-invoice
      */
     @PostMapping("/seller/orders/bulk-invoice")
@@ -102,7 +120,7 @@ public class IntegrationCommandController {
     }
 
     /**
-     * INT-008 — 수동 주문 기입 및 EasyPost 송장 발급
+     * 수동 주문 기입 및 EasyPost 송장 발급
      * POST /integrations/seller/orders/manual-invoice
      */
     @PostMapping("/seller/orders/manual-invoice")
@@ -112,5 +130,15 @@ public class IntegrationCommandController {
 
         ManualOrderInvoiceResponse response = manualOrderInvoiceService.issue(sellerId, request);
         return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    private OrderChannel toOrderChannel(String channelKey) {
+        try {
+            return OrderChannel.valueOf(channelKey.trim().toUpperCase());
+        } catch (RuntimeException e) {
+            throw new BusinessException(
+                    ErrorCode.UNSUPPORTED_CHANNEL,
+                    "지원하지 않는 주문 동기화 채널입니다: " + channelKey);
+        }
     }
 }
