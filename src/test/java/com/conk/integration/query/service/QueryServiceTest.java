@@ -4,6 +4,7 @@ import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
+import com.conk.integration.query.dto.ShopifyCredentialDto;
 import com.conk.integration.query.mapper.SellerChannelCardMapper;
 import com.conk.integration.query.mapper.SellerChannelOrderMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +20,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
 /**
@@ -158,13 +160,19 @@ class QueryServiceTest {
         }
     }
 
-    // 채널 카드 조회는 mapper 결과에 라벨만 덧입히는 후처리 책임을 검증한다.
+    // 채널 카드 조회는 mapper 결과에 라벨과 실시간 Shopify 연동 상태를 덧입히는 책임을 검증한다.
     @Nested
     @DisplayName("SellerChannelCardQueryService")
     class SellerChannelCardQueryServiceTests {
 
         @Mock
         private SellerChannelCardMapper channelCardMapper;
+
+        @Mock
+        private ChannelApiQueryService channelApiQueryService;
+
+        @Mock
+        private ShopifyPingClient shopifyPingClient;
 
         @InjectMocks
         private SellerChannelCardQueryService sellerChannelCardQueryService;
@@ -179,6 +187,8 @@ class QueryServiceTest {
 
             given(channelCardMapper.findBySellerIdGroupedByChannel("seller-A"))
                     .willReturn(List.of(card));
+            given(channelApiQueryService.findShopifyCredential("seller-A")).willReturn(buildCredential());
+            given(shopifyPingClient.ping(any(), any())).willReturn(true);
 
             List<SellerChannelCardDto> result = sellerChannelCardQueryService.getChannelCards("seller-A");
 
@@ -198,6 +208,8 @@ class QueryServiceTest {
 
             given(channelCardMapper.findBySellerIdGroupedByChannel("seller-B"))
                     .willReturn(List.of(shopify, amazon));
+            given(channelApiQueryService.findShopifyCredential("seller-B")).willReturn(buildCredential());
+            given(shopifyPingClient.ping(any(), any())).willReturn(true);
 
             List<SellerChannelCardDto> result = sellerChannelCardQueryService.getChannelCards("seller-B");
 
@@ -245,6 +257,13 @@ class QueryServiceTest {
         void toLabel_returnsEmpty_whenNull() {
             // null key는 화면 표시 단계에서 빈 값으로 정리한다.
             assertThat(sellerChannelCardQueryService.toLabel(null)).isEmpty();
+        }
+
+        private ShopifyCredentialDto buildCredential() {
+            ShopifyCredentialDto cred = new ShopifyCredentialDto();
+            cred.setStoreName("test-store");
+            cred.setAccessToken("test-token");
+            return cred;
         }
     }
 }
