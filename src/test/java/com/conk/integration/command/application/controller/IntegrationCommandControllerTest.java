@@ -273,6 +273,75 @@ class IntegrationCommandControllerTest {
     }
 
     @Nested
+    @DisplayName("POST /integrations/seller/channels/{channelKey}/import-orders — 채널 주문 가져오기")
+    class ImportChannelOrdersTests {
+
+        @Test
+        @DisplayName("정상 요청 — body 없이 호출해도 importedCount/skippedCount가 반환된다")
+        void importChannelOrders_withoutBody_returns200() throws Exception {
+            ChannelOrderSyncResponse response = new ChannelOrderSyncResponse(10, 2, List.of());
+            given(orderSyncDispatchService.sync(any(), any())).willReturn(response);
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-orders", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.importedCount").value(10))
+                    .andExpect(jsonPath("$.data.skippedCount").value(2));
+        }
+
+        @Test
+        @DisplayName("정상 요청 — 빈 JSON body여도 importedCount/skippedCount가 반환된다")
+        void importChannelOrders_emptyJsonBody_returns200() throws Exception {
+            ChannelOrderSyncResponse response = new ChannelOrderSyncResponse(3, 1, List.of());
+            given(orderSyncDispatchService.sync(any(), any())).willReturn(response);
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-orders", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.importedCount").value(3))
+                    .andExpect(jsonPath("$.data.skippedCount").value(1));
+        }
+
+        @Test
+        @DisplayName("X-Seller-Id 헤더가 없으면 HTTP 400이 반환된다")
+        void importChannelOrders_missingSellerIdHeader_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-orders", "SHOPIFY"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: X-Seller-Id"));
+        }
+
+        @Test
+        @DisplayName("지원하지 않는 channelKey면 HTTP 400이 반환된다")
+        void importChannelOrders_unsupportedChannel_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-orders", "UNKNOWN")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-004"))
+                    .andExpect(jsonPath("$.message").value("지원하지 않는 주문 동기화 채널입니다: UNKNOWN"));
+        }
+
+        @Test
+        @DisplayName("Service가 지원 불가 예외를 던지면 HTTP 400이 반환된다")
+        void importChannelOrders_serviceThrows_returns400() throws Exception {
+            given(orderSyncDispatchService.sync(any(), any()))
+                    .willThrow(new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL, "지원하지 않는 주문 동기화 채널입니다: SHOPIFY"));
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-orders", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-004"))
+                    .andExpect(jsonPath("$.message").value("지원하지 않는 주문 동기화 채널입니다: SHOPIFY"));
+        }
+    }
+
+    @Nested
     @DisplayName("POST /integrations/seller/orders/manual-invoice — 수동 주문 기입 및 송장 발급 (INT-008)")
     class CreateManualOrderInvoiceTests {
 

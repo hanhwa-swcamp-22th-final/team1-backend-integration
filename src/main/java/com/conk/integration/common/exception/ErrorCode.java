@@ -27,6 +27,7 @@ public enum ErrorCode {
     INVOICE_NOT_FOUND(HttpStatus.NOT_FOUND, "INT-102", "송장을 찾을 수 없습니다."),
     CHANNEL_CREDENTIALS_NOT_FOUND(HttpStatus.NOT_FOUND, "INT-103", "Shopify 자격증명을 찾을 수 없습니다."),
     NO_SHIPPING_RATES(HttpStatus.NOT_FOUND, "INT-104", "운임 정보가 없습니다."),
+    CHANNEL_CONNECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "INT-404", "연결된 채널 정보를 찾을 수 없습니다."),
 
     // 409 Conflict — 상태 충돌
     INVOICE_ALREADY_EXISTS(HttpStatus.CONFLICT, "INT-201", "이미 송장이 발급된 주문입니다."),

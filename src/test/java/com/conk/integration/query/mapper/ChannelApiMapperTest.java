@@ -61,4 +61,41 @@ class ChannelApiMapperTest {
 
         assertThat(result).isEmpty();
     }
+
+    @Test
+    @DisplayName("findBySellerIdAndChannelName()는 sellerId와 channelName이 모두 일치하는 채널만 반환한다")
+    void findBySellerIdAndChannelName_returnsMatchingChannelApi() {
+        channelApiRepository.saveAllAndFlush(List.of(
+                ChannelApi.builder()
+                        .id(new ChannelApiId("seller-A", "SHOPIFY"))
+                        .channelApi("shopify-token-A")
+                        .storeName("store-a")
+                        .build(),
+                ChannelApi.builder()
+                        .id(new ChannelApiId("seller-A", "AMAZON"))
+                        .channelApi("amazon-token-A")
+                        .storeName("store-amazon")
+                        .build(),
+                ChannelApi.builder()
+                        .id(new ChannelApiId("seller-B", "SHOPIFY"))
+                        .channelApi("shopify-token-B")
+                        .storeName("store-b")
+                        .build()
+        ));
+
+        ChannelApi result = channelApiMapper.findBySellerIdAndChannelName("seller-A", "SHOPIFY");
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId().getSellerId()).isEqualTo("seller-A");
+        assertThat(result.getId().getChannelName()).isEqualTo("SHOPIFY");
+        assertThat(result.getStoreName()).isEqualTo("store-a");
+    }
+
+    @Test
+    @DisplayName("findBySellerIdAndChannelName()는 일치하는 채널이 없으면 null을 반환한다")
+    void findBySellerIdAndChannelName_returnsNullWhenNoMatch() {
+        ChannelApi result = channelApiMapper.findBySellerIdAndChannelName("seller-NONE", "SHOPIFY");
+
+        assertThat(result).isNull();
+    }
 }
