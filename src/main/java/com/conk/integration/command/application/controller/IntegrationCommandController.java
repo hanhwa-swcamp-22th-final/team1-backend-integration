@@ -42,12 +42,11 @@ public class IntegrationCommandController {
      */
     @PostMapping("/seller/orders/sync")
     public ResponseEntity<ApiResponse<ChannelOrderSyncResponse>> syncChannelOrders(
-            @RequestHeader("Authorization") String authorization,
+            @RequestHeader("X-Seller-Id") String sellerId,
             @RequestBody ChannelOrderSyncRequest request) {
 
-        // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
         ChannelOrderSyncResponse response = orderSyncDispatchService.sync(
-                request.getSellerId(), request.getOrderChannel());
+                sellerId, request.getOrderChannel());
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
@@ -57,10 +56,8 @@ public class IntegrationCommandController {
      */
     @PostMapping("/seller/orders/fulfillment/{orderId}")
     public ResponseEntity<ApiResponse<Void>> createSellerOrderFulfillment(
-            @RequestHeader("Authorization") String authorization,
             @PathVariable String orderId) {
 
-        // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
         fulfillmentDispatchService.fulfill(orderId);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
@@ -71,12 +68,11 @@ public class IntegrationCommandController {
      */
     @PostMapping("/seller/orders/bulk-fulfillment")
     public ResponseEntity<ApiResponse<BulkFulfillmentResponse>> createBulkFulfillment(
-            @RequestHeader("Authorization") String authorization,
+            @RequestHeader("X-Seller-Id") String sellerId,
             @RequestBody BulkFulfillmentRequest request) {
 
-        // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
         BulkFulfillmentResponse response = fulfillmentDispatchService.fulfillBulk(
-                request.getSellerId(), request.getOrderChannel());
+                sellerId, request.getOrderChannel());
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
@@ -86,10 +82,8 @@ public class IntegrationCommandController {
      */
     @PostMapping("/seller/orders/invoice")
     public ResponseEntity<ApiResponse<EasyPostInvoiceResponse>> createShipmentInvoice(
-            @RequestHeader("Authorization") String authorization,
             @RequestBody EasyPostCreateShipmentRequest request) {
 
-        // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
         EasypostShipmentInvoice invoice = easyPostInvoiceSaveService.createAndSaveInvoice(request);
         return ResponseEntity.ok(ApiResponse.ok(EasyPostInvoiceResponse.from(invoice)));
     }
@@ -100,10 +94,8 @@ public class IntegrationCommandController {
      */
     @PostMapping("/seller/orders/bulk-invoice")
     public ResponseEntity<ApiResponse<BulkInvoiceResponse>> createBulkShipmentInvoice(
-            @RequestHeader("Authorization") String authorization,
             @RequestBody BulkInvoiceRequest request) {
 
-        // 실제 bearer 파싱은 추후 security 계층에서 담당하고, 현재는 헤더 존재 계약만 강제한다.
         BulkInvoiceResponse response = easyPostInvoiceSaveService.createAndSaveBulkInvoices(
                 request.getSellerId(), request.getFromAddress(), request.getParcel());
         return ResponseEntity.ok(ApiResponse.ok(response));

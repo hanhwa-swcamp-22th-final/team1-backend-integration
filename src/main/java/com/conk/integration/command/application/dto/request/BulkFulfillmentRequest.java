@@ -12,9 +12,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class BulkFulfillmentRequest {
 
-    @JsonProperty("sellerId")
-    private String sellerId;
-
     @JsonProperty("orderChannel")
     private OrderChannel orderChannel;
 }

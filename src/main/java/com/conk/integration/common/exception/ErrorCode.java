@@ -19,6 +19,9 @@ public enum ErrorCode {
     UNSUPPORTED_BULK_FULFILLMENT(HttpStatus.BAD_REQUEST, "INT-003", "해당 채널은 일괄 fulfillment를 지원하지 않습니다."),
     UNSUPPORTED_CHANNEL(HttpStatus.BAD_REQUEST, "INT-004", "지원하지 않는 fulfillment 채널입니다."),
 
+    // 403 Forbidden — 접근 권한 없음
+    SELLER_ACCESS_DENIED(HttpStatus.FORBIDDEN, "INT-403", "해당 주문에 대한 접근 권한이 없습니다."),
+
     // 404 Not Found — 리소스 없음
     ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "INT-101", "주문을 찾을 수 없습니다."),
     INVOICE_NOT_FOUND(HttpStatus.NOT_FOUND, "INT-102", "송장을 찾을 수 없습니다."),

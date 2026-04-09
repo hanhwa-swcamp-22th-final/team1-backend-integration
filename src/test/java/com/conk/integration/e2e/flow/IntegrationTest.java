@@ -369,9 +369,9 @@ class IntegrationTest {
 
             // when & then
             mockMvc.perform(post("/integrations/seller/orders/sync")
-                            .header("Authorization", "Bearer test-token")
+                            .header("X-Seller-Id", "seller-http-A")
                             .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                            .content("{\"sellerId\":\"seller-http-A\",\"orderChannel\":\"SHOPIFY\"}"))
+                            .content("{\"orderChannel\":\"SHOPIFY\"}"))
                     .andDo(print())
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
@@ -392,9 +392,9 @@ class IntegrationTest {
 
             // when
             mockMvc.perform(post("/integrations/seller/orders/sync")
-                            .header("Authorization", "Bearer test-token")
+                            .header("X-Seller-Id", "seller-http-B")
                             .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                            .content("{\"sellerId\":\"seller-http-B\",\"orderChannel\":\"SHOPIFY\"}"))
+                            .content("{\"orderChannel\":\"SHOPIFY\"}"))
                     .andExpect(status().isOk());
 
             // then — DB 직접 조회
@@ -413,20 +413,20 @@ class IntegrationTest {
                     .willThrow(new BusinessException(ErrorCode.CHANNEL_CREDENTIALS_NOT_FOUND, "채널 API 정보가 존재하지 않습니다"));
 
             mockMvc.perform(post("/integrations/seller/orders/sync")
-                            .header("Authorization", "Bearer test-token")
+                            .header("X-Seller-Id", "seller-no-cred")
                             .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                            .content("{\"sellerId\":\"seller-no-cred\",\"orderChannel\":\"SHOPIFY\"}"))
+                            .content("{\"orderChannel\":\"SHOPIFY\"}"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("INT-103"));
         }
 
         @Test
-        @DisplayName("Authorization 헤더 누락 시 HTTP 400이 반환된다")
-        void syncOrders_e2e_missingAuthHeader_returns400() throws Exception {
+        @DisplayName("X-Seller-Id 헤더 누락 시 HTTP 400이 반환된다")
+        void syncOrders_e2e_missingSellerIdHeader_returns400() throws Exception {
             mockMvc.perform(post("/integrations/seller/orders/sync")
                             .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                            .content("{\"sellerId\":\"seller-http-D\",\"orderChannel\":\"SHOPIFY\"}"))
+                            .content("{\"orderChannel\":\"SHOPIFY\"}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false));
         }

@@ -63,8 +63,7 @@ class IntegrationCommandControllerTest {
         @Test
         @DisplayName("정상 요청 — HTTP 200과 success:true, data:null 이 반환된다")
         void createSellerOrderFulfillment_returnsOk() throws Exception {
-            mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001")
-                            .header("Authorization", "Bearer test-token"))
+            mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001"))
                     .andExpect(status().isOk())
                     .andExpect(content().json("""
                             {"success":true,"data":null}
@@ -75,23 +74,13 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Authorization 헤더가 없으면 HTTP 400이 반환된다")
-        void createSellerOrderFulfillment_missingAuthorization_returns400() throws Exception {
-            mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001"))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: Authorization"));
-        }
-
-        @Test
         @DisplayName("주문이 없으면 HTTP 404가 반환된다")
         void createSellerOrderFulfillment_orderNotFound_returns404() throws Exception {
             doThrow(new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다: ORD-404"))
                     .when(fulfillmentDispatchService)
                     .fulfill("ORD-404");
 
-            mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-404")
-                            .header("Authorization", "Bearer test-token"))
+            mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-404"))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("INT-101"))
@@ -105,8 +94,7 @@ class IntegrationCommandControllerTest {
                     .when(fulfillmentDispatchService)
                     .fulfill("ORD-20260330-0001");
 
-            mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001")
-                            .header("Authorization", "Bearer test-token"))
+            mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001"))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("INT-202"))
@@ -116,8 +104,7 @@ class IntegrationCommandControllerTest {
         @Test
         @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
         void createSellerOrderFulfillment_wrongMethod_returns405() throws Exception {
-            mockMvc.perform(get("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001")
-                            .header("Authorization", "Bearer test-token"))
+            mockMvc.perform(get("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001"))
                     .andExpect(status().isMethodNotAllowed());
         }
     }
@@ -145,7 +132,6 @@ class IntegrationCommandControllerTest {
             given(easyPostInvoiceSaveService.createAndSaveInvoice(any())).willReturn(invoice);
 
             mockMvc.perform(post("/integrations/seller/orders/invoice")
-                            .header("Authorization", "Bearer test-token")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
                     .andExpect(status().isOk())
@@ -158,24 +144,12 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Authorization 헤더가 없으면 HTTP 400이 반환된다")
-        void createShipmentInvoice_missingAuthorization_returns400() throws Exception {
-            mockMvc.perform(post("/integrations/seller/orders/invoice")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(REQUEST_BODY))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: Authorization"));
-        }
-
-        @Test
         @DisplayName("운임 정보가 없으면 HTTP 404가 반환된다")
         void createShipmentInvoice_noRates_returns404() throws Exception {
             given(easyPostInvoiceSaveService.createAndSaveInvoice(any()))
                     .willThrow(new BusinessException(ErrorCode.NO_SHIPPING_RATES));
 
             mockMvc.perform(post("/integrations/seller/orders/invoice")
-                            .header("Authorization", "Bearer test-token")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
                     .andExpect(status().isNotFound())
@@ -187,8 +161,7 @@ class IntegrationCommandControllerTest {
         @Test
         @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
         void createShipmentInvoice_wrongMethod_returns405() throws Exception {
-            mockMvc.perform(get("/integrations/seller/orders/invoice")
-                            .header("Authorization", "Bearer test-token"))
+            mockMvc.perform(get("/integrations/seller/orders/invoice"))
                     .andExpect(status().isMethodNotAllowed());
         }
     }
@@ -208,7 +181,6 @@ class IntegrationCommandControllerTest {
                     .willReturn(new BulkInvoiceResponse(2, 0));
 
             mockMvc.perform(post("/integrations/seller/orders/bulk-invoice")
-                            .header("Authorization", "Bearer test-token")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
                     .andExpect(status().isOk())
@@ -218,24 +190,12 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Authorization 헤더가 없으면 HTTP 400이 반환된다")
-        void createBulkShipmentInvoice_missingAuthorization_returns400() throws Exception {
-            mockMvc.perform(post("/integrations/seller/orders/bulk-invoice")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(REQUEST_BODY))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: Authorization"));
-        }
-
-        @Test
         @DisplayName("예기치 못한 서버 오류는 HTTP 500이 반환된다")
         void createBulkShipmentInvoice_unexpectedError_returns500() throws Exception {
             given(easyPostInvoiceSaveService.createAndSaveBulkInvoices(any(), any(), any()))
                     .willThrow(new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "DB 연결 오류"));
 
             mockMvc.perform(post("/integrations/seller/orders/bulk-invoice")
-                            .header("Authorization", "Bearer test-token")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
                     .andExpect(status().isInternalServerError())
@@ -247,8 +207,7 @@ class IntegrationCommandControllerTest {
         @Test
         @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
         void createBulkShipmentInvoice_wrongMethod_returns405() throws Exception {
-            mockMvc.perform(get("/integrations/seller/orders/bulk-invoice")
-                            .header("Authorization", "Bearer test-token"))
+            mockMvc.perform(get("/integrations/seller/orders/bulk-invoice"))
                     .andExpect(status().isMethodNotAllowed());
         }
     }
@@ -258,7 +217,7 @@ class IntegrationCommandControllerTest {
     class SyncChannelOrdersTests {
 
         private static final String REQUEST_BODY = """
-                {"sellerId":"seller-001","orderChannel":"SHOPIFY"}
+                {"orderChannel":"SHOPIFY"}
                 """;
 
         @Test
@@ -268,7 +227,7 @@ class IntegrationCommandControllerTest {
             given(orderSyncDispatchService.sync(any(), any())).willReturn(response);
 
             mockMvc.perform(post("/integrations/seller/orders/sync")
-                            .header("Authorization", "Bearer test-token")
+                            .header("X-Seller-Id", "seller-001")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
                     .andExpect(status().isOk())
@@ -278,14 +237,14 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Authorization 헤더가 없으면 HTTP 400이 반환된다")
-        void syncChannelOrders_missingAuthorization_returns400() throws Exception {
+        @DisplayName("X-Seller-Id 헤더가 없으면 HTTP 400이 반환된다")
+        void syncChannelOrders_missingSellerIdHeader_returns400() throws Exception {
             mockMvc.perform(post("/integrations/seller/orders/sync")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: Authorization"));
+                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: X-Seller-Id"));
         }
 
         @Test
@@ -295,7 +254,7 @@ class IntegrationCommandControllerTest {
                     .willThrow(new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL, "지원하지 않는 채널"));
 
             mockMvc.perform(post("/integrations/seller/orders/sync")
-                            .header("Authorization", "Bearer test-token")
+                            .header("X-Seller-Id", "seller-001")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(REQUEST_BODY))
                     .andExpect(status().isBadRequest())
@@ -308,7 +267,7 @@ class IntegrationCommandControllerTest {
         @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
         void syncChannelOrders_wrongMethod_returns405() throws Exception {
             mockMvc.perform(get("/integrations/seller/orders/sync")
-                            .header("Authorization", "Bearer test-token"))
+                            .header("X-Seller-Id", "seller-001"))
                     .andExpect(status().isMethodNotAllowed());
         }
     }
