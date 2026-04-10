@@ -47,12 +47,12 @@ import static org.mockito.BDDMockito.willThrow;
  * - Repository / API 클라이언트를 @Mock으로 대체하여 Service 비즈니스 로직 자체에 집중
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("[Service] Command Application Service 단위 테스트 (Mockito)")
+@DisplayName("CommandApplicationService 테스트")
 class CommandApplicationServiceTest {
 
     // Shopify 주문 동기화의 저장 분기만 빠르게 읽히도록 묶는다.
     @Nested
-    @DisplayName("ShopifyOrderSyncService")
+    @DisplayName("Shopify 주문 동기화 테스트")
     class ShopifyOrderSyncServiceTests {
 
         @Mock
@@ -68,7 +68,7 @@ class CommandApplicationServiceTest {
         private ShopifyOrderSyncService shopifyOrderSyncService;
 
         @Test
-        @DisplayName("syncOrders() — 신규 주문만 DB에 저장된다 (이미 존재하는 주문 skip)")
+        @DisplayName("신규 주문과 기존 주문이 함께 주어지면 주문 동기화를 수행했을 때 신규 주문만 저장해야 한다")
         void syncOrders_savesOnlyNewOrders() {
             // 1001은 중복, 1002만 신규로 취급되도록 fixture를 구성한다.
             ShopifyOrderResponse.OrderNode existingNode = buildOrderNode(1001L, "#1001");
@@ -85,7 +85,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("syncOrders() — 모든 주문이 이미 존재하면 save()가 호출되지 않는다")
+        @DisplayName("모든 주문이 이미 저장되어 있으면 주문 동기화를 수행했을 때 주문을 저장하지 않아야 한다")
         void syncOrders_savesNothing_whenAllExist() {
             // 전체가 중복이면 저장 호출이 완전히 없어야 한다.
             given(channelApiQueryService.findShopifyCredential("seller-B")).willReturn(buildCredential());
@@ -99,7 +99,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("syncOrders() — Shopify 주문 목록이 0건이면 save()가 호출되지 않는다")
+        @DisplayName("Shopify 주문 목록이 비어 있으면 주문 동기화를 수행했을 때 주문을 저장하지 않아야 한다")
         void syncOrders_savesNothing_whenEmptyOrders() {
             // 외부 API가 빈 목록을 주면 서비스는 조용히 종료해야 한다.
             given(channelApiQueryService.findShopifyCredential("seller-C")).willReturn(buildCredential());
@@ -128,7 +128,7 @@ class CommandApplicationServiceTest {
     }
 
     @Nested
-    @DisplayName("EasyPostInvoiceSaveService")
+    @DisplayName("EasyPost 송장 저장 테스트")
     class EasyPostInvoiceSaveServiceTests {
 
         @Mock
@@ -141,7 +141,7 @@ class CommandApplicationServiceTest {
         private EasyPostInvoiceSaveService easyPostInvoiceSaveService;
 
         @Test
-        @DisplayName("createAndSaveInvoice() — 최저가 rate 선택 후 shipment를 구매하고 DB에 저장한다")
+        @DisplayName("여러 운임 정보가 주어지면 송장을 생성하고 저장했을 때 최저가 운임으로 구매 후 저장해야 한다")
         void createAndSaveInvoice_buysLowestRateAndSaves() {
             // createShipment 응답은 정렬되지 않은 rate 목록으로 만들어 최저가 선택 로직을 같이 검증한다.
             EasyPostShipmentResponse.RateDto cheapRate = new EasyPostShipmentResponse.RateDto();
@@ -187,7 +187,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("selectCheapestRate() — rates 목록 중 가장 낮은 금액의 rate를 반환한다")
+        @DisplayName("여러 운임 정보가 주어지면 최저 운임을 조회했을 때 가장 낮은 금액의 운임을 반환해야 한다")
         void selectCheapestRate_returnsLowestRate() {
             // helper 메서드는 호출 순서와 무관하게 최저 금액을 찾아야 한다.
             EasyPostShipmentResponse.RateDto r1 = rate("r1", "12.50");
@@ -202,7 +202,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("selectCheapestRate() — rates가 비어있으면 BusinessException(INT-104)을 던진다")
+        @DisplayName("운임 정보가 비어 있으면 최저 운임을 조회했을 때 BusinessException(INT-104)를 발생시켜야 한다")
         void selectCheapestRate_throwsWhenEmpty() {
             // 송장 구매를 진행할 수 없는 입력은 빠르게 실패시킨다.
             assertThatThrownBy(() -> easyPostInvoiceSaveService.selectCheapestRate(List.of()))
@@ -211,7 +211,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("selectCheapestRate() — rate가 null인 항목은 무시되고 유효한 최저가를 반환한다")
+        @DisplayName("일부 운임 금액이 null인 목록이 주어지면 최저 운임을 조회했을 때 유효한 최저가를 반환해야 한다")
         void selectCheapestRate_ignoresNullRates() {
             // 외부 API 일부 값이 비어 있어도 유효한 금액이 남아 있으면 계산 가능해야 한다.
             EasyPostShipmentResponse.RateDto rNull = new EasyPostShipmentResponse.RateDto();
@@ -226,7 +226,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("fromEasyPostName() — carrier 문자열에 따라 올바른 CarrierType을 반환한다")
+        @DisplayName("운송사 이름이 주어지면 CarrierType으로 변환했을 때 올바른 값을 반환해야 한다")
         void fromEasyPostName_mapsCorrectly() {
             // 지원하지 않는 문자열은 기본 운송사로 안전하게 매핑한다.
             assertThat(CarrierType.fromEasyPostName("UPS")).isEqualTo(CarrierType.UPS);
@@ -246,7 +246,7 @@ class CommandApplicationServiceTest {
     }
 
     @Nested
-    @DisplayName("ChannelFulfillmentDispatchService")
+    @DisplayName("채널 fulfillment 분기 테스트")
     class ChannelFulfillmentDispatchServiceTests {
 
         @Mock
@@ -274,7 +274,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("fulfill() — SHOPIFY 주문이면 지원 sender를 1회 호출한다")
+        @DisplayName("Shopify 주문과 송장 정보가 주어지면 fulfillment를 수행했을 때 지원 sender를 한 번 호출해야 한다")
         void fulfill_callsShopifyApi() {
             // dispatch는 공통 조회 후 채널 sender로 위임해야 한다.
             ChannelOrder order = ChannelOrder.builder()
@@ -300,7 +300,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("fulfill() — 주문이 없으면 BusinessException(INT-101)을 던진다")
+        @DisplayName("존재하지 않는 주문 번호가 주어지면 fulfillment를 수행했을 때 BusinessException(INT-101)을 발생시켜야 한다")
         void fulfill_throwsWhenOrderNotFound() {
             // 주문 자체가 없으면 이후 출고 로직으로 진행하면 안 된다.
             given(channelOrderRepository.findById("O-NONE")).willReturn(Optional.empty());
@@ -311,7 +311,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("fulfill() — invoiceNo가 null이면 BusinessException(INT-202)을 던진다")
+        @DisplayName("송장 번호가 없는 주문이 주어지면 fulfillment를 수행했을 때 BusinessException(INT-202)를 발생시켜야 한다")
         void fulfill_throwsWhenInvoiceNoIsNull() {
             // 송장 참조가 빠진 주문은 출고 API 호출 전 단계에서 막아야 한다.
             ChannelOrder order = ChannelOrder.builder()
@@ -330,7 +330,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("fulfill() — invoice가 DB에 없으면 BusinessException(INT-102)을 던진다")
+        @DisplayName("저장된 송장이 없는 주문이 주어지면 fulfillment를 수행했을 때 BusinessException(INT-102)를 발생시켜야 한다")
         void fulfill_throwsWhenInvoiceNotInDb() {
             // 주문에는 참조가 있지만 실제 송장이 없을 때의 불일치 케이스다.
             ChannelOrder order = ChannelOrder.builder()
@@ -350,7 +350,7 @@ class CommandApplicationServiceTest {
         }
 
         @Test
-        @DisplayName("fulfill() — 지원 sender가 없으면 BusinessException(INT-004)을 던진다")
+        @DisplayName("지원하지 않는 채널의 주문이 주어지면 fulfillment를 수행했을 때 BusinessException(INT-004)를 발생시켜야 한다")
         void fulfill_throwsWhenSenderNotSupported() {
             ChannelOrder order = ChannelOrder.builder()
                     .orderId("O-004")

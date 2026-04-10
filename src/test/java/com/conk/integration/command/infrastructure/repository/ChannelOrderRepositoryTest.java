@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 // ChannelOrderRepository의 커스텀 조회와 JPA 매핑 동작을 분리해서 검증한다.
 @DataJpaTest
 @ActiveProfiles("test")
-@DisplayName("ChannelOrderRepository Tests")
+@DisplayName("ChannelOrderRepository 테스트")
 class ChannelOrderRepositoryTest {
 
     @Autowired
@@ -31,7 +31,7 @@ class ChannelOrderRepositoryTest {
 
     // sellerId 필터가 다른 셀러 주문을 섞어 반환하지 않는지 본다.
     @Test
-    @DisplayName("findBySellerId()는 해당 sellerId의 주문만 반환한다")
+    @DisplayName("판매자 ID가 주어지면 findBySellerId로 조회했을 때 해당 판매자의 주문만 반환해야 한다")
     void findBySellerId_returnsOnlyMatchingSeller() {
         ChannelOrder orderA1 = baseOrder("O-A-001", "seller-A");
         ChannelOrder orderA2 = baseOrder("O-A-002", "seller-A");
@@ -48,7 +48,7 @@ class ChannelOrderRepositoryTest {
 
     // existsById는 sync 로직의 중복 방지 분기에서 직접 사용된다.
     @Test
-    @DisplayName("existsById()는 저장된 주문 ID에 대해서만 true를 반환한다")
+    @DisplayName("주문 ID가 주어지면 existsById로 조회했을 때 저장된 주문에만 true를 반환해야 한다")
     void existsById_returnsExpectedBoolean() {
         channelOrderRepository.save(baseOrder("O-EXISTS-001", "seller-X"));
 
@@ -58,7 +58,7 @@ class ChannelOrderRepositoryTest {
 
     // 연관 아이템은 부모 주문 저장만으로 함께 영속화되어야 한다.
     @Test
-    @DisplayName("주문 저장 시 연관 아이템이 cascade로 함께 저장된다")
+    @DisplayName("주문과 주문 아이템이 함께 주어지면 주문을 저장했을 때 연관 아이템도 함께 저장해야 한다")
     void save_cascadesItems() {
         ChannelOrder order = baseOrder("ORDER-ITEM-001", "seller-001");
         order.addItem(buildItem(order, "SKU-A1", 3, "Product A"));
@@ -77,7 +77,7 @@ class ChannelOrderRepositoryTest {
 
     // 컬렉션에서 제거된 자식이 실제 DB에서도 삭제되는지 orphanRemoval을 검증한다.
     @Test
-    @DisplayName("아이템을 컬렉션에서 제거하고 저장하면 orphanRemoval로 삭제된다")
+    @DisplayName("주문 아이템을 컬렉션에서 제거하면 주문을 저장했을 때 orphanRemoval로 삭제해야 한다")
     void save_removesOrphanedItems() {
         ChannelOrder order = baseOrder("ORDER-ITEM-002", "seller-001");
         order.addItem(buildItem(order, "SKU-C1", 1, "Product C"));

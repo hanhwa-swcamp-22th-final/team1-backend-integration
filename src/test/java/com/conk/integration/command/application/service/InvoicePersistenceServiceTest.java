@@ -22,7 +22,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("InvoicePersistenceService 단위 테스트")
+@DisplayName("InvoicePersistenceService 테스트")
 class InvoicePersistenceServiceTest {
 
     @Mock private EasypostShipmentInvoiceRepository invoiceRepository;
@@ -32,7 +32,7 @@ class InvoicePersistenceServiceTest {
     private InvoicePersistenceService service;
 
     @Test
-    @DisplayName("[GREEN] invoice 저장 + order에 invoiceNo 할당 정상 흐름")
+    @DisplayName("송장과 주문이 주어지면 송장을 저장했을 때 주문에 송장 번호를 할당하고 함께 저장해야 한다")
     void saveInvoiceAndAssign_happyPath() {
         EasypostShipmentInvoice invoice = buildInvoice("shp_001");
         ChannelOrder order = buildOrder("ORD-001");
@@ -49,7 +49,7 @@ class InvoicePersistenceServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] invoiceRepository.save() 실패 → 예외 전파, channelOrderRepository.save() 미호출")
+    @DisplayName("송장 저장에 실패하면 송장을 저장했을 때 예외를 전파하고 주문 저장을 호출하지 않아야 한다")
     void saveInvoiceAndAssign_invoiceRepoFails_propagatesAndSkipsOrderSave() {
         EasypostShipmentInvoice invoice = buildInvoice("shp_dup");
         ChannelOrder order = buildOrder("ORD-002");
@@ -65,7 +65,7 @@ class InvoicePersistenceServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] invoice 저장 후 channelOrderRepository.save() 실패 → 예외 전파")
+    @DisplayName("송장 저장 후 주문 저장에 실패하면 송장을 저장했을 때 예외를 전파해야 한다")
     void saveInvoiceAndAssign_orderRepoFails_propagates() {
         EasypostShipmentInvoice invoice = buildInvoice("shp_002");
         ChannelOrder order = buildOrder("ORD-003");

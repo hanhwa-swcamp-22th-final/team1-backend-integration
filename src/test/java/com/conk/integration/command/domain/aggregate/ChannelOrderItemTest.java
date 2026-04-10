@@ -7,12 +7,12 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // 주문 아이템은 복합 키와 기본 수량값이 올바르게 초기화되는지만 확인한다.
-@DisplayName("ChannelOrderItem Entity Tests")
+@DisplayName("ChannelOrderItem 테스트")
 class ChannelOrderItemTest {
 
     // 주문 아이디와 SKU가 함께 묶여 아이템 정체성이 유지되는지 본다.
     @Test
-    @DisplayName("빌더로 생성하면 복합키와 스냅샷 필드가 유지된다")
+    @DisplayName("주문 아이템 정보가 주어지면 엔티티를 생성했을 때 복합 키와 스냅샷 필드를 유지해야 한다")
     void builder_setsCompositeKeyAndSnapshotFields() {
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORDER-ITEM-001")
@@ -35,7 +35,7 @@ class ChannelOrderItemTest {
 
     // picked/packed 수량은 작업 전 상태를 뜻하므로 기본값 0이 중요하다.
     @Test
-    @DisplayName("생성 시 pickedQuantity와 packedQuantity의 기본값은 0이다")
+    @DisplayName("수량 정보 없이 엔티티를 생성했을 때 pickedQuantity와 packedQuantity의 기본값은 0이어야 한다")
     void builder_defaultsPickedAndPackedQuantityToZero() {
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORDER-ITEM-002")

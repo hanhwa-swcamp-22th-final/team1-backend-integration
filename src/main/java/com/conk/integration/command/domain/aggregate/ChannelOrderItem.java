@@ -5,6 +5,8 @@ import com.conk.integration.command.domain.aggregate.embeddable.ChannelOrderItem
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 // 주문에 속한 SKU 단위 수량/작업 상태를 저장하는 자식 엔티티다.
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -35,4 +37,20 @@ public class ChannelOrderItem {
     @Embedded
     @Builder.Default
     private AuditFields audit = new AuditFields();
+
+    public void updateProductNameSnapshot(String productNameSnapshot) {
+        this.productNameSnapshot = productNameSnapshot;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        audit.setCreatedAt(now);
+        audit.setUpdatedAt(now);
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        audit.setUpdatedAt(LocalDateTime.now());
+    }
 }

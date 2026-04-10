@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
-@DisplayName("ChannelOrderInvoiceMapper Tests")
+@DisplayName("ChannelOrderInvoiceMapper 테스트")
 class ChannelOrderInvoiceMapperTest {
 
     @Autowired
@@ -29,7 +29,7 @@ class ChannelOrderInvoiceMapperTest {
     private ChannelOrderRepository channelOrderRepository;
 
     @Test
-    @DisplayName("findOrdersWithoutInvoice — invoiceNo가 null인 주문만 반환된다")
+    @DisplayName("invoiceNo가 null인 주문이 주어지면 findOrdersWithoutInvoice로 조회했을 때 송장이 없는 주문만 반환해야 한다")
     void findOrdersWithoutInvoice_returnsOnlyNullInvoiceOrders() {
         channelOrderRepository.saveAndFlush(orderWithoutInvoice("ORD-NO-INV-001", "seller-A", "Alice"));
         channelOrderRepository.saveAndFlush(orderWithoutInvoice("ORD-NO-INV-002", "seller-A", "Bob"));
@@ -43,7 +43,7 @@ class ChannelOrderInvoiceMapperTest {
     }
 
     @Test
-    @DisplayName("findOrdersWithoutInvoice — 다른 sellerId의 주문은 반환되지 않는다")
+    @DisplayName("다른 판매자의 주문이 함께 있으면 findOrdersWithoutInvoice로 조회했을 때 해당 판매자 주문만 반환해야 한다")
     void findOrdersWithoutInvoice_doesNotReturnOtherSellerOrders() {
         channelOrderRepository.saveAndFlush(orderWithoutInvoice("ORD-SELLER-A-001", "seller-A", "Alice"));
         channelOrderRepository.saveAndFlush(orderWithoutInvoice("ORD-SELLER-B-001", "seller-B", "Bob"));
@@ -55,7 +55,7 @@ class ChannelOrderInvoiceMapperTest {
     }
 
     @Test
-    @DisplayName("findOrdersWithoutInvoice — 조회 대상이 없으면 빈 리스트를 반환한다")
+    @DisplayName("조회 대상이 없으면 findOrdersWithoutInvoice로 조회했을 때 빈 리스트를 반환해야 한다")
     void findOrdersWithoutInvoice_returnsEmptyList() {
         List<InvoiceTargetDto> result = channelOrderInvoiceMapper.findOrdersWithoutInvoice("seller-EMPTY");
 
@@ -63,7 +63,7 @@ class ChannelOrderInvoiceMapperTest {
     }
 
     @Test
-    @DisplayName("findOrdersWithoutInvoice — receiverName, shipToAddress1 필드가 올바르게 매핑된다")
+    @DisplayName("송장이 없는 주문이 주어지면 findOrdersWithoutInvoice로 조회했을 때 receiverName과 shipToAddress1을 올바르게 매핑해야 한다")
     void findOrdersWithoutInvoice_mapsFieldsCorrectly() {
         channelOrderRepository.saveAndFlush(ChannelOrder.builder()
                 .orderId("ORD-FIELD-001")

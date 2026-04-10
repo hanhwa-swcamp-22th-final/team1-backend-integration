@@ -10,12 +10,12 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // 순수 객체 생성 관점에서 ChannelApi의 값 보존만 검증한다.
-@DisplayName("ChannelApi Entity Tests")
+@DisplayName("ChannelApi 테스트")
 class ChannelApiTest {
 
     // 복합 키와 토큰이 빌더 입력 그대로 유지되는지 본다.
     @Test
-    @DisplayName("빌더로 생성하면 복합 키와 API 토큰이 그대로 설정된다")
+    @DisplayName("복합 키와 API 토큰이 주어지면 빌더로 생성했을 때 값이 그대로 설정되어야 한다")
     void builder_setsCompositeKeyAndApiToken() {
         ChannelApi api = ChannelApi.builder()
                 .id(new ChannelApiId("seller-001", "AMAZON"))
@@ -31,7 +31,7 @@ class ChannelApiTest {
 
     // 감사 필드는 영속화 없이도 단순 값 보존이 가능해야 한다.
     @Test
-    @DisplayName("생성 시 감사 필드를 지정하면 값이 유지된다")
+    @DisplayName("감사 필드가 주어지면 엔티티를 생성했을 때 값이 그대로 유지되어야 한다")
     void builder_keepsAuditFields() {
         LocalDateTime createdAt = LocalDateTime.of(2026, 3, 30, 9, 0);
         LocalDateTime updatedAt = createdAt.plusHours(1);

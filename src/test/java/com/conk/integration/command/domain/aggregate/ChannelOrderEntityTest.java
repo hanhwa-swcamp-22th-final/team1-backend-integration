@@ -8,6 +8,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.*;
 
 /**
@@ -16,7 +18,7 @@ import static org.assertj.core.api.Assertions.*;
  * - 순수 Java 객체 수준에서 도메인 모델의 생성 / 상태 / 비즈니스 규칙을 검증합니다.
  * - Spring Context 없이 실행되므로 매우 빠릅니다.
  */
-@DisplayName("[Entity] 도메인 엔티티 단위 테스트")
+@DisplayName("도메인 엔티티 테스트")
 class ChannelOrderEntityTest {
 
     /* ===================================================================
@@ -24,12 +26,12 @@ class ChannelOrderEntityTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("ChannelOrder 엔티티")
+    @DisplayName("ChannelOrder 테스트")
     class ChannelOrderTests {
 
         // 주문 엔티티의 핵심 표시/식별 필드가 빌더 입력 그대로 유지되는지 본다.
         @Test
-        @DisplayName("Builder로 ChannelOrder를 생성하면 각 필드가 정상적으로 설정된다")
+        @DisplayName("주문 정보가 주어지면 ChannelOrder를 생성했을 때 각 필드가 올바르게 설정되어야 한다")
         void builder_setsAllFields() {
             // given & when
             ChannelOrder order = ChannelOrder.builder()
@@ -54,7 +56,7 @@ class ChannelOrderEntityTest {
         }
 
         @Test
-        @DisplayName("addItem()을 호출하면 items 리스트에 아이템이 추가된다")
+        @DisplayName("주문 아이템이 주어지면 addItem을 호출했을 때 items 목록에 추가되어야 한다")
         void addItem_addsToList() {
             // given
             ChannelOrder order = ChannelOrder.builder()
@@ -79,7 +81,7 @@ class ChannelOrderEntityTest {
         }
 
         @Test
-        @DisplayName("여러 아이템을 추가하면 모두 items 리스트에 누적된다")
+        @DisplayName("여러 주문 아이템이 주어지면 addItem을 호출했을 때 items 목록에 누적되어야 한다")
         void addItem_multipleItems_allAdded() {
             // 연속 addItem 호출이 누적 append로 동작해야 한다.
             // given
@@ -108,6 +110,73 @@ class ChannelOrderEntityTest {
             // then
             assertThat(order.getItems()).hasSize(2);
         }
+
+        @Test
+        @DisplayName("동기화 전 주문이 주어지면 markAsSynced를 호출했을 때 channelSyncYn이 true가 되어야 한다")
+        void markAsSynced_setsChannelSyncYnTrue() {
+            ChannelOrder order = ChannelOrder.builder()
+                    .orderId("order-sync")
+                    .sellerId("seller-A")
+                    .build();
+
+            order.markAsSynced();
+
+            assertThat(order.isChannelSyncYn()).isTrue();
+        }
+
+        @Test
+        @DisplayName("송장 번호가 주어지면 assignInvoice를 호출했을 때 invoiceNo가 설정되어야 한다")
+        void assignInvoice_setsInvoiceNo() {
+            ChannelOrder order = ChannelOrder.builder()
+                    .orderId("order-invoice")
+                    .sellerId("seller-A")
+                    .build();
+
+            order.assignInvoice("INV-001");
+
+            assertThat(order.getInvoiceNo()).isEqualTo("INV-001");
+        }
+
+        @Test
+        @DisplayName("shipmentId가 주어지면 assignShipmentId를 호출했을 때 shipmentId가 설정되어야 한다")
+        void assignShipmentId_setsShipmentId() {
+            ChannelOrder order = ChannelOrder.builder()
+                    .orderId("order-shipment")
+                    .sellerId("seller-A")
+                    .build();
+
+            order.assignShipmentId("shp_001");
+
+            assertThat(order.getShipmentId()).isEqualTo("shp_001");
+        }
+
+        @Test
+        @DisplayName("감사 필드가 없는 엔티티가 주어지면 onCreate를 호출했을 때 createdAt과 updatedAt을 채워야 한다")
+        void onCreate_setsAuditCreatedAtAndUpdatedAt() {
+            ChannelOrder order = ChannelOrder.builder()
+                    .orderId("order-audit")
+                    .sellerId("seller-A")
+                    .build();
+
+            order.onCreate();
+
+            assertThat(order.getAudit().getCreatedAt()).isNotNull();
+            assertThat(order.getAudit().getUpdatedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("감사 필드가 있는 엔티티가 주어지면 onUpdate를 호출했을 때 updatedAt을 갱신해야 한다")
+        void onUpdate_updatesAuditUpdatedAt() {
+            ChannelOrder order = ChannelOrder.builder()
+                    .orderId("order-update")
+                    .sellerId("seller-A")
+                    .build();
+            order.getAudit().setUpdatedAt(LocalDateTime.of(2026, 1, 1, 0, 0));
+
+            order.onUpdate();
+
+            assertThat(order.getAudit().getUpdatedAt()).isAfter(LocalDateTime.of(2026, 1, 1, 0, 0));
+        }
     }
 
     /* ===================================================================
@@ -115,12 +184,12 @@ class ChannelOrderEntityTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("ChannelOrderItem 엔티티")
+    @DisplayName("ChannelOrderItem 테스트")
     class ChannelOrderItemTests {
 
         // 작업 수량 기본값은 아직 피킹/포장 전 상태를 뜻한다.
         @Test
-        @DisplayName("Builder로 ChannelOrderItem을 생성하면 기본 수량 값이 0이다")
+        @DisplayName("수량 정보 없이 ChannelOrderItem을 생성했을 때 기본 수량 값은 0이어야 한다")
         void builder_defaultQuantities_areZero() {
             // given
             ChannelOrderItemId id = new ChannelOrderItemId("order-001", "sku-001");
@@ -145,12 +214,12 @@ class ChannelOrderEntityTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("ChannelApiId 복합 키")
+    @DisplayName("ChannelApiId 테스트")
     class ChannelApiIdTests {
 
         // 복합 키는 값 객체이므로 equals/hashCode 계약이 중요하다.
         @Test
-        @DisplayName("동일한 sellerId와 channelName이면 equals/hashCode가 같아야 한다")
+        @DisplayName("동일한 sellerId와 channelName이 주어지면 equals와 hashCode를 비교했을 때 같은 값이어야 한다")
         void equalIds_haveEqualHashCodes() {
             ChannelApiId id1 = new ChannelApiId("seller-A", "SHOPIFY");
             ChannelApiId id2 = new ChannelApiId("seller-A", "SHOPIFY");
@@ -160,7 +229,7 @@ class ChannelOrderEntityTest {
         }
 
         @Test
-        @DisplayName("다른 sellerId이면 equals가 false이다")
+        @DisplayName("다른 sellerId가 주어지면 equals를 비교했을 때 false여야 한다")
         void differentSellerId_notEqual() {
             ChannelApiId id1 = new ChannelApiId("seller-A", "SHOPIFY");
             ChannelApiId id2 = new ChannelApiId("seller-B", "SHOPIFY");
@@ -174,12 +243,12 @@ class ChannelOrderEntityTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("EasypostShipmentInvoice 엔티티")
+    @DisplayName("EasypostShipmentInvoice 테스트")
     class EasypostShipmentInvoiceTests {
 
         // 송장 엔티티는 추적/금액 필드 보존이 핵심이다.
         @Test
-        @DisplayName("Builder로 Invoice를 생성하면 invoiceNo와 carrierType이 올바르게 설정된다")
+        @DisplayName("송장 정보가 주어지면 EasypostShipmentInvoice를 생성했을 때 invoiceNo와 carrierType이 올바르게 설정되어야 한다")
         void builder_setsInvoiceFields() {
             // given & when
             EasypostShipmentInvoice invoice = EasypostShipmentInvoice.builder()
@@ -198,7 +267,7 @@ class ChannelOrderEntityTest {
         }
 
         @Test
-        @DisplayName("CarrierType 열거형은 USPS, UPS, FEDEX 세 가지 값을 가진다")
+        @DisplayName("CarrierType을 조회했을 때 USPS와 UPS와 FEDEX 값을 포함해야 한다")
         void carrierType_hasThreeValues() {
             assertThat(CarrierType.values()).containsExactlyInAnyOrder(
                     CarrierType.USPS, CarrierType.UPS, CarrierType.FEDEX
@@ -211,12 +280,12 @@ class ChannelOrderEntityTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("OrderChannel 열거형")
+    @DisplayName("OrderChannel 테스트")
     class OrderChannelTests {
 
         // 외부 저장값과 enum name 매핑이 일치해야 한다.
         @Test
-        @DisplayName("OrderChannel.SHOPIFY는 name()이 'SHOPIFY'여야 한다")
+        @DisplayName("OrderChannel.SHOPIFY를 조회했을 때 name 값은 SHOPIFY여야 한다")
         void shopify_name() {
             assertThat(OrderChannel.SHOPIFY.name()).isEqualTo("SHOPIFY");
         }

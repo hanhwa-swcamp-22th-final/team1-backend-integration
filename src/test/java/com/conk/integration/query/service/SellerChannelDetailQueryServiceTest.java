@@ -22,7 +22,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("query.SellerChannelDetailQueryService 단위 테스트")
+@DisplayName("SellerChannelDetailQueryService 테스트")
 class SellerChannelDetailQueryServiceTest {
 
     @Mock private ChannelApiQueryService channelApiQueryService;
@@ -30,7 +30,7 @@ class SellerChannelDetailQueryServiceTest {
     @InjectMocks private SellerChannelDetailQueryService service;
 
     @Test
-    @DisplayName("[GREEN] SHOPIFY + ping 성공 → 계약 DTO 반환")
+    @DisplayName("Shopify 자격 증명이 있고 ping에 성공하면 채널 상세를 조회했을 때 계약 DTO를 반환해야 한다")
     void getChannelDetail_shopifyConnected_returnsDetail() {
         ChannelApi channelApi = buildChannelApi("seller-A", "SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store");
         given(channelApiQueryService.findChannelApi("seller-A", "SHOPIFY")).willReturn(channelApi);
@@ -45,7 +45,7 @@ class SellerChannelDetailQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 비-Shopify 채널은 ping 없이 상세 DTO를 반환한다")
+    @DisplayName("Shopify가 아닌 채널이 주어지면 채널 상세를 조회했을 때 ping 없이 상세 DTO를 반환해야 한다")
     void getChannelDetail_nonShopify_returnsDetailWithoutPing() {
         ChannelApi channelApi = buildChannelApi("seller-A", "AMAZON", "amazon-token", "amazon-store");
         given(channelApiQueryService.findChannelApi("seller-A", "AMAZON")).willReturn(channelApi);
@@ -58,7 +58,7 @@ class SellerChannelDetailQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] SHOPIFY ping 실패 → 연결 정보 없음")
+    @DisplayName("Shopify ping에 실패하면 채널 상세를 조회했을 때 연결 정보 없음 예외를 발생시켜야 한다")
     void getChannelDetail_shopifyDisconnected_throwsNotFound() {
         ChannelApi channelApi = buildChannelApi("seller-A", "SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store");
         given(channelApiQueryService.findChannelApi("seller-A", "SHOPIFY")).willReturn(channelApi);
@@ -71,7 +71,7 @@ class SellerChannelDetailQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] sellerId 공백 → INT-001")
+    @DisplayName("sellerId가 공백이면 채널 상세를 조회했을 때 BusinessException(INT-001)을 발생시켜야 한다")
     void getChannelDetail_blankSellerId_throwsInvalidSellerId() {
         assertThatThrownBy(() -> service.getChannelDetail("   ", "SHOPIFY"))
                 .isInstanceOf(BusinessException.class)
@@ -82,7 +82,7 @@ class SellerChannelDetailQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] channelKey 공백 → 연결 정보 없음")
+    @DisplayName("channelKey가 공백이면 채널 상세를 조회했을 때 연결 정보 없음 예외를 발생시켜야 한다")
     void getChannelDetail_blankChannelKey_throwsNotFound() {
         assertThatThrownBy(() -> service.getChannelDetail("seller-A", "   "))
                 .isInstanceOf(BusinessException.class)
@@ -93,7 +93,7 @@ class SellerChannelDetailQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 채널 키는 대문자로 정규화되어 조회된다")
+    @DisplayName("소문자 채널 키가 주어지면 채널 상세를 조회했을 때 대문자로 정규화해 조회해야 한다")
     void getChannelDetail_normalizesChannelKeyToUpperCase() {
         ChannelApi channelApi = buildChannelApi("seller-A", "SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store");
         given(channelApiQueryService.findChannelApi("seller-A", "SHOPIFY")).willReturn(channelApi);
@@ -102,6 +102,43 @@ class SellerChannelDetailQueryServiceTest {
         service.getChannelDetail("seller-A", "shopify");
 
         verify(channelApiQueryService).findChannelApi("seller-A", "SHOPIFY");
+    }
+
+    @Test
+    @DisplayName("audit가 null이면 채널 상세를 조회했을 때 connectedAt을 null로 반환해야 한다")
+    void getChannelDetail_returnsNullConnectedAtWhenAuditIsNull() {
+        ChannelApi channelApi = ChannelApi.builder()
+                .id(new ChannelApiId("seller-A", "AMAZON"))
+                .channelApi("amazon-token")
+                .storeName("amazon-store")
+                .audit(null)
+                .build();
+        given(channelApiQueryService.findChannelApi("seller-A", "AMAZON")).willReturn(channelApi);
+
+        SellerChannelDetailDto result = service.getChannelDetail("seller-A", "AMAZON");
+
+        assertThat(result.getConnectedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("ChannelApiQueryService에서 예외가 발생하면 채널 상세를 조회했을 때 호출자에게 그대로 전파해야 한다")
+    void getChannelDetail_propagatesWhenChannelApiQueryServiceThrows() {
+        given(channelApiQueryService.findChannelApi("seller-A", "SHOPIFY"))
+                .willThrow(new BusinessException(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND));
+
+        assertThatThrownBy(() -> service.getChannelDetail("seller-A", "SHOPIFY"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("channelKey가 null이면 채널 상세를 조회했을 때 연결 정보 없음 예외를 발생시켜야 한다")
+    void getChannelDetail_nullChannelKey_throwsNotFound() {
+        assertThatThrownBy(() -> service.getChannelDetail("seller-A", null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND);
     }
 
     private ChannelApi buildChannelApi(String sellerId, String channelName, String token, String storeName) {

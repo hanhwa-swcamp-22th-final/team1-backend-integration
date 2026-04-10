@@ -34,7 +34,7 @@ import static org.mockito.BDDMockito.times;
 
 // Shopify 주문 동기화 서비스의 GraphQL 매핑, 중복 방지, 예외 전파를 검증한다.
 @ExtendWith(MockitoExtension.class)
-@DisplayName("ShopifyOrderSyncService Tests")
+@DisplayName("ShopifyOrderSyncService 테스트")
 class ShopifyOrderSyncServiceTest {
 
     @Mock private ShopifyOrderClient shopifyOrderClient;
@@ -58,7 +58,7 @@ class ShopifyOrderSyncServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("신규 주문을 channel_order 테이블에 저장한다")
+    @DisplayName("신규 주문이 주어지면 주문 동기화를 수행했을 때 channel_order 테이블에 저장해야 한다")
     void syncOrders_savesNewOrderToRepository() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/4502818226334", "#1001", "2024-01-15T10:00:00-05:00",
@@ -73,7 +73,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("이미 저장된 주문은 skip한다 (중복 저장 방지)")
+    @DisplayName("이미 저장된 주문이 주어지면 주문 동기화를 수행했을 때 중복 저장을 건너뛰어야 한다")
     void syncOrders_skipsDuplicateOrder() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/4502818226334", "#1001", "2024-01-15T10:00:00-05:00",
@@ -88,7 +88,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("여러 주문 중 신규 건만 저장한다")
+    @DisplayName("기존 주문과 신규 주문이 함께 주어지면 주문 동기화를 수행했을 때 신규 주문만 저장해야 한다")
     void syncOrders_savesOnlyNewOrders_whenMixedExistence() {
         ShopifyOrderResponse.OrderNode existing = buildOrderNode(
                 "gid://shopify/Order/1000", "#1000", "2024-01-10T00:00:00-05:00", null);
@@ -109,7 +109,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("API 주문 목록이 빈 경우 save를 호출하지 않는다")
+    @DisplayName("API 주문 목록이 비어 있으면 주문 동기화를 수행했을 때 save를 호출하지 않아야 한다")
     void syncOrders_doesNotSave_whenNoOrdersReturned() {
         given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of());
@@ -124,7 +124,7 @@ class ShopifyOrderSyncServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("GID에서 숫자 ID를 추출하고 주소/채널 필드를 정확히 매핑한다")
+    @DisplayName("Shopify 주문 정보가 주어지면 주문 동기화를 수행했을 때 GID 숫자 ID와 주소 및 채널 필드를 정확히 매핑해야 한다")
     void syncOrders_mapsFieldsCorrectly() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/4502818226334", "#1001", "2024-01-15T10:00:00-05:00",
@@ -161,7 +161,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("fulfillmentOrders 첫 번째 항목 GID가 fulfillmentOrderId로 저장된다")
+    @DisplayName("fulfillmentOrders가 포함된 주문이 주어지면 주문 동기화를 수행했을 때 첫 번째 GID를 fulfillmentOrderId로 저장해야 한다")
     void syncOrders_savesFulfillmentOrderId() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/5000", "#5000", "2024-01-20T10:00:00-05:00",
@@ -181,7 +181,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("fulfillmentOrders가 없으면 fulfillmentOrderId=null로 저장된다")
+    @DisplayName("fulfillmentOrders가 없으면 주문 동기화를 수행했을 때 fulfillmentOrderId를 null로 저장해야 한다")
     void syncOrders_savesFulfillmentOrderIdAsNull_whenFulfillmentOrdersEmpty() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/6000", "#6000", "2024-01-20T10:00:00-05:00", null);
@@ -199,7 +199,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("shippingAddress가 null인 주문도 NPE 없이 저장 성공")
+    @DisplayName("shippingAddress가 null인 주문이 주어지면 주문 동기화를 수행했을 때 예외 없이 저장해야 한다")
     void syncOrders_savesOrder_whenShippingAddressIsNull() {
         ShopifyOrderResponse.OrderNode node = new ShopifyOrderResponse.OrderNode();
         node.setId("gid://shopify/Order/9999");
@@ -222,7 +222,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("createdAt이 null이면 orderedAt=null로 저장 성공")
+    @DisplayName("createdAt이 null인 주문이 주어지면 주문 동기화를 수행했을 때 orderedAt을 null로 저장해야 한다")
     void syncOrders_savesOrder_whenCreatedAtIsNull() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/8888", "#8888", null, null);
@@ -243,7 +243,7 @@ class ShopifyOrderSyncServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("createdAt이 공백 문자열이면 orderedAt=null로 저장된다")
+    @DisplayName("createdAt이 공백 문자열인 주문이 주어지면 주문 동기화를 수행했을 때 orderedAt을 null로 저장해야 한다")
     void syncOrders_savesOrder_whenCreatedAtIsBlank() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/7777", "#7777", "   ", null);
@@ -260,7 +260,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("repository save 중 예외 발생 시 호출자에게 전파된다")
+    @DisplayName("주문 저장 중 예외가 발생하면 주문 동기화를 수행했을 때 호출자에게 예외를 전파해야 한다")
     void syncOrders_propagatesException_whenRepositorySaveThrows() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/1111", "#1111", "2024-01-15T10:00:00-05:00", null);
@@ -276,7 +276,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("API 호출 시 401이 발생하면 예외가 호출자에게 전파된다")
+    @DisplayName("API 호출에서 401 오류가 발생하면 주문 동기화를 수행했을 때 호출자에게 예외를 전파해야 한다")
     void syncOrders_propagatesException_whenApiClientThrowsUnauthorized() {
         given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString()))
@@ -290,7 +290,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("API 호출 시 500이 발생하면 예외가 호출자에게 전파된다")
+    @DisplayName("API 호출에서 500 오류가 발생하면 주문 동기화를 수행했을 때 호출자에게 예외를 전파해야 한다")
     void syncOrders_propagatesException_whenApiClientThrowsServerError() {
         given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString()))
@@ -306,7 +306,7 @@ class ShopifyOrderSyncServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("line item의 sku가 있으면 sku를 skuId로 사용해 ChannelOrderItem을 저장한다")
+    @DisplayName("line item에 sku가 있으면 주문 동기화를 수행했을 때 sku를 skuId로 사용해 주문 아이템을 저장해야 한다")
     void syncOrders_savesChannelOrderItem_whenSkuPresent() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/2000", "#2000", "2024-02-01T10:00:00-05:00", null);
@@ -330,7 +330,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("sku가 비어있고 variant id가 있으면 variant GID 끝 숫자를 skuId로 사용한다")
+    @DisplayName("sku가 비어 있고 variant id가 있으면 주문 동기화를 수행했을 때 variant GID 끝 숫자를 skuId로 사용해야 한다")
     void syncOrders_usesVariantIdAsSkuId_whenSkuIsBlank() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/3000", "#3000", "2024-02-01T10:00:00-05:00", null);
@@ -350,7 +350,7 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("lineItems가 null이어도 주문 자체는 정상 저장된다")
+    @DisplayName("lineItems가 null이어도 주문 동기화를 수행했을 때 주문 자체는 정상 저장해야 한다")
     void syncOrders_savesOrderWithoutItems_whenLineItemsIsNull() {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/4000", "#4000", "2024-02-01T10:00:00-05:00", null);
@@ -368,7 +368,49 @@ class ShopifyOrderSyncServiceTest {
     }
 
     @Test
-    @DisplayName("syncOrders 반환값에 savedCount와 skippedCount가 정확히 포함된다")
+    @DisplayName("sku와 variant id가 모두 없으면 주문 동기화를 수행했을 때 해당 line item 저장을 건너뛰어야 한다")
+    void syncOrders_skipsLineItemWhenSkuAndVariantIdMissing() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/4100", "#4100", "2024-02-01T10:00:00-05:00", null);
+        node.setLineItems(buildLineItemConnection(null, "Product Without SKU", 1, null));
+
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("4100")).willReturn(false);
+
+        syncService.syncOrders(SELLER_ID);
+
+        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+        then(channelOrderRepository).should().save(captor.capture());
+        assertThat(captor.getValue().getItems()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("fulfillment order node id가 null이면 주문 동기화를 수행했을 때 fulfillmentOrderId를 null로 저장해야 한다")
+    void syncOrders_returnsNullFulfillmentOrderIdWhenFulfillmentOrderNodeIdMissing() {
+        ShopifyOrderResponse.OrderNode node = buildOrderNode(
+                "gid://shopify/Order/6100", "#6100", "2024-02-01T10:00:00-05:00", null);
+        ShopifyOrderResponse.FulfillmentOrderNode fulfillmentOrderNode = new ShopifyOrderResponse.FulfillmentOrderNode();
+        fulfillmentOrderNode.setId(null);
+        ShopifyOrderResponse.FulfillmentOrderEdge fulfillmentOrderEdge = new ShopifyOrderResponse.FulfillmentOrderEdge();
+        fulfillmentOrderEdge.setNode(fulfillmentOrderNode);
+        ShopifyOrderResponse.FulfillmentOrderConnection connection = new ShopifyOrderResponse.FulfillmentOrderConnection();
+        connection.setEdges(List.of(fulfillmentOrderEdge));
+        node.setFulfillmentOrders(connection);
+
+        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
+        given(channelOrderRepository.existsById("6100")).willReturn(false);
+
+        syncService.syncOrders(SELLER_ID);
+
+        ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+        then(channelOrderRepository).should().save(captor.capture());
+        assertThat(captor.getValue().getFulfillmentOrderId()).isNull();
+    }
+
+    @Test
+    @DisplayName("기존 주문과 신규 주문이 함께 주어지면 주문 동기화를 수행했을 때 savedCount와 skippedCount를 정확히 반환해야 한다")
     void syncOrders_returnsSavedAndSkippedCount() {
         ShopifyOrderResponse.OrderNode existing = buildOrderNode(
                 "gid://shopify/Order/5000", "#5000", "2024-02-01T10:00:00-05:00", null);

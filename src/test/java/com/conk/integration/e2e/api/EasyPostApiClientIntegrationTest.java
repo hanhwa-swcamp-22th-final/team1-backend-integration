@@ -75,7 +75,7 @@ class EasyPostApiClientIntegrationTest {
 
     // 실제 샌드박스 shipment 생성 후 rate 목록이 내려오는지만 우선 검증한다.
     @Test
-    @DisplayName("[샌드박스] createShipment - 실제 API 호출 후 rates 반환 확인")
+    @DisplayName("실제 샌드박스 요청이 주어지면 createShipment를 호출했을 때 운임 정보를 반환해야 한다")
     void createShipment_returnsRates_fromSandbox() {
         EasyPostCreateShipmentRequest request = EasyPostCreateShipmentRequest.builder()
                 .shipment(EasyPostCreateShipmentRequest.ShipmentBody.builder()
@@ -99,7 +99,7 @@ class EasyPostApiClientIntegrationTest {
 
     // 생성-구매-저장 전체 흐름을 샌드박스 환경에서 한 번에 검증한다.
     @Test
-    @DisplayName("[샌드박스] createAndSaveInvoice - 전체 플로우 (createShipment → buyRate → DB 저장)")
+    @DisplayName("실제 샌드박스 요청이 주어지면 송장을 생성하고 저장했을 때 생성과 구매와 저장 흐름을 완료해야 한다")
     void createAndSaveInvoice_fullFlow_fromSandbox() {
         EasyPostCreateShipmentRequest request = EasyPostCreateShipmentRequest.builder()
                 .shipment(EasyPostCreateShipmentRequest.ShipmentBody.builder()
@@ -128,7 +128,7 @@ class EasyPostApiClientIntegrationTest {
     // 여러 주문에 대해 일괄 송장 발급이 정상 동작하는지 샌드박스에서 확인한다.
     @Test
     @Transactional
-    @DisplayName("[샌드박스] createAndSaveBulkInvoices - 주문 2건 일괄 발급 후 invoiceNo 반영 확인")
+    @DisplayName("실제 샌드박스 주문 2건이 주어지면 일괄 송장을 생성했을 때 주문에 invoiceNo를 반영해야 한다")
     void createAndSaveBulkInvoices_bulkFlow_fromSandbox() {
         // given — invoiceNo 없는 테스트 주문 2건을 DB에 저장
         channelOrderRepository.saveAndFlush(ChannelOrder.builder()

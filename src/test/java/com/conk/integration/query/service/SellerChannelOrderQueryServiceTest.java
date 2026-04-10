@@ -22,7 +22,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 // 주문 조회 서비스의 DTO 변환 규칙과 상태/요약 계산을 검증한다.
 @ExtendWith(MockitoExtension.class)
-@DisplayName("query.SellerChannelOrderQueryService 단위 테스트")
+@DisplayName("SellerChannelOrderQueryService 테스트")
 class SellerChannelOrderQueryServiceTest {
 
     @Mock private SellerChannelOrderMapper channelOrderMapper;
@@ -33,7 +33,7 @@ class SellerChannelOrderQueryServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] mapper raw → DTO 변환 (id, channel, itemsSummary, status 검증)")
+    @DisplayName("주문 조회 결과가 주어지면 주문 목록을 조회했을 때 DTO로 변환해 반환해야 한다")
     void getOrders_mapsRawResultToDto() {
         // 대표 raw 결과 하나로 표시용 필드 변환을 한 번에 확인한다.
         LocalDateTime orderedAt = LocalDateTime.of(2026, 3, 19, 9, 12);
@@ -53,7 +53,7 @@ class SellerChannelOrderQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 빈 결과 → 빈 리스트 반환")
+    @DisplayName("주문 조회 결과가 비어 있으면 주문 목록을 조회했을 때 빈 리스트를 반환해야 한다")
     void getOrders_returnsEmpty_whenMapperReturnsEmpty() {
         given(channelOrderMapper.findBySellerIdWithItemSummary("seller-1")).willReturn(List.of());
 
@@ -61,7 +61,7 @@ class SellerChannelOrderQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] orderAmount 항상 null")
+    @DisplayName("주문 조회 결과가 주어지면 주문 목록을 조회했을 때 orderAmount는 null이어야 한다")
     void getOrders_orderAmountIsAlwaysNull() {
         // 현재 구현은 주문 금액을 채우지 않으므로 null 고정 동작을 드러낸다.
         given(channelOrderMapper.findBySellerIdWithItemSummary("seller-1"))
@@ -71,7 +71,7 @@ class SellerChannelOrderQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] conkOrderNo = orderId")
+    @DisplayName("주문 조회 결과가 주어지면 주문 목록을 조회했을 때 conkOrderNo는 orderId와 같아야 한다")
     void getOrders_conkOrderNoEqualsOrderId() {
         given(channelOrderMapper.findBySellerIdWithItemSummary("seller-1"))
                 .willReturn(List.of(buildRaw("ORD-999", "SHOPIFY", "상품A", 1, null, null, LocalDateTime.now())));
@@ -86,31 +86,31 @@ class SellerChannelOrderQueryServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] buildItemsSummary: itemCount=1 → 상품명만 반환")
+    @DisplayName("itemCount가 1이면 상품 요약을 생성했을 때 상품명만 반환해야 한다")
     void buildItemsSummary_singleItem() {
         assertThat(service.buildItemsSummary("루미에르 앰플", 1)).isEqualTo("루미에르 앰플");
     }
 
     @Test
-    @DisplayName("[GREEN] buildItemsSummary: itemCount=2 → '상품명 외 1건'")
+    @DisplayName("itemCount가 2이면 상품 요약을 생성했을 때 상품명 외 1건 형식으로 반환해야 한다")
     void buildItemsSummary_twoItems() {
         assertThat(service.buildItemsSummary("루미에르 앰플", 2)).isEqualTo("루미에르 앰플 외 1건");
     }
 
     @Test
-    @DisplayName("[GREEN] buildItemsSummary: itemCount=3 → '상품명 외 2건'")
+    @DisplayName("itemCount가 3이면 상품 요약을 생성했을 때 상품명 외 2건 형식으로 반환해야 한다")
     void buildItemsSummary_threeItems() {
         assertThat(service.buildItemsSummary("루미에르 앰플", 3)).isEqualTo("루미에르 앰플 외 2건");
     }
 
     @Test
-    @DisplayName("[GREEN] buildItemsSummary: firstItemName null → 빈 문자열")
+    @DisplayName("firstItemName이 null이면 상품 요약을 생성했을 때 빈 문자열을 반환해야 한다")
     void buildItemsSummary_nullFirstName_returnsEmpty() {
         assertThat(service.buildItemsSummary(null, 2)).isEqualTo("");
     }
 
     @Test
-    @DisplayName("[GREEN] buildItemsSummary: firstItemName 공백 → 빈 문자열")
+    @DisplayName("firstItemName이 공백이면 상품 요약을 생성했을 때 빈 문자열을 반환해야 한다")
     void buildItemsSummary_blankFirstName_returnsEmpty() {
         assertThat(service.buildItemsSummary("   ", 2)).isEqualTo("");
     }
@@ -120,25 +120,25 @@ class SellerChannelOrderQueryServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] resolveStatus: invoiceNo null, shippedAt null → NEW")
+    @DisplayName("invoiceNo와 shippedAt이 모두 null이면 주문 상태를 계산했을 때 NEW를 반환해야 한다")
     void resolveStatus_new() {
         assertThat(service.resolveStatus(null, null)).isEqualTo("NEW");
     }
 
     @Test
-    @DisplayName("[GREEN] resolveStatus: invoiceNo 있음, shippedAt null → PROCESSING")
+    @DisplayName("invoiceNo가 있고 shippedAt이 null이면 주문 상태를 계산했을 때 PROCESSING을 반환해야 한다")
     void resolveStatus_processing() {
         assertThat(service.resolveStatus("shp_001", null)).isEqualTo("PROCESSING");
     }
 
     @Test
-    @DisplayName("[GREEN] resolveStatus: shippedAt 있음 → SHIPPED (invoiceNo 무관)")
+    @DisplayName("shippedAt이 있으면 주문 상태를 계산했을 때 invoiceNo와 관계없이 SHIPPED를 반환해야 한다")
     void resolveStatus_shipped() {
         assertThat(service.resolveStatus("shp_001", "2026-03-20")).isEqualTo("SHIPPED");
     }
 
     @Test
-    @DisplayName("[GREEN] resolveStatus: shippedAt 공백 → PROCESSING (공백은 미배송 처리)")
+    @DisplayName("shippedAt이 공백이면 주문 상태를 계산했을 때 PROCESSING을 반환해야 한다")
     void resolveStatus_blankShippedAt_treatedAsNotShipped() {
         assertThat(service.resolveStatus("shp_001", "   ")).isEqualTo("PROCESSING");
     }
@@ -148,7 +148,7 @@ class SellerChannelOrderQueryServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[예외] sellerId null → BusinessException(INT-001), mapper 미호출")
+    @DisplayName("sellerId가 null이면 주문 목록을 조회했을 때 BusinessException(INT-001)을 발생시키고 mapper를 호출하지 않아야 한다")
     void getOrders_throwsWhenSellerIdNull() {
         assertThatThrownBy(() -> service.getOrders(null))
                 .isInstanceOf(BusinessException.class);
@@ -156,7 +156,7 @@ class SellerChannelOrderQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] sellerId 공백 → BusinessException(INT-001), mapper 미호출")
+    @DisplayName("sellerId가 공백이면 주문 목록을 조회했을 때 BusinessException(INT-001)을 발생시키고 mapper를 호출하지 않아야 한다")
     void getOrders_throwsWhenSellerIdBlank() {
         assertThatThrownBy(() -> service.getOrders("  "))
                 .isInstanceOf(BusinessException.class);

@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 // 채널 카드 조회 서비스의 입력 검증, 라벨 후처리, Shopify ping 연동 상태를 검증한다.
 @ExtendWith(MockitoExtension.class)
-@DisplayName("query.SellerChannelCardQueryService 단위 테스트")
+@DisplayName("SellerChannelCardQueryService 테스트")
 class SellerChannelCardQueryServiceTest {
 
     @Mock private SellerChannelCardMapper channelCardMapper;
@@ -38,7 +38,7 @@ class SellerChannelCardQueryServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] mapper 결과 반환 후 label 채움")
+    @DisplayName("채널 카드 조회 결과가 주어지면 채널 카드 목록을 조회했을 때 label을 채워 반환해야 한다")
     void getChannelCards_delegatesToMapper_andFillsLabel() {
         // mapper raw 값은 유지하고 label만 후처리되는지 확인한다.
         SellerChannelCardDto dto = buildCard("SHOPIFY", "ACTIVE", 3, 1, LocalDateTime.now());
@@ -54,7 +54,7 @@ class SellerChannelCardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 빈 결과 → 빈 리스트 반환")
+    @DisplayName("채널 카드 조회 결과가 비어 있으면 채널 카드 목록을 조회했을 때 빈 리스트를 반환해야 한다")
     void getChannelCards_returnsEmpty_whenMapperReturnsEmpty() {
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1")).willReturn(List.of());
 
@@ -65,7 +65,7 @@ class SellerChannelCardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] ACTIVE syncStatus mapper 값 그대로 통과 (SHOPIFY 외 채널)")
+    @DisplayName("Shopify가 아닌 채널의 ACTIVE 상태가 주어지면 채널 카드 목록을 조회했을 때 syncStatus를 그대로 유지해야 한다")
     void getChannelCards_activeSyncStatus_preserved() {
         // SHOPIFY 이외 채널은 ping 없이 DB 값을 그대로 반환해야 한다.
         SellerChannelCardDto dto = buildCard("AMAZON", "ACTIVE", 0, 0, null);
@@ -75,7 +75,7 @@ class SellerChannelCardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] PLANNED syncStatus mapper 값 그대로 통과")
+    @DisplayName("PLANNED 상태가 주어지면 채널 카드 목록을 조회했을 때 syncStatus를 그대로 유지해야 한다")
     void getChannelCards_plannedSyncStatus_preserved() {
         SellerChannelCardDto dto = buildCard("AMAZON", "PLANNED", 0, 0, null);
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1")).willReturn(List.of(dto));
@@ -84,7 +84,7 @@ class SellerChannelCardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] pendingOrders/todayImported/lastSyncedAt mapper 값 그대로")
+    @DisplayName("통계 필드가 주어지면 채널 카드 목록을 조회했을 때 mapper 값을 그대로 유지해야 한다")
     void getChannelCards_statisticFields_passedThrough() {
         // 숫자/시각 통계 필드는 가공 없이 그대로 노출되어야 한다.
         LocalDateTime lastSync = LocalDateTime.of(2026, 3, 19, 9, 10);
@@ -105,7 +105,7 @@ class SellerChannelCardQueryServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] SHOPIFY + ping 성공 → syncStatus = CONNECTED")
+    @DisplayName("Shopify 자격 증명이 있고 ping에 성공하면 채널 카드 목록을 조회했을 때 syncStatus를 CONNECTED로 반환해야 한다")
     void getChannelCards_shopify_pingSuccess_returnsConnected() {
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1"))
                 .willReturn(List.of(buildCard("SHOPIFY", "ACTIVE", 0, 0, null)));
@@ -116,7 +116,7 @@ class SellerChannelCardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] SHOPIFY + ping 실패 → syncStatus = DISCONNECTED")
+    @DisplayName("Shopify 자격 증명이 있고 ping에 실패하면 채널 카드 목록을 조회했을 때 syncStatus를 DISCONNECTED로 반환해야 한다")
     void getChannelCards_shopify_pingFail_returnsDisconnected() {
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1"))
                 .willReturn(List.of(buildCard("SHOPIFY", "ACTIVE", 0, 0, null)));
@@ -127,7 +127,7 @@ class SellerChannelCardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] SHOPIFY + 자격증명 없음 → syncStatus = NOT_CONFIGURED")
+    @DisplayName("Shopify 자격 증명이 없으면 채널 카드 목록을 조회했을 때 syncStatus를 NOT_CONFIGURED로 반환해야 한다")
     void getChannelCards_shopify_noCredentials_returnsNotConfigured() {
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1"))
                 .willReturn(List.of(buildCard("SHOPIFY", "PLANNED", 0, 0, null)));
@@ -139,7 +139,7 @@ class SellerChannelCardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] AMAZON 채널은 ping 미호출, DB syncStatus 유지")
+    @DisplayName("Amazon 채널이 주어지면 채널 카드 목록을 조회했을 때 ping을 호출하지 않고 syncStatus를 유지해야 한다")
     void getChannelCards_nonShopify_doesNotCallPing() {
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1"))
                 .willReturn(List.of(buildCard("AMAZON", "PLANNED", 0, 0, null)));
@@ -150,7 +150,7 @@ class SellerChannelCardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] SHOPIFY + AMAZON 혼합 시 SHOPIFY만 ping 1회 호출")
+    @DisplayName("Shopify와 Amazon 채널이 함께 주어지면 채널 카드 목록을 조회했을 때 Shopify에만 ping을 한 번 호출해야 한다")
     void getChannelCards_mixed_onlyShopifyCallsPing() {
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1"))
                 .willReturn(List.of(
@@ -171,37 +171,37 @@ class SellerChannelCardQueryServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] toLabel: SHOPIFY → 'Shopify'")
+    @DisplayName("SHOPIFY가 주어지면 표시 이름으로 변환했을 때 Shopify를 반환해야 한다")
     void toLabel_shopify() {
         assertThat(service.toLabel("SHOPIFY")).isEqualTo("Shopify");
     }
 
     @Test
-    @DisplayName("[GREEN] toLabel: AMAZON → 'Amazon'")
+    @DisplayName("AMAZON이 주어지면 표시 이름으로 변환했을 때 Amazon을 반환해야 한다")
     void toLabel_amazon() {
         assertThat(service.toLabel("AMAZON")).isEqualTo("Amazon");
     }
 
     @Test
-    @DisplayName("[GREEN] toLabel: MANUAL → 'Manual'")
+    @DisplayName("MANUAL이 주어지면 표시 이름으로 변환했을 때 Manual을 반환해야 한다")
     void toLabel_manual() {
         assertThat(service.toLabel("MANUAL")).isEqualTo("Manual");
     }
 
     @Test
-    @DisplayName("[GREEN] toLabel: EXCEL → 'Excel'")
+    @DisplayName("EXCEL이 주어지면 표시 이름으로 변환했을 때 Excel을 반환해야 한다")
     void toLabel_excel() {
         assertThat(service.toLabel("EXCEL")).isEqualTo("Excel");
     }
 
     @Test
-    @DisplayName("[GREEN] toLabel: 알 수 없는 값 → 원본 그대로")
+    @DisplayName("알 수 없는 채널명이 주어지면 표시 이름으로 변환했을 때 원본 값을 반환해야 한다")
     void toLabel_unknown_returnsAsIs() {
         assertThat(service.toLabel("UNKNOWN_CHANNEL")).isEqualTo("UNKNOWN_CHANNEL");
     }
 
     @Test
-    @DisplayName("[GREEN] toLabel: null → 빈 문자열")
+    @DisplayName("채널명이 null이면 표시 이름으로 변환했을 때 빈 문자열을 반환해야 한다")
     void toLabel_null_returnsEmpty() {
         assertThat(service.toLabel(null)).isEqualTo("");
     }
@@ -211,7 +211,7 @@ class SellerChannelCardQueryServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[예외] sellerId null → BusinessException(INT-001), mapper 미호출")
+    @DisplayName("sellerId가 null이면 채널 카드 목록을 조회했을 때 BusinessException(INT-001)을 발생시키고 mapper를 호출하지 않아야 한다")
     void getChannelCards_throwsWhenSellerIdNull() {
         assertThatThrownBy(() -> service.getChannelCards(null))
                 .isInstanceOf(BusinessException.class);
@@ -219,7 +219,7 @@ class SellerChannelCardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] sellerId 공백 → BusinessException(INT-001), mapper 미호출")
+    @DisplayName("sellerId가 공백이면 채널 카드 목록을 조회했을 때 BusinessException(INT-001)을 발생시키고 mapper를 호출하지 않아야 한다")
     void getChannelCards_throwsWhenSellerIdBlank() {
         assertThatThrownBy(() -> service.getChannelCards("   "))
                 .isInstanceOf(BusinessException.class);

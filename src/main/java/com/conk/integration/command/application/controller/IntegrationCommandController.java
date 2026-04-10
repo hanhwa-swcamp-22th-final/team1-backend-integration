@@ -5,6 +5,7 @@ import com.conk.integration.command.application.dto.request.BulkInvoiceRequest;
 import com.conk.integration.command.application.dto.request.ChannelOrderSyncRequest;
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.request.ManualOrderInvoiceRequest;
+import com.conk.integration.command.application.dto.request.SellerChannelConnectRequest;
 import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.ChannelOrderImportResponse;
@@ -15,11 +16,13 @@ import com.conk.integration.command.application.service.ChannelFulfillmentDispat
 import com.conk.integration.command.application.service.ChannelOrderSyncDispatchService;
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
 import com.conk.integration.command.application.service.ManualOrderInvoiceService;
+import com.conk.integration.command.application.service.SellerChannelConnectService;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.common.ApiResponse;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
+import com.conk.integration.query.dto.SellerChannelDetailDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,6 +42,21 @@ public class IntegrationCommandController {
     private final EasyPostInvoiceSaveService easyPostInvoiceSaveService;
     private final ChannelOrderSyncDispatchService orderSyncDispatchService;
     private final ManualOrderInvoiceService manualOrderInvoiceService;
+    private final SellerChannelConnectService sellerChannelConnectService;
+
+    /**
+     * 셀러 채널 연결
+     * POST /integrations/seller/channels/{channelKey}/connect
+     */
+    @PostMapping("/seller/channels/{channelKey}/connect")
+    public ResponseEntity<ApiResponse<SellerChannelDetailDto>> connectSellerChannel(
+            @RequestHeader("X-Seller-Id") String sellerId,
+            @PathVariable String channelKey,
+            @RequestBody SellerChannelConnectRequest request) {
+
+        SellerChannelDetailDto response = sellerChannelConnectService.connect(sellerId, channelKey, request);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
 
     /**
      * 채널 주문 동기화
@@ -55,6 +73,19 @@ public class IntegrationCommandController {
     }
 
     /**
+     * 채널 주문 동기화
+     * POST /integrations/seller/channels/{channelKey}/sync
+     */
+    @PostMapping("/seller/channels/{channelKey}/sync")
+    public ResponseEntity<ApiResponse<ChannelOrderSyncResponse>> syncChannelOrdersByChannel(
+            @RequestHeader("X-Seller-Id") String sellerId,
+            @PathVariable String channelKey) {
+
+        ChannelOrderSyncResponse response = syncChannelOrdersByChannelKey(sellerId, channelKey);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
      * 채널 주문 가져오기
      * POST /integrations/seller/channels/{channelKey}/import-orders
      */
@@ -63,8 +94,7 @@ public class IntegrationCommandController {
             @RequestHeader("X-Seller-Id") String sellerId,
             @PathVariable String channelKey) {
 
-        OrderChannel orderChannel = toOrderChannel(channelKey);
-        ChannelOrderSyncResponse response = orderSyncDispatchService.sync(sellerId, orderChannel);
+        ChannelOrderSyncResponse response = syncChannelOrdersByChannelKey(sellerId, channelKey);
         return ResponseEntity.ok(ApiResponse.ok(ChannelOrderImportResponse.from(response)));
     }
 
@@ -140,5 +170,10 @@ public class IntegrationCommandController {
                     ErrorCode.UNSUPPORTED_CHANNEL,
                     "지원하지 않는 주문 동기화 채널입니다: " + channelKey);
         }
+    }
+
+    private ChannelOrderSyncResponse syncChannelOrdersByChannelKey(String sellerId, String channelKey) {
+        OrderChannel orderChannel = toOrderChannel(channelKey);
+        return orderSyncDispatchService.sync(sellerId, orderChannel);
     }
 }

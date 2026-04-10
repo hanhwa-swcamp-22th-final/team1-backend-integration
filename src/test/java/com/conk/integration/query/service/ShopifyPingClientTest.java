@@ -20,7 +20,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 // Shopify ping 클라이언트의 요청 형식, 응답 해석, 예외 무전파를 검증한다.
-@DisplayName("ShopifyPingClient 단위 테스트")
+@DisplayName("ShopifyPingClient 테스트")
 class ShopifyPingClientTest {
 
     private MockRestServiceServer mockServer;
@@ -46,7 +46,7 @@ class ShopifyPingClientTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] GraphQL 엔드포인트로 POST 요청을 전송한다")
+    @DisplayName("스토어 이름과 액세스 토큰이 주어지면 연결 확인을 수행했을 때 GraphQL 엔드포인트로 POST 요청을 전송해야 한다")
     void ping_postsToGraphQLUrl() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andExpect(method(HttpMethod.POST))
@@ -58,7 +58,7 @@ class ShopifyPingClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] X-Shopify-Access-Token 헤더를 포함한다")
+    @DisplayName("스토어 이름과 액세스 토큰이 주어지면 연결 확인을 수행했을 때 X-Shopify-Access-Token 헤더를 포함해야 한다")
     void ping_includesAccessTokenHeader() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andExpect(header("X-Shopify-Access-Token", ACCESS_TOKEN))
@@ -73,7 +73,7 @@ class ShopifyPingClientTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] 200 응답 → true 반환")
+    @DisplayName("200 응답이 주어지면 연결 확인을 수행했을 때 true를 반환해야 한다")
     void ping_returns_true_on200() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("{\"data\":{\"shop\":{\"id\":\"gid://shopify/Shop/1\"}}}", MediaType.APPLICATION_JSON));
@@ -82,7 +82,7 @@ class ShopifyPingClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 401 Unauthorized → false 반환 (예외 전파 없음)")
+    @DisplayName("401 응답이 주어지면 연결 확인을 수행했을 때 예외를 전파하지 않고 false를 반환해야 한다")
     void ping_returns_false_on401() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
@@ -91,7 +91,7 @@ class ShopifyPingClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 403 Forbidden → false 반환 (예외 전파 없음)")
+    @DisplayName("403 응답이 주어지면 연결 확인을 수행했을 때 예외를 전파하지 않고 false를 반환해야 한다")
     void ping_returns_false_on403() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withStatus(HttpStatus.FORBIDDEN));
@@ -100,12 +100,18 @@ class ShopifyPingClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 500 서버 오류 → false 반환 (예외 전파 없음)")
+    @DisplayName("500 응답이 주어지면 연결 확인을 수행했을 때 예외를 전파하지 않고 false를 반환해야 한다")
     void ping_returns_false_on500() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withServerError());
 
         assertThat(client.ping(STORE_NAME, ACCESS_TOKEN)).isFalse();
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 storeName이 주어지면 연결 확인을 수행했을 때 예외를 전파하지 않고 false를 반환해야 한다")
+    void ping_returnsFalse_whenStoreNameIsInvalid() {
+        assertThat(client.ping("https://evil.example", ACCESS_TOKEN)).isFalse();
     }
 
     // ─────────────────────────────────────────────────────────

@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * - 검증 항목: HTTP 상태 코드, 응답 JSON 구조, 헤더 처리 여부
  */
 @WebMvcTest(IntegrationQueryController.class)
-@DisplayName("[Controller] IntegrationQueryController 슬라이스 테스트")
+@DisplayName("IntegrationQueryController 테스트")
 class IntegrationQueryControllerTest {
 
     @Autowired
@@ -55,12 +55,12 @@ class IntegrationQueryControllerTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("GET /integrations/seller/channels — 채널 카드 조회 (INT-001)")
+    @DisplayName("채널 카드 조회 테스트")
     class GetSellerChannelCardsTests {
 
         // 헤더 입력과 응답 JSON 구조가 계약대로 유지되는지 확인한다.
         @Test
-        @DisplayName("정상 요청 — HTTP 200과 success:true, 채널 카드 목록이 반환된다")
+        @DisplayName("유효한 판매자 헤더가 주어지면 채널 카드 조회를 요청했을 때 HTTP 200 응답과 채널 카드 목록을 반환해야 한다")
         void getSellerChannelCards_returnsOk() throws Exception {
             // given
             SellerChannelCardDto card = new SellerChannelCardDto();
@@ -88,7 +88,7 @@ class IntegrationQueryControllerTest {
         }
 
         @Test
-        @DisplayName("정상 요청 — 채널 카드가 없을 때 빈 배열이 반환된다")
+        @DisplayName("조회 결과가 없으면 채널 카드 조회를 요청했을 때 HTTP 200 응답과 빈 배열을 반환해야 한다")
         void getSellerChannelCards_returnsEmptyList() throws Exception {
             // given
             given(channelCardQueryService.getChannelCards("seller-B")).willReturn(List.of());
@@ -103,7 +103,7 @@ class IntegrationQueryControllerTest {
         }
 
         @Test
-        @DisplayName("X-Seller-Id 헤더가 없으면 HTTP 400이 반환된다")
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 채널 카드 조회를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void getSellerChannelCards_missingHeader_returns400() throws Exception {
             // when & then — 요청 헤더 없이 호출
             mockMvc.perform(get("/integrations/seller/channels"))
@@ -111,7 +111,7 @@ class IntegrationQueryControllerTest {
         }
 
         @Test
-        @DisplayName("Service가 BusinessException(INT-001) 던지면 HTTP 400이 반환된다")
+        @DisplayName("서비스에서 BusinessException(INT-001)이 발생하면 채널 카드 조회를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void getSellerChannelCards_serviceThrowsIllegalArg_returns400() throws Exception {
             // given
             given(channelCardQueryService.getChannelCards(""))
@@ -127,7 +127,7 @@ class IntegrationQueryControllerTest {
         }
 
         @Test
-        @DisplayName("여러 채널 카드가 있을 때 모두 반환된다")
+        @DisplayName("여러 채널 카드가 있으면 채널 카드 조회를 요청했을 때 모든 채널 카드를 반환해야 한다")
         void getSellerChannelCards_multipleCards() throws Exception {
             // 배열 응답에서 다건 직렬화가 정상 동작하는지 본다.
             // given
@@ -155,11 +155,11 @@ class IntegrationQueryControllerTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("GET /integrations/seller/channels/{channelKey} — 채널 연결 상세 조회")
+    @DisplayName("채널 연결 상세 조회 테스트")
     class GetSellerChannelDetailTests {
 
         @Test
-        @DisplayName("정상 요청 — HTTP 200과 채널 연결 상세가 반환된다")
+        @DisplayName("유효한 판매자 헤더와 채널 키가 주어지면 채널 연결 상세 조회를 요청했을 때 HTTP 200 응답과 상세 정보를 반환해야 한다")
         void getSellerChannelDetail_returnsOk() throws Exception {
             SellerChannelDetailDto detail = new SellerChannelDetailDto(
                     "SHOPIFY",
@@ -180,14 +180,14 @@ class IntegrationQueryControllerTest {
         }
 
         @Test
-        @DisplayName("X-Seller-Id 헤더가 없으면 HTTP 400이 반환된다")
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 채널 연결 상세 조회를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void getSellerChannelDetail_missingHeader_returns400() throws Exception {
             mockMvc.perform(get("/integrations/seller/channels/SHOPIFY"))
                     .andExpect(status().isBadRequest());
         }
 
         @Test
-        @DisplayName("연결 정보가 없으면 HTTP 404가 반환된다")
+        @DisplayName("연결 정보가 없으면 채널 연결 상세 조회를 요청했을 때 HTTP 404 응답을 반환해야 한다")
         void getSellerChannelDetail_notFound_returns404() throws Exception {
             given(channelDetailQueryService.getChannelDetail("seller-A", "SHOPIFY"))
                     .willThrow(new BusinessException(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND));
@@ -206,12 +206,12 @@ class IntegrationQueryControllerTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("GET /integrations/seller/orders — 통합 주문 조회 (INT-002)")
+    @DisplayName("통합 주문 조회 테스트")
     class GetSellerChannelOrdersTests {
 
         // 주문 조회 응답의 대표 필드가 JSON으로 정확히 직렬화되는지 본다.
         @Test
-        @DisplayName("정상 요청 — HTTP 200과 주문 목록이 반환된다")
+        @DisplayName("유효한 판매자 헤더가 주어지면 통합 주문 조회를 요청했을 때 HTTP 200 응답과 주문 목록을 반환해야 한다")
         void getSellerChannelOrders_returnsOk() throws Exception {
             // given
             SellerChannelOrderDto order = SellerChannelOrderDto.builder()
@@ -244,7 +244,7 @@ class IntegrationQueryControllerTest {
         }
 
         @Test
-        @DisplayName("정상 요청 — 주문이 없을 때 빈 배열이 반환된다")
+        @DisplayName("주문이 없으면 통합 주문 조회를 요청했을 때 HTTP 200 응답과 빈 배열을 반환해야 한다")
         void getSellerChannelOrders_returnsEmptyList() throws Exception {
             // given
             given(channelOrderQueryService.getOrders("seller-B")).willReturn(List.of());
@@ -258,7 +258,7 @@ class IntegrationQueryControllerTest {
         }
 
         @Test
-        @DisplayName("X-Seller-Id 헤더가 없으면 HTTP 400이 반환된다")
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 통합 주문 조회를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void getSellerChannelOrders_missingHeader_returns400() throws Exception {
             // when & then
             mockMvc.perform(get("/integrations/seller/orders"))
@@ -266,7 +266,7 @@ class IntegrationQueryControllerTest {
         }
 
         @Test
-        @DisplayName("PROCESSING 상태의 주문도 올바르게 직렬화된다")
+        @DisplayName("PROCESSING 상태의 주문이 주어지면 통합 주문 조회를 요청했을 때 상태 값을 올바르게 직렬화해야 한다")
         void getSellerChannelOrders_processingStatus() throws Exception {
             // given
             SellerChannelOrderDto processingOrder = SellerChannelOrderDto.builder()
@@ -290,7 +290,7 @@ class IntegrationQueryControllerTest {
         }
 
         @Test
-        @DisplayName("응답의 최상위 success 필드가 항상 true이다")
+        @DisplayName("정상 요청이 주어지면 통합 주문 조회를 요청했을 때 응답 최상위 success 필드는 true여야 한다")
         void getSellerChannelOrders_successFieldIsTrue() throws Exception {
             // given
             given(channelOrderQueryService.getOrders("seller-D")).willReturn(List.of());

@@ -3,6 +3,9 @@ package com.conk.integration.command.infrastructure.service;
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.infrastructure.config.EasyPostProperties;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -20,11 +23,13 @@ import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 // EasyPostApiClient가 URL, 인증 헤더, 응답 파싱을 올바르게 수행하는지 검증한다.
-@DisplayName("EasyPostApiClient 단위 테스트")
+@DisplayName("EasyPostApiClient 테스트")
 class EasyPostApiClientTest {
 
     private MockRestServiceServer mockServer;
@@ -52,7 +57,7 @@ class EasyPostApiClientTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] createShipment - 정상 응답 시 shipment id와 rates 반환")
+    @DisplayName("정상 응답이 주어지면 createShipment를 호출했을 때 shipment id와 rates를 반환해야 한다")
     void createShipment_returnsShipmentWithRates_whenSuccessful() {
         mockServer.expect(requestTo(BASE_URL + "/v2/shipments"))
                 .andExpect(method(HttpMethod.POST))
@@ -68,7 +73,7 @@ class EasyPostApiClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] createShipment - Basic Auth 헤더 포함 확인")
+    @DisplayName("요청 정보를 직렬화할 수 있으면 createShipment를 호출했을 때 Basic Auth 헤더를 포함해야 한다")
     void createShipment_includesBasicAuthHeader() {
         // EasyPost는 API key를 Basic Auth로 요구하므로 헤더 구성이 핵심이다.
         String expectedAuth = "Basic " + Base64.getEncoder().encodeToString(
@@ -84,7 +89,7 @@ class EasyPostApiClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] createShipment - rates가 빈 배열인 경우")
+    @DisplayName("운임 정보가 빈 배열인 응답이 주어지면 createShipment를 호출했을 때 빈 rates를 반환해야 한다")
     void createShipment_returnsEmptyRates_whenNoRatesAvailable() {
         String json = "{\"id\":\"shp_empty\",\"status\":\"created\",\"rates\":[]}";
         mockServer.expect(requestTo(BASE_URL + "/v2/shipments"))
@@ -97,7 +102,7 @@ class EasyPostApiClientTest {
     }
 
     @Test
-    @DisplayName("[예외] createShipment - 401 Unauthorized → HttpClientErrorException")
+    @DisplayName("401 응답이 주어지면 createShipment를 호출했을 때 HttpClientErrorException을 전파해야 한다")
     void createShipment_throws_whenUnauthorized() {
         mockServer.expect(requestTo(BASE_URL + "/v2/shipments"))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
@@ -109,7 +114,7 @@ class EasyPostApiClientTest {
     }
 
     @Test
-    @DisplayName("[예외] createShipment - 422 Unprocessable Entity → HttpClientErrorException")
+    @DisplayName("422 응답이 주어지면 createShipment를 호출했을 때 HttpClientErrorException을 전파해야 한다")
     void createShipment_throws_whenUnprocessableEntity() {
         mockServer.expect(requestTo(BASE_URL + "/v2/shipments"))
                 .andRespond(withStatus(HttpStatus.UNPROCESSABLE_ENTITY));
@@ -121,7 +126,7 @@ class EasyPostApiClientTest {
     }
 
     @Test
-    @DisplayName("[예외] createShipment - 500 서버 오류 → HttpServerErrorException")
+    @DisplayName("500 응답이 주어지면 createShipment를 호출했을 때 HttpServerErrorException을 전파해야 한다")
     void createShipment_throws_whenServerError() {
         mockServer.expect(requestTo(BASE_URL + "/v2/shipments"))
                 .andRespond(withServerError());
@@ -130,12 +135,59 @@ class EasyPostApiClientTest {
                 .isInstanceOf(HttpServerErrorException.class);
     }
 
+    @Test
+    @DisplayName("shipment body가 null이면 createShipment를 호출했을 때 BusinessException(INT-002)를 발생시켜야 한다")
+    void createShipment_throwsWhenShipmentBodyIsNull() {
+        EasyPostCreateShipmentRequest request = EasyPostCreateShipmentRequest.builder().build();
+
+        assertThatThrownBy(() -> client.createShipment(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.SHIPMENT_BODY_REQUIRED);
+    }
+
+    @Test
+    @DisplayName("응답 body가 null이면 createShipment를 호출했을 때 BusinessException(INT-303)을 발생시켜야 한다")
+    void createShipment_throwsWhenResponseBodyIsNull() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        EasyPostApiClient localClient = new EasyPostApiClient(restTemplate, properties, new ObjectMapper());
+
+        given(restTemplate.exchange(
+                org.mockito.ArgumentMatchers.eq(properties.getShipmentsUrl()),
+                org.mockito.ArgumentMatchers.eq(HttpMethod.POST),
+                org.mockito.ArgumentMatchers.<org.springframework.http.HttpEntity<String>>any(),
+                org.mockito.ArgumentMatchers.eq(EasyPostShipmentResponse.class)
+        )).willReturn(org.springframework.http.ResponseEntity.<EasyPostShipmentResponse>ok(null));
+
+        assertThatThrownBy(() -> localClient.createShipment(buildRequest()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.EASYPOST_EMPTY_RESPONSE);
+    }
+
+    @Test
+    @DisplayName("JSON 직렬화에 실패하면 createShipment를 호출했을 때 BusinessException(INT-304)을 발생시켜야 한다")
+    void createShipment_throwsSerializationFailedWhenJsonWriteFails() {
+        ObjectMapper failingMapper = new ObjectMapper() {
+            @Override
+            public String writeValueAsString(Object value) throws JsonProcessingException {
+                throw new JsonProcessingException("serialization failed") { };
+            }
+        };
+        EasyPostApiClient localClient = new EasyPostApiClient(new RestTemplate(), properties, failingMapper);
+
+        assertThatThrownBy(() -> localClient.createShipment(buildRequest()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.EASYPOST_SERIALIZATION_FAILED);
+    }
+
     // ─────────────────────────────────────────────────────────
     // buyRate
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] buyRate - 정상 응답 시 label_url, tracking 반환")
+    @DisplayName("정상 응답이 주어지면 buyRate를 호출했을 때 labelUrl과 tracking 정보를 반환해야 한다")
     void buyRate_returnsShipmentWithLabelAndTracking_whenSuccessful() {
         String shipmentId = "shp_test_001";
         String rateId = "rate_001";
@@ -159,7 +211,7 @@ class EasyPostApiClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] buyRate - shipmentId가 URL에 올바르게 포함")
+    @DisplayName("shipmentId가 주어지면 buyRate를 호출했을 때 요청 URL에 shipmentId를 포함해야 한다")
     void buyRate_usesCorrectUrlWithShipmentId() {
         // buyRate는 shipmentId가 경로에 직접 들어가므로 URL 조합을 확인한다.
         String shipmentId = "shp_xyz_999";
@@ -172,13 +224,49 @@ class EasyPostApiClientTest {
     }
 
     @Test
-    @DisplayName("[예외] buyRate - 500 서버 오류 → HttpServerErrorException")
+    @DisplayName("500 응답이 주어지면 buyRate를 호출했을 때 HttpServerErrorException을 전파해야 한다")
     void buyRate_throws_whenServerError() {
         mockServer.expect(requestTo(BASE_URL + "/v2/shipments/shp_001/buy"))
                 .andRespond(withServerError());
 
         assertThatThrownBy(() -> client.buyRate("shp_001", "rate_001"))
                 .isInstanceOf(HttpServerErrorException.class);
+    }
+
+    @Test
+    @DisplayName("응답 body가 null이면 buyRate를 호출했을 때 BusinessException(INT-303)을 발생시켜야 한다")
+    void buyRate_throwsWhenResponseBodyIsNull() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        EasyPostApiClient localClient = new EasyPostApiClient(restTemplate, properties, new ObjectMapper());
+
+        given(restTemplate.exchange(
+                org.mockito.ArgumentMatchers.eq(properties.getBuyRateUrl("shp_001")),
+                org.mockito.ArgumentMatchers.eq(HttpMethod.POST),
+                org.mockito.ArgumentMatchers.<org.springframework.http.HttpEntity<String>>any(),
+                org.mockito.ArgumentMatchers.eq(EasyPostShipmentResponse.class)
+        )).willReturn(org.springframework.http.ResponseEntity.<EasyPostShipmentResponse>ok(null));
+
+        assertThatThrownBy(() -> localClient.buyRate("shp_001", "rate_001"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.EASYPOST_EMPTY_RESPONSE);
+    }
+
+    @Test
+    @DisplayName("JSON 직렬화에 실패하면 buyRate를 호출했을 때 BusinessException(INT-304)을 발생시켜야 한다")
+    void buyRate_throwsSerializationFailedWhenJsonWriteFails() {
+        ObjectMapper failingMapper = new ObjectMapper() {
+            @Override
+            public String writeValueAsString(Object value) throws JsonProcessingException {
+                throw new JsonProcessingException("serialization failed") { };
+            }
+        };
+        EasyPostApiClient localClient = new EasyPostApiClient(new RestTemplate(), properties, failingMapper);
+
+        assertThatThrownBy(() -> localClient.buyRate("shp_001", "rate_001"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.EASYPOST_SERIALIZATION_FAILED);
     }
 
     // ─────────────────────────────────────────────────────────

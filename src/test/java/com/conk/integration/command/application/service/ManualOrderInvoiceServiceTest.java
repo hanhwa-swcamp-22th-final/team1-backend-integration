@@ -3,6 +3,7 @@ package com.conk.integration.command.application.service;
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.request.ManualOrderInvoiceRequest;
 import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
@@ -34,7 +35,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("ManualOrderInvoiceService 단위 테스트")
+@DisplayName("ManualOrderInvoiceService 테스트")
 class ManualOrderInvoiceServiceTest {
 
     @Mock private ChannelOrderRepository channelOrderRepository;
@@ -49,11 +50,11 @@ class ManualOrderInvoiceServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("정상 흐름")
+    @DisplayName("수동 주문 송장 발급 성공 테스트")
     class HappyPath {
 
         @Test
-        @DisplayName("[GREEN] 신규 주문 — 저장 → createShipment → shipmentId 기록 → buyRate → invoice 저장 → 응답 반환")
+        @DisplayName("신규 주문 요청이 주어지면 수동 주문 송장 발급을 수행했을 때 주문 저장부터 송장 응답 반환까지 순서대로 처리해야 한다")
         void issue_newOrder_fullFlow() {
             given(channelOrderRepository.findById("ORD-001")).willReturn(Optional.empty());
 
@@ -84,7 +85,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[GREEN] shipmentId가 ChannelOrder에 기록된다")
+        @DisplayName("신규 주문 요청이 주어지면 수동 주문 송장 발급을 수행했을 때 shipmentId를 주문에 기록해야 한다")
         void issue_shipmentIdIsRecordedBeforeBuyRate() {
             given(channelOrderRepository.findById("ORD-002")).willReturn(Optional.empty());
 
@@ -108,7 +109,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[GREEN] invoiceNo=null 재시도 — saveNewOrder 미호출, EasyPost 흐름만 진행")
+        @DisplayName("송장 번호가 없는 기존 주문이 주어지면 수동 주문 송장 발급을 수행했을 때 신규 주문 저장 없이 EasyPost 발급만 진행해야 한다")
         void issue_retryWithNullInvoice_skipsOrderSave() {
             ChannelOrder existingOrder = buildOrder("ORD-RETRY", null);
             given(channelOrderRepository.findById("ORD-RETRY")).willReturn(Optional.of(existingOrder));
@@ -131,7 +132,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[GREEN] 최저가 rate가 EasyPost buyRate에 전달된다")
+        @DisplayName("여러 운임 정보가 주어지면 수동 주문 송장 발급을 수행했을 때 최저 운임을 buyRate에 전달해야 한다")
         void issue_cheapestRateIsSelected() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-003", null));
@@ -151,6 +152,41 @@ class ManualOrderInvoiceServiceTest {
 
             verify(easyPostApiClient).buyRate("shp_003", "r_cheap");
         }
+
+        @Test
+        @DisplayName("주문 상품 목록이 null이어도 수동 주문 송장 발급을 수행했을 때 신규 주문을 정상 저장해야 한다")
+        void issue_savesOrderWhenItemsIsNull() {
+            given(channelOrderRepository.findById("ORD-NULL-ITEMS")).willReturn(Optional.empty());
+            given(channelOrderRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+            EasyPostShipmentResponse created = buildShipmentWithRates("shp_null_items",
+                    List.of(buildRate("r1", "USPS", "5.50")));
+            EasyPostShipmentResponse bought = buildBoughtShipment("shp_null_items", "USPS", "5.50");
+            given(easyPostApiClient.createShipment(any())).willReturn(created);
+            given(easyPostApiClient.buyRate("shp_null_items", "r1")).willReturn(bought);
+            given(invoicePersistenceService.saveInvoiceAndAssign(any(), any()))
+                    .willReturn(buildInvoice("shp_null_items", "USPS", 550));
+
+            ManualOrderInvoiceRequest request = new ManualOrderInvoiceRequest(
+                    "ORD-NULL-ITEMS",
+                    "홍길동", "010-1234-5678",
+                    "123 Main St", null,
+                    "CA", "Los Angeles", "90001",
+                    null,
+                    EasyPostCreateShipmentRequest.AddressBody.builder()
+                            .name("CONK Warehouse").street1("456 Warehouse Blvd")
+                            .city("Los Angeles").state("CA").zip("90002").country("US").build(),
+                    EasyPostCreateShipmentRequest.ParcelBody.builder()
+                            .weight(10.0).length(10.0).width(8.0).height(4.0).build()
+            );
+
+            ManualOrderInvoiceResponse response = service.issue("seller-001", request);
+
+            assertThat(response.getOrderId()).isEqualTo("ORD-NULL-ITEMS");
+            ArgumentCaptor<ChannelOrder> captor = ArgumentCaptor.forClass(ChannelOrder.class);
+            verify(channelOrderRepository, atLeastOnce()).save(captor.capture());
+            assertThat(captor.getAllValues().get(0).getItems()).isEmpty();
+        }
     }
 
     // ─────────────────────────────────────────────────────────
@@ -158,11 +194,11 @@ class ManualOrderInvoiceServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("예외 케이스")
+    @DisplayName("수동 주문 송장 발급 예외 테스트")
     class ExceptionCases {
 
         @Test
-        @DisplayName("[예외] 이미 invoiceNo가 있는 주문 재요청 → BusinessException(INT-201)")
+        @DisplayName("이미 송장 번호가 있는 주문이 주어지면 수동 주문 송장 발급을 수행했을 때 BusinessException(INT-201)을 발생시켜야 한다")
         void issue_alreadyInvoiced_throwsIllegalState() {
             ChannelOrder alreadyInvoiced = buildOrder("ORD-DONE", "shp_existing");
             given(channelOrderRepository.findById("ORD-DONE")).willReturn(Optional.of(alreadyInvoiced));
@@ -175,7 +211,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[예외] createShipment 실패 → 예외 전파, buyRate/invoice 미호출")
+        @DisplayName("createShipment 호출에 실패하면 수동 주문 송장 발급을 수행했을 때 예외를 전파하고 buyRate와 송장 저장을 호출하지 않아야 한다")
         void issue_createShipmentFails_propagates() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-004", null));
@@ -191,7 +227,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[예외] buyRate 실패 → 예외 전파, invoice 미저장")
+        @DisplayName("buyRate 호출에 실패하면 수동 주문 송장 발급을 수행했을 때 예외를 전파하고 송장을 저장하지 않아야 한다")
         void issue_buyRateFails_propagates() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-005", null));
@@ -210,7 +246,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[예외] rates가 없으면 BusinessException(INT-104)")
+        @DisplayName("운임 정보가 없으면 수동 주문 송장 발급을 수행했을 때 BusinessException(INT-104)를 발생시켜야 한다")
         void issue_noRates_throwsIllegalState() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-006", null));
@@ -224,7 +260,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[예외] toAddress가 올바르게 구성되어 EasyPost에 전달된다")
+        @DisplayName("배송지 정보가 주어지면 수동 주문 송장 발급을 수행했을 때 toAddress를 올바르게 구성해 EasyPost에 전달해야 한다")
         void issue_toAddressBuiltFromRequest() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-007", null));
@@ -253,7 +289,7 @@ class ManualOrderInvoiceServiceTest {
         // ── P1: EasyPost 외부 API 에러 ──────────────────────────
 
         @Test
-        @DisplayName("[예외] createShipment 401 → HttpClientErrorException 전파, buyRate/invoice 미호출")
+        @DisplayName("createShipment 호출에서 401 오류가 발생하면 수동 주문 송장 발급을 수행했을 때 HttpClientErrorException을 전파해야 한다")
         void issue_easyPost401_propagates() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-E01", null));
@@ -270,7 +306,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[예외] createShipment 422 (잘못된 주소) → HttpClientErrorException 전파")
+        @DisplayName("createShipment 호출에서 422 오류가 발생하면 수동 주문 송장 발급을 수행했을 때 HttpClientErrorException을 전파해야 한다")
         void issue_easyPost422_propagates() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-E02", null));
@@ -286,7 +322,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[예외] buyRate 500 → HttpServerErrorException 전파, invoice 미저장")
+        @DisplayName("buyRate 호출에서 500 오류가 발생하면 수동 주문 송장 발급을 수행했을 때 HttpServerErrorException을 전파하고 송장을 저장하지 않아야 한다")
         void issue_easyPost500OnBuyRate_propagates() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-E03", null));
@@ -308,7 +344,7 @@ class ManualOrderInvoiceServiceTest {
         // ── P2: DB 저장 실패 ──────────────────────────────────
 
         @Test
-        @DisplayName("[예외] shipmentId 기록 save() 실패 → 예외 전파, buyRate/invoice 미호출")
+        @DisplayName("shipmentId 기록 저장에 실패하면 수동 주문 송장 발급을 수행했을 때 예외를 전파하고 buyRate와 송장 저장을 호출하지 않아야 한다")
         void issue_shipmentIdRecordFails_propagates() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             // 첫 번째 save(신규 주문)는 성공, 두 번째 save(shipmentId 기록)는 실패
@@ -329,7 +365,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[예외] saveInvoiceAndAssign() 실패 → 예외 전파 (buyRate는 이미 호출됨)")
+        @DisplayName("송장 저장과 할당에 실패하면 수동 주문 송장 발급을 수행했을 때 예외를 전파해야 한다")
         void issue_invoicePersistenceFails_propagates() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-E05", null));
@@ -353,7 +389,7 @@ class ManualOrderInvoiceServiceTest {
         // ── P3: null 필드 안전 처리 ───────────────────────────
 
         @Test
-        @DisplayName("[GREEN] tracker=null → NPE 없이 trackingUrl이 trackingCode 기반으로 설정됨")
+        @DisplayName("tracker가 null이면 수동 주문 송장 발급을 수행했을 때 trackingCode 기반으로 trackingUrl을 설정해야 한다")
         void issue_trackerNull_handledGracefully() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-N01", null));
@@ -377,7 +413,7 @@ class ManualOrderInvoiceServiceTest {
         }
 
         @Test
-        @DisplayName("[GREEN] postageLabel=null → NPE 없이 labelFileUrl=null로 처리됨")
+        @DisplayName("postageLabel이 null이면 수동 주문 송장 발급을 수행했을 때 labelFileUrl을 null로 처리해야 한다")
         void issue_postageLabelNull_handledGracefully() {
             given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
             given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-N02", null));
@@ -398,6 +434,97 @@ class ManualOrderInvoiceServiceTest {
             service.issue("seller-001", buildRequest("ORD-N02"));
 
             assertThat(captor.getValue().getLabelFileUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("tracker와 trackingCode가 모두 null이면 수동 주문 송장 발급을 수행했을 때 trackingUrl을 null로 저장해야 한다")
+        void issue_returnsNullTrackingUrlWhenTrackerAndTrackingCodeMissing() {
+            given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
+            given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-N03", null));
+
+            EasyPostShipmentResponse created = buildShipmentWithRates("shp_n03",
+                    List.of(buildRate("r1", "USPS", "5.00")));
+            given(easyPostApiClient.createShipment(any())).willReturn(created);
+
+            EasyPostShipmentResponse bought = buildBoughtShipment("shp_n03", "USPS", "5.00");
+            bought.setTracker(null);
+            bought.setTrackingCode(null);
+            given(easyPostApiClient.buyRate(anyString(), anyString())).willReturn(bought);
+
+            ArgumentCaptor<EasypostShipmentInvoice> captor =
+                    ArgumentCaptor.forClass(EasypostShipmentInvoice.class);
+            given(invoicePersistenceService.saveInvoiceAndAssign(captor.capture(), any()))
+                    .willAnswer(inv -> inv.getArgument(0));
+
+            service.issue("seller-001", buildRequest("ORD-N03"));
+
+            assertThat(captor.getValue().getTrackingUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("목적지 주소가 null이면 수동 주문 송장 발급을 수행했을 때 shipToAddress를 null로 저장해야 한다")
+        void issue_returnsNullShipToAddressWhenResponseAddressMissing() {
+            given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
+            given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-N04", null));
+
+            EasyPostShipmentResponse created = buildShipmentWithRates("shp_n04",
+                    List.of(buildRate("r1", "USPS", "5.00")));
+            given(easyPostApiClient.createShipment(any())).willReturn(created);
+
+            EasyPostShipmentResponse bought = buildBoughtShipment("shp_n04", "USPS", "5.00");
+            bought.setToAddress(null);
+            given(easyPostApiClient.buyRate(anyString(), anyString())).willReturn(bought);
+
+            ArgumentCaptor<EasypostShipmentInvoice> captor =
+                    ArgumentCaptor.forClass(EasypostShipmentInvoice.class);
+            given(invoicePersistenceService.saveInvoiceAndAssign(captor.capture(), any()))
+                    .willAnswer(inv -> inv.getArgument(0));
+
+            service.issue("seller-001", buildRequest("ORD-N04"));
+
+            assertThat(captor.getValue().getShipToAddress()).isNull();
+        }
+
+        @Test
+        @DisplayName("selectedRate가 null이면 수동 주문 송장 발급을 수행했을 때 carrierType은 USPS로 freightChargeAmt는 0으로 저장해야 한다")
+        void issue_usesUspsWhenSelectedRateIsNull() {
+            given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
+            given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-N05", null));
+
+            EasyPostShipmentResponse created = buildShipmentWithRates("shp_n05",
+                    List.of(buildRate("r1", "USPS", "5.00")));
+            given(easyPostApiClient.createShipment(any())).willReturn(created);
+
+            EasyPostShipmentResponse bought = new EasyPostShipmentResponse();
+            bought.setId("shp_n05");
+            given(easyPostApiClient.buyRate(anyString(), anyString())).willReturn(bought);
+
+            ArgumentCaptor<EasypostShipmentInvoice> captor =
+                    ArgumentCaptor.forClass(EasypostShipmentInvoice.class);
+            given(invoicePersistenceService.saveInvoiceAndAssign(captor.capture(), any()))
+                    .willAnswer(inv -> inv.getArgument(0));
+
+            service.issue("seller-001", buildRequest("ORD-N05"));
+
+            assertThat(captor.getValue().getCarrierType()).isEqualTo(CarrierType.USPS);
+            assertThat(captor.getValue().getFreightChargeAmt()).isZero();
+        }
+
+        @Test
+        @DisplayName("운임 금액이 모두 숫자가 아니면 수동 주문 송장 발급을 수행했을 때 BusinessException(INT-104)를 발생시켜야 한다")
+        void issue_selectCheapestRate_throwsWhenAllRatesAreNonNumeric() {
+            given(channelOrderRepository.findById(any())).willReturn(Optional.empty());
+            given(channelOrderRepository.save(any())).willReturn(buildOrder("ORD-N06", null));
+            given(easyPostApiClient.createShipment(any())).willReturn(buildShipmentWithRates("shp_n06",
+                    List.of(buildRate("r1", "USPS", "abc"), buildRate("r2", "UPS", "free"))));
+
+            assertThatThrownBy(() -> service.issue("seller-001", buildRequest("ORD-N06")))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.NO_SHIPPING_RATES);
+
+            verify(easyPostApiClient, never()).buyRate(anyString(), anyString());
+            verify(invoicePersistenceService, never()).saveInvoiceAndAssign(any(), any());
         }
     }
 

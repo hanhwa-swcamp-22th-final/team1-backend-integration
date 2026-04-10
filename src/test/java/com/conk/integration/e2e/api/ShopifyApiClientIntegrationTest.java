@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("sandbox")
 @SpringBootTest
 @ActiveProfiles("dev")
-@DisplayName("Shopify API 통합 테스트 (개발 스토어)")
+@DisplayName("Shopify API 통합 테스트")
 class ShopifyApiClientIntegrationTest {
 
     @Autowired
@@ -40,7 +40,7 @@ class ShopifyApiClientIntegrationTest {
 
     // 개발 스토어에서 실제 주문 목록을 읽고 최소 필드가 채워지는지 확인한다.
     @Test
-    @DisplayName("주문 목록 조회 - 실제 개발 스토어 API 호출")
+    @DisplayName("실제 개발 스토어 인증 정보가 주어지면 주문 목록을 조회했을 때 Shopify API 응답을 반환해야 한다")
     void getOrders_returnsOrdersFromDevStore() {
         // when
         List<ShopifyOrderResponse.OrderNode> orders = shopifyOrderClient.getOrders(storeName, accessToken);
