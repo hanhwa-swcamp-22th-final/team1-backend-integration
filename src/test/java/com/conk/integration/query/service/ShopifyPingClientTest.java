@@ -108,6 +108,12 @@ class ShopifyPingClientTest {
         assertThat(client.ping(STORE_NAME, ACCESS_TOKEN)).isFalse();
     }
 
+    @Test
+    @DisplayName("유효하지 않은 storeName이 주어지면 연결 확인을 수행했을 때 예외를 전파하지 않고 false를 반환해야 한다")
+    void ping_returnsFalse_whenStoreNameIsInvalid() {
+        assertThat(client.ping("https://evil.example", ACCESS_TOKEN)).isFalse();
+    }
+
     // ─────────────────────────────────────────────────────────
     // Helper
     // ─────────────────────────────────────────────────────────
