@@ -31,7 +31,7 @@ import static org.mockito.Mockito.mock;
 
 // fulfillment orchestration이 채널별 sender 선택과 예외 처리를 올바르게 수행하는지 본다.
 @ExtendWith(MockitoExtension.class)
-@DisplayName("ChannelFulfillmentDispatchService 단위 테스트")
+@DisplayName("ChannelFulfillmentDispatchService 테스트")
 class ChannelFulfillmentDispatchServiceTest {
 
     @Mock private ChannelOrderRepository channelOrderRepository;
@@ -54,7 +54,7 @@ class ChannelFulfillmentDispatchServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] SHOPIFY 주문이면 지원 sender를 선택해 send()를 호출한다")
+    @DisplayName("Shopify 주문과 송장 정보가 주어지면 fulfillment를 수행했을 때 지원 sender를 호출해야 한다")
     void fulfill_callsMatchedSender() {
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-001")
@@ -76,7 +76,7 @@ class ChannelFulfillmentDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] 주문이 없으면 BusinessException(INT-101)")
+    @DisplayName("존재하지 않는 주문 번호가 주어지면 fulfillment를 수행했을 때 BusinessException(INT-101)을 발생시켜야 한다")
     void fulfill_throwsWhenOrderNotFound() {
         given(channelOrderRepository.findById("NOT_EXIST")).willReturn(Optional.empty());
 
@@ -86,7 +86,7 @@ class ChannelFulfillmentDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] invoiceNo가 없으면 BusinessException(INT-202)")
+    @DisplayName("송장 번호가 없는 주문이 주어지면 fulfillment를 수행했을 때 BusinessException(INT-202)를 발생시켜야 한다")
     void fulfill_throwsWhenInvoiceNoIsNull() {
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-002")
@@ -104,7 +104,7 @@ class ChannelFulfillmentDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] 송장 엔티티가 없으면 BusinessException(INT-102)")
+    @DisplayName("저장된 송장이 없는 주문이 주어지면 fulfillment를 수행했을 때 BusinessException(INT-102)를 발생시켜야 한다")
     void fulfill_throwsWhenInvoiceNotFound() {
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-003")
@@ -121,7 +121,7 @@ class ChannelFulfillmentDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] 지원 sender가 없으면 BusinessException(INT-004)")
+    @DisplayName("지원하지 않는 채널의 주문이 주어지면 fulfillment를 수행했을 때 BusinessException(INT-004)를 발생시켜야 한다")
     void fulfill_throwsWhenSenderNotSupported() {
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-004")
@@ -149,7 +149,7 @@ class ChannelFulfillmentDispatchServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] 미전송 대상이 없으면 successCount=0, failCount=0 반환")
+    @DisplayName("미전송 대상이 없으면 일괄 fulfillment를 수행했을 때 성공 건수와 실패 건수를 0으로 반환해야 한다")
     void fulfillBulk_returnsZero_whenNoUnsyncedTargets() {
         given(channelFulfillmentMapper.findUnsyncedTargets("seller-001", "SHOPIFY"))
                 .willReturn(List.of());
@@ -163,7 +163,7 @@ class ChannelFulfillmentDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 미전송 대상 존재 시 sendBulk 호출 후 markAllSynced 1회 호출")
+    @DisplayName("미전송 대상이 있으면 일괄 fulfillment를 수행했을 때 sendBulk를 호출하고 동기화 상태를 갱신해야 한다")
     void fulfillBulk_callsSendBulkAndMarksSynced() {
         List<FulfillmentTargetDto> targets = List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "USPS"),
@@ -182,7 +182,7 @@ class ChannelFulfillmentDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] sendBulk 실패 시 markAllSynced를 호출하지 않는다")
+    @DisplayName("일괄 fulfillment 전송에 실패하면 일괄 fulfillment를 수행했을 때 동기화 상태를 갱신하지 않아야 한다")
     void fulfillBulk_doesNotMarkSynced_whenSendBulkThrows() {
         List<FulfillmentTargetDto> targets = List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "USPS")
@@ -201,7 +201,7 @@ class ChannelFulfillmentDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] mapper 조회 중 예외 발생 시 호출자에게 전파된다")
+    @DisplayName("미전송 대상 조회 중 예외가 발생하면 일괄 fulfillment를 수행했을 때 호출자에게 예외를 전파해야 한다")
     void fulfillBulk_propagatesException_whenMapperThrows() {
         given(channelFulfillmentMapper.findUnsyncedTargets("seller-001", "SHOPIFY"))
                 .willThrow(new RuntimeException("DB 연결 오류"));
@@ -215,7 +215,7 @@ class ChannelFulfillmentDispatchServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] 지원 sender가 없으면 sendBulk를 호출하지 않고 BusinessException(INT-004) 예외 발생")
+    @DisplayName("지원하는 sender가 없으면 일괄 fulfillment를 수행했을 때 sendBulk를 호출하지 않고 BusinessException(INT-004)를 발생시켜야 한다")
     void fulfillBulk_throwsWhenNoSenderSupports() {
         List<FulfillmentTargetDto> targets = List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "USPS")

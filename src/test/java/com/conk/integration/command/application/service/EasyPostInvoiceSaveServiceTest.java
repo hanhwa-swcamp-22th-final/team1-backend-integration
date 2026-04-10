@@ -35,7 +35,7 @@ import static org.mockito.Mockito.*;
 
 // EasyPost 송장 저장 서비스의 정상 흐름과 예외 전파를 Mockito로 검증한다.
 @ExtendWith(MockitoExtension.class)
-@DisplayName("EasyPostInvoiceSaveService 단위 테스트")
+@DisplayName("EasyPostInvoiceSaveService 테스트")
 class EasyPostInvoiceSaveServiceTest {
 
     @Mock private EasyPostApiClient easyPostApiClient;
@@ -51,7 +51,7 @@ class EasyPostInvoiceSaveServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] 정상 플로우 - createShipment → buyRate → DB 저장")
+    @DisplayName("유효한 운송장 요청이 주어지면 송장을 생성하고 저장했을 때 생성, 구매, 저장 순서로 처리해야 한다")
     void createAndSaveInvoice_fullHappyPath() {
         // 비싼/싼 운임을 함께 내려 최저가 선택과 저장을 한 번에 확인한다.
         EasyPostShipmentResponse created = buildShipmentWithRates("shp_001",
@@ -72,7 +72,7 @@ class EasyPostInvoiceSaveServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 최저가 rate가 올바르게 선택됨")
+    @DisplayName("여러 운임 정보가 주어지면 최저 운임을 선택했을 때 가장 저렴한 운임을 반환해야 한다")
     void selectCheapestRate_picksLowestRate() {
         // 입력 순서와 상관없이 최저 운임이 선택되어야 한다.
         List<EasyPostShipmentResponse.RateDto> rates = List.of(
@@ -88,27 +88,27 @@ class EasyPostInvoiceSaveServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] FedEx carrier는 FEDEX enum으로 매핑")
+    @DisplayName("FedEx 운송사 정보가 주어지면 송장을 생성하고 저장했을 때 FEDEX enum으로 매핑해야 한다")
     void fromEasyPostName_fedex() {
         assertThat(CarrierType.fromEasyPostName("FedEx")).isEqualTo(CarrierType.FEDEX);
         assertThat(CarrierType.fromEasyPostName("FEDEX")).isEqualTo(CarrierType.FEDEX);
     }
 
     @Test
-    @DisplayName("[GREEN] UPS carrier는 UPS enum으로 매핑")
+    @DisplayName("UPS 운송사 정보가 주어지면 송장을 생성하고 저장했을 때 UPS enum으로 매핑해야 한다")
     void fromEasyPostName_ups() {
         assertThat(CarrierType.fromEasyPostName("UPS")).isEqualTo(CarrierType.UPS);
     }
 
     @Test
-    @DisplayName("[GREEN] 알 수 없는 carrier는 USPS enum으로 매핑")
+    @DisplayName("알 수 없는 운송사 정보가 주어지면 송장을 생성하고 저장했을 때 USPS enum으로 매핑해야 한다")
     void fromEasyPostName_unknown() {
         assertThat(CarrierType.fromEasyPostName("DHL")).isEqualTo(CarrierType.USPS);
         assertThat(CarrierType.fromEasyPostName(null)).isEqualTo(CarrierType.USPS);
     }
 
     @Test
-    @DisplayName("[GREEN] 필드 매핑 - invoiceNo, carrierType, freightChargeAmt, labelUrl 검증")
+    @DisplayName("송장 응답 정보가 주어지면 송장을 생성하고 저장했을 때 주요 필드를 정확히 매핑해야 한다")
     void createAndSaveInvoice_mapsFieldsCorrectly() {
         // 외부 응답이 엔티티 필드로 어떻게 변환되는지 캡처해서 본다.
         EasyPostShipmentResponse created = buildShipmentWithRates("shp_field_test",
@@ -138,7 +138,7 @@ class EasyPostInvoiceSaveServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[예외] rates가 null이면 BusinessException(INT-104)")
+    @DisplayName("운임 정보가 null이면 최저 운임을 선택했을 때 BusinessException(INT-104)를 발생시켜야 한다")
     void selectCheapestRate_throwsWhenNull() {
         assertThatThrownBy(() -> service.selectCheapestRate(null))
                 .isInstanceOf(BusinessException.class)
@@ -146,7 +146,7 @@ class EasyPostInvoiceSaveServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] rates가 빈 리스트이면 BusinessException(INT-104)")
+    @DisplayName("운임 정보가 빈 목록이면 최저 운임을 선택했을 때 BusinessException(INT-104)를 발생시켜야 한다")
     void selectCheapestRate_throwsWhenEmpty() {
         assertThatThrownBy(() -> service.selectCheapestRate(List.of()))
                 .isInstanceOf(BusinessException.class)
@@ -158,7 +158,7 @@ class EasyPostInvoiceSaveServiceTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[예외] createShipment 401 → 예외 전파, save 미호출")
+    @DisplayName("createShipment 호출에서 401 오류가 발생하면 송장을 생성하고 저장했을 때 예외를 전파하고 저장하지 않아야 한다")
     void createAndSaveInvoice_propagates_whenUnauthorized() {
         given(easyPostApiClient.createShipment(any()))
                 .willThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
@@ -171,7 +171,7 @@ class EasyPostInvoiceSaveServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] buyRate 500 → 예외 전파, save 미호출")
+    @DisplayName("buyRate 호출에서 500 오류가 발생하면 송장을 생성하고 저장했을 때 예외를 전파하고 저장하지 않아야 한다")
     void createAndSaveInvoice_propagates_whenBuyRateServerError() {
         EasyPostShipmentResponse created = buildShipmentWithRates("shp_001",
                 List.of(buildRate("r1", "USPS", "6.40")));
@@ -185,7 +185,7 @@ class EasyPostInvoiceSaveServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] createShipment 응답에 rates가 없으면 BusinessException(INT-104)")
+    @DisplayName("createShipment 응답에 운임 정보가 없으면 송장을 생성하고 저장했을 때 BusinessException(INT-104)를 발생시켜야 한다")
     void createAndSaveInvoice_throwsWhenNoRates() {
         // 구매 가능한 rate가 없으면 저장 전에 즉시 실패해야 한다.
         EasyPostShipmentResponse created = buildShipmentWithRates("shp_001", List.of());
@@ -196,12 +196,80 @@ class EasyPostInvoiceSaveServiceTest {
         verify(invoiceRepository, never()).save(any());
     }
 
+    @Test
+    @DisplayName("selectedRate가 null이면 송장을 생성하고 저장했을 때 carrierType은 USPS로 freightChargeAmt는 0으로 저장해야 한다")
+    void createAndSaveInvoice_usesUspsWhenSelectedRateIsNull() {
+        EasyPostShipmentResponse created = buildShipmentWithRates("shp_null_rate",
+                List.of(buildRate("r1", "USPS", "5.50")));
+        EasyPostShipmentResponse bought = new EasyPostShipmentResponse();
+        bought.setId("shp_null_rate");
+
+        given(easyPostApiClient.createShipment(any())).willReturn(created);
+        given(easyPostApiClient.buyRate("shp_null_rate", "r1")).willReturn(bought);
+        given(invoiceRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+        EasypostShipmentInvoice result = service.createAndSaveInvoice(buildRequest());
+
+        assertThat(result.getCarrierType()).isEqualTo(CarrierType.USPS);
+        assertThat(result.getFreightChargeAmt()).isZero();
+    }
+
+    @Test
+    @DisplayName("tracker와 trackingCode가 모두 없으면 송장을 생성하고 저장했을 때 trackingUrl을 null로 저장해야 한다")
+    void createAndSaveInvoice_returnsNullTrackingUrlWhenTrackerAndTrackingCodeMissing() {
+        EasyPostShipmentResponse created = buildShipmentWithRates("shp_no_track",
+                List.of(buildRate("r1", "USPS", "5.50")));
+        EasyPostShipmentResponse bought = buildBoughtShipment("shp_no_track", "USPS", "5.50",
+                "https://label.url/no-track.pdf", null);
+        bought.setTracker(null);
+        bought.setTrackingCode(null);
+
+        given(easyPostApiClient.createShipment(any())).willReturn(created);
+        given(easyPostApiClient.buyRate("shp_no_track", "r1")).willReturn(bought);
+        given(invoiceRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+        EasypostShipmentInvoice result = service.createAndSaveInvoice(buildRequest());
+
+        assertThat(result.getTrackingUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("목적지 주소가 없으면 송장을 생성하고 저장했을 때 shipToAddress를 null로 저장해야 한다")
+    void createAndSaveInvoice_returnsNullShipToAddressWhenToAddressMissing() {
+        EasyPostShipmentResponse created = buildShipmentWithRates("shp_no_addr",
+                List.of(buildRate("r1", "USPS", "5.50")));
+        EasyPostShipmentResponse bought = buildBoughtShipment("shp_no_addr", "USPS", "5.50",
+                "https://label.url/no-addr.pdf", "https://track.easypost.com/no-addr");
+        bought.setToAddress(null);
+
+        given(easyPostApiClient.createShipment(any())).willReturn(created);
+        given(easyPostApiClient.buyRate("shp_no_addr", "r1")).willReturn(bought);
+        given(invoiceRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
+
+        EasypostShipmentInvoice result = service.createAndSaveInvoice(buildRequest());
+
+        assertThat(result.getShipToAddress()).isNull();
+    }
+
+    @Test
+    @DisplayName("운임 금액이 모두 숫자가 아니면 최저 운임을 선택했을 때 BusinessException(INT-104)를 발생시켜야 한다")
+    void selectCheapestRate_throwsWhenAllRatesAreNonNumeric() {
+        List<EasyPostShipmentResponse.RateDto> rates = List.of(
+                buildRate("r1", "USPS", "abc"),
+                buildRate("r2", "UPS", "free")
+        );
+
+        assertThatThrownBy(() -> service.selectCheapestRate(rates))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("운임 정보가 없습니다");
+    }
+
     // ─────────────────────────────────────────────────────────
     // createAndSaveBulkInvoices()
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] 대상 2건 — EasyPost 2회 호출, bulkAssignInvoice 1회 호출, successCount=2")
+    @DisplayName("미발급 주문 2건이 주어지면 일괄 송장을 생성했을 때 EasyPost를 두 번 호출하고 송장을 일괄 반영해야 한다")
     void createAndSaveBulkInvoices_fullHappyPath() {
         List<InvoiceTargetDto> targets = List.of(
                 buildTarget("ORD-BULK-001"), buildTarget("ORD-BULK-002"));
@@ -240,7 +308,7 @@ class EasyPostInvoiceSaveServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 대상 없으면 API 미호출, BulkInvoiceResponse(0, 0) 반환")
+    @DisplayName("미발급 주문이 없으면 일괄 송장을 생성했을 때 API를 호출하지 않고 처리 건수를 0으로 반환해야 한다")
     void createAndSaveBulkInvoices_emptyTargets_returnsZero() {
         given(channelOrderInvoiceMapper.findOrdersWithoutInvoice("seller-001")).willReturn(List.of());
 
@@ -254,7 +322,7 @@ class EasyPostInvoiceSaveServiceTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 1건 EasyPost 실패 시 failCount=1, 나머지 successCount=1")
+    @DisplayName("일부 주문의 EasyPost 발급이 실패하면 일괄 송장을 생성했을 때 성공 건수와 실패 건수를 나누어 반환해야 한다")
     void createAndSaveBulkInvoices_oneFailure_countedAsFail() {
         List<InvoiceTargetDto> targets = List.of(
                 buildTarget("ORD-OK-001"), buildTarget("ORD-FAIL-001"));
@@ -281,7 +349,7 @@ class EasyPostInvoiceSaveServiceTest {
     }
 
     @Test
-    @DisplayName("[예외] mapper 조회 중 예외 발생 시 전파된다")
+    @DisplayName("미발급 주문 조회 중 예외가 발생하면 일괄 송장을 생성했을 때 호출자에게 예외를 전파해야 한다")
     void createAndSaveBulkInvoices_propagatesMapperException() {
         given(channelOrderInvoiceMapper.findOrdersWithoutInvoice("seller-001"))
                 .willThrow(new RuntimeException("DB 연결 오류"));
@@ -292,6 +360,23 @@ class EasyPostInvoiceSaveServiceTest {
                 .hasMessageContaining("DB 연결 오류");
 
         verify(easyPostApiClient, never()).createShipment(any());
+    }
+
+    @Test
+    @DisplayName("모든 주문의 송장 발급이 실패하면 일괄 송장을 생성했을 때 송장 일괄 반영을 호출하지 않아야 한다")
+    void createAndSaveBulkInvoices_skipsBulkAssignWhenAllTargetsFail() {
+        List<InvoiceTargetDto> targets = List.of(
+                buildTarget("ORD-FAIL-001"), buildTarget("ORD-FAIL-002"));
+        given(channelOrderInvoiceMapper.findOrdersWithoutInvoice("seller-001")).willReturn(targets);
+        given(easyPostApiClient.createShipment(any()))
+                .willThrow(new RuntimeException("EasyPost 연결 오류"));
+
+        BulkInvoiceResponse response = service.createAndSaveBulkInvoices(
+                "seller-001", buildFromAddress(), buildParcel());
+
+        assertThat(response.getSuccessCount()).isZero();
+        assertThat(response.getFailCount()).isEqualTo(2);
+        verify(channelOrderCommandMapper, never()).bulkAssignInvoice(any());
     }
 
     // ─────────────────────────────────────────────────────────

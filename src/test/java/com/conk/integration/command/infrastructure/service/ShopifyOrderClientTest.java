@@ -22,7 +22,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 // Shopify GraphQL 주문 조회 클라이언트의 URL, 헤더, 응답 파싱을 검증한다.
-@DisplayName("ShopifyOrderClient 단위 테스트")
+@DisplayName("ShopifyOrderClient 테스트")
 class ShopifyOrderClientTest {
 
     private MockRestServiceServer mockServer;
@@ -48,7 +48,7 @@ class ShopifyOrderClientTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] GraphQL 엔드포인트로 POST 요청을 전송한다")
+    @DisplayName("인증 정보가 주어지면 주문 목록을 조회했을 때 GraphQL 엔드포인트로 POST 요청을 전송해야 한다")
     void getOrders_postsToGraphQLUrl() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andExpect(method(HttpMethod.POST))
@@ -60,7 +60,7 @@ class ShopifyOrderClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] X-Shopify-Access-Token 헤더를 포함한다")
+    @DisplayName("인증 정보가 주어지면 주문 목록을 조회했을 때 X-Shopify-Access-Token 헤더를 포함해야 한다")
     void getOrders_includesAccessTokenHeader() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andExpect(header("X-Shopify-Access-Token", ACCESS_TOKEN))
@@ -71,7 +71,7 @@ class ShopifyOrderClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 응답에서 OrderNode 목록을 정확히 파싱한다")
+    @DisplayName("주문 응답이 주어지면 주문 목록을 조회했을 때 OrderNode 목록을 정확히 파싱해야 한다")
     void getOrders_parsesOrderNodesCorrectly() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess(ordersResponseJson(), MediaType.APPLICATION_JSON));
@@ -86,7 +86,7 @@ class ShopifyOrderClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] fulfillmentOrders GID가 응답에 포함된다")
+    @DisplayName("fulfillmentOrders가 포함된 응답이 주어지면 주문 목록을 조회했을 때 fulfillmentOrders GID를 파싱해야 한다")
     void getOrders_parsesFulfillmentOrderId() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess(ordersResponseJson(), MediaType.APPLICATION_JSON));
@@ -101,7 +101,7 @@ class ShopifyOrderClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 주문이 없으면 빈 리스트를 반환한다")
+    @DisplayName("주문이 없는 응답이 주어지면 주문 목록을 조회했을 때 빈 리스트를 반환해야 한다")
     void getOrders_returnsEmptyList_whenNoOrders() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess(emptyOrdersResponseJson(), MediaType.APPLICATION_JSON));
@@ -116,7 +116,7 @@ class ShopifyOrderClientTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[예외] API body가 null이면 BusinessException(INT-301)")
+    @DisplayName("API body가 null이면 주문 목록을 조회했을 때 BusinessException(INT-301)을 발생시켜야 한다")
     void getOrders_throwsWhenResponseBodyIsNull() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("null", MediaType.APPLICATION_JSON));
@@ -126,7 +126,7 @@ class ShopifyOrderClientTest {
     }
 
     @Test
-    @DisplayName("[예외] data 필드가 null이면 BusinessException(INT-301)")
+    @DisplayName("data 필드가 null이면 주문 목록을 조회했을 때 BusinessException(INT-301)을 발생시켜야 한다")
     void getOrders_throwsWhenDataIsNull() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("{\"data\": null}", MediaType.APPLICATION_JSON));
@@ -136,7 +136,7 @@ class ShopifyOrderClientTest {
     }
 
     @Test
-    @DisplayName("[예외] orders 필드가 null이면 BusinessException(INT-301)")
+    @DisplayName("orders 필드가 null이면 주문 목록을 조회했을 때 BusinessException(INT-301)을 발생시켜야 한다")
     void getOrders_throwsWhenOrdersIsNull() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("{\"data\": {\"orders\": null}}", MediaType.APPLICATION_JSON));
@@ -146,7 +146,7 @@ class ShopifyOrderClientTest {
     }
 
     @Test
-    @DisplayName("[예외] 401 Unauthorized → HttpClientErrorException")
+    @DisplayName("401 응답이 주어지면 주문 목록을 조회했을 때 HttpClientErrorException을 전파해야 한다")
     void getOrders_throws_whenUnauthorized() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
@@ -158,7 +158,7 @@ class ShopifyOrderClientTest {
     }
 
     @Test
-    @DisplayName("[예외] 500 서버 오류 → HttpServerErrorException")
+    @DisplayName("500 응답이 주어지면 주문 목록을 조회했을 때 HttpServerErrorException을 전파해야 한다")
     void getOrders_throws_whenServerError() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withServerError());

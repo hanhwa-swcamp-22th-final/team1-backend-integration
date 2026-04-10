@@ -23,7 +23,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 // Shopify 출고 API 클라이언트의 URL, 헤더, 응답 파싱을 검증한다.
-@DisplayName("ShopifyFulfillmentApiClient 단위 테스트")
+@DisplayName("ShopifyFulfillmentApiClient 테스트")
 class ShopifyFulfillmentApiClientTest {
 
     private MockRestServiceServer mockServer;
@@ -50,7 +50,7 @@ class ShopifyFulfillmentApiClientTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] fulfillment 생성 성공 - fulfillment id 반환")
+    @DisplayName("정상 응답이 주어지면 fulfillment 생성을 요청했을 때 fulfillment id를 반환해야 한다")
     void createFulfillment_returnsFulfillmentId_whenSuccessful() {
         mockServer.expect(requestTo(fulfillmentsUrl(SHOPIFY_ORDER_ID)))
                 .andExpect(method(HttpMethod.POST))
@@ -63,7 +63,7 @@ class ShopifyFulfillmentApiClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] X-Shopify-Access-Token 헤더 포함 확인")
+    @DisplayName("인증 정보가 주어지면 fulfillment 생성을 요청했을 때 X-Shopify-Access-Token 헤더를 포함해야 한다")
     void createFulfillment_includesAccessTokenHeader() {
         mockServer.expect(requestTo(fulfillmentsUrl(SHOPIFY_ORDER_ID)))
                 .andExpect(method(HttpMethod.POST))
@@ -75,7 +75,7 @@ class ShopifyFulfillmentApiClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] URL에 orderId가 올바르게 포함된다")
+    @DisplayName("주문 번호가 주어지면 fulfillment 생성을 요청했을 때 요청 URL에 orderId를 포함해야 한다")
     void createFulfillment_usesCorrectUrlWithOrderId() {
         String anotherOrderId = "9999999999";
         mockServer.expect(requestTo(fulfillmentsUrl(anotherOrderId)))
@@ -87,7 +87,7 @@ class ShopifyFulfillmentApiClientTest {
     }
 
     @Test
-    @DisplayName("[예외] 401 Unauthorized → HttpClientErrorException")
+    @DisplayName("401 응답이 주어지면 fulfillment 생성을 요청했을 때 HttpClientErrorException을 전파해야 한다")
     void createFulfillment_throws_whenUnauthorized() {
         mockServer.expect(requestTo(fulfillmentsUrl(SHOPIFY_ORDER_ID)))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
@@ -99,7 +99,7 @@ class ShopifyFulfillmentApiClientTest {
     }
 
     @Test
-    @DisplayName("[예외] 422 Unprocessable Entity → HttpClientErrorException")
+    @DisplayName("422 응답이 주어지면 fulfillment 생성을 요청했을 때 HttpClientErrorException을 전파해야 한다")
     void createFulfillment_throws_whenUnprocessableEntity() {
         mockServer.expect(requestTo(fulfillmentsUrl(SHOPIFY_ORDER_ID)))
                 .andRespond(withStatus(HttpStatus.UNPROCESSABLE_ENTITY));
@@ -111,7 +111,7 @@ class ShopifyFulfillmentApiClientTest {
     }
 
     @Test
-    @DisplayName("[예외] 500 서버 오류 → HttpServerErrorException")
+    @DisplayName("500 응답이 주어지면 fulfillment 생성을 요청했을 때 HttpServerErrorException을 전파해야 한다")
     void createFulfillment_throws_whenServerError() {
         mockServer.expect(requestTo(fulfillmentsUrl(SHOPIFY_ORDER_ID)))
                 .andRespond(withServerError());
@@ -125,7 +125,7 @@ class ShopifyFulfillmentApiClientTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("[GREEN] GraphQL 엔드포인트로 POST 요청을 전송한다")
+    @DisplayName("일괄 fulfillment 대상이 주어지면 일괄 fulfillment 생성을 요청했을 때 GraphQL 엔드포인트로 POST 요청을 전송해야 한다")
     void createBulkFulfillment_postsToGraphQLUrl() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andExpect(method(HttpMethod.POST))
@@ -141,7 +141,7 @@ class ShopifyFulfillmentApiClientTest {
     }
 
     @Test
-    @DisplayName("[GREEN] 여러 건의 target이 있어도 1회 호출로 처리된다")
+    @DisplayName("여러 대상이 주어지면 일괄 fulfillment 생성을 요청했을 때 한 번의 API 호출로 처리해야 한다")
     void createBulkFulfillment_sendsOneRequestForMultipleTargets() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andExpect(method(HttpMethod.POST))
@@ -158,7 +158,7 @@ class ShopifyFulfillmentApiClientTest {
     }
 
     @Test
-    @DisplayName("[예외] 빈 타겟 리스트로도 GraphQL 엔드포인트에 요청을 전송한다")
+    @DisplayName("빈 대상 목록이 주어지면 일괄 fulfillment 생성을 요청했을 때도 GraphQL 엔드포인트에 요청을 전송해야 한다")
     void createBulkFulfillment_withEmptyTargetList_stillCallsGraphQL() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andExpect(method(HttpMethod.POST))
@@ -170,7 +170,7 @@ class ShopifyFulfillmentApiClientTest {
     }
 
     @Test
-    @DisplayName("[예외] GraphQL 엔드포인트 401 → HttpClientErrorException")
+    @DisplayName("GraphQL 엔드포인트에서 401 응답이 주어지면 일괄 fulfillment 생성을 요청했을 때 HttpClientErrorException을 전파해야 한다")
     void createBulkFulfillment_throws_whenUnauthorized() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
@@ -183,7 +183,7 @@ class ShopifyFulfillmentApiClientTest {
     }
 
     @Test
-    @DisplayName("[예외] GraphQL 엔드포인트 500 → HttpServerErrorException")
+    @DisplayName("GraphQL 엔드포인트에서 500 응답이 주어지면 일괄 fulfillment 생성을 요청했을 때 HttpServerErrorException을 전파해야 한다")
     void createBulkFulfillment_throws_whenServerError() {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withServerError());

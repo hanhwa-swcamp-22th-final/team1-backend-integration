@@ -32,7 +32,7 @@ import static org.mockito.BDDMockito.willThrow;
 
 // Shopify sender가 채널 지원 여부와 요청 변환을 올바르게 수행하는지 검증한다.
 @ExtendWith(MockitoExtension.class)
-@DisplayName("ShopifyFulfillmentSender 단위 테스트")
+@DisplayName("ShopifyFulfillmentSender 테스트")
 class ShopifyFulfillmentSenderTest {
 
     @Mock
@@ -53,7 +53,7 @@ class ShopifyFulfillmentSenderTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("supports() — SHOPIFY 채널만 true를 반환한다")
+    @DisplayName("Shopify 채널이 주어지면 지원 여부를 확인했을 때 true를 반환해야 한다")
     void supports_returnsTrueOnlyForShopify() {
         assertThat(sender.supports(OrderChannel.SHOPIFY)).isTrue();
         assertThat(sender.supports(OrderChannel.AMAZON)).isFalse();
@@ -65,7 +65,7 @@ class ShopifyFulfillmentSenderTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("send() — 주문/송장을 Shopify fulfillment 요청으로 변환해 API를 호출한다")
+    @DisplayName("주문과 송장 정보가 주어지면 fulfillment 전송을 수행했을 때 Shopify 요청으로 변환해 API를 호출해야 한다")
     void send_buildsRequestAndCallsApiClient() {
         given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
 
@@ -95,7 +95,7 @@ class ShopifyFulfillmentSenderTest {
     }
 
     @Test
-    @DisplayName("send() — Shopify API client 예외를 그대로 전파한다")
+    @DisplayName("Shopify API 호출 중 예외가 발생하면 fulfillment 전송을 수행했을 때 예외를 그대로 전파해야 한다")
     void send_propagatesExceptionFromClient() {
         given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
 
@@ -125,7 +125,7 @@ class ShopifyFulfillmentSenderTest {
     // ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("sendBulk() — FulfillmentTargetDto 목록을 그대로 apiClient.createBulkFulfillment()에 위임한다")
+    @DisplayName("일괄 fulfillment 대상이 주어지면 일괄 fulfillment 전송을 수행했을 때 API 호출에 그대로 위임해야 한다")
     void sendBulk_delegatesToApiClient() {
         given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
 
@@ -140,7 +140,7 @@ class ShopifyFulfillmentSenderTest {
     }
 
     @Test
-    @DisplayName("sendBulk() — apiClient 예외를 그대로 전파한다")
+    @DisplayName("일괄 fulfillment API 호출 중 예외가 발생하면 일괄 fulfillment 전송을 수행했을 때 예외를 그대로 전파해야 한다")
     void sendBulk_propagatesExceptionFromClient() {
         given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
 

@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @ActiveProfiles("test")
 @Transactional
-@DisplayName("ChannelApiMapper Tests")
+@DisplayName("ChannelApiMapper 테스트")
 class ChannelApiMapperTest {
 
     @Autowired
@@ -29,7 +29,7 @@ class ChannelApiMapperTest {
 
     // 한 셀러에 여러 채널이 연결된 상황에서 sellerId 필터가 정확히 동작해야 한다.
     @Test
-    @DisplayName("findByIdSellerId()는 해당 sellerId의 채널 API만 반환한다")
+    @DisplayName("판매자 ID가 주어지면 findByIdSellerId로 조회했을 때 해당 판매자의 채널 API만 반환해야 한다")
     void findByIdSellerId_returnsMatchingChannelApis() {
         channelApiRepository.saveAllAndFlush(List.of(
                 ChannelApi.builder()
@@ -55,7 +55,7 @@ class ChannelApiMapperTest {
 
     // 연결 정보가 없는 셀러는 빈 결과로 처리되어야 조회 API가 단순해진다.
     @Test
-    @DisplayName("findByIdSellerId()는 일치하는 sellerId가 없으면 빈 리스트를 반환한다")
+    @DisplayName("일치하는 판매자 ID가 없으면 findByIdSellerId로 조회했을 때 빈 리스트를 반환해야 한다")
     void findByIdSellerId_returnsEmptyWhenNoMatch() {
         List<ChannelApi> result = channelApiMapper.findByIdSellerId("seller-NONE");
 
@@ -63,7 +63,7 @@ class ChannelApiMapperTest {
     }
 
     @Test
-    @DisplayName("findBySellerIdAndChannelName()는 sellerId와 channelName이 모두 일치하는 채널만 반환한다")
+    @DisplayName("판매자 ID와 채널명이 주어지면 findBySellerIdAndChannelName으로 조회했을 때 둘 다 일치하는 채널만 반환해야 한다")
     void findBySellerIdAndChannelName_returnsMatchingChannelApi() {
         channelApiRepository.saveAllAndFlush(List.of(
                 ChannelApi.builder()
@@ -92,7 +92,7 @@ class ChannelApiMapperTest {
     }
 
     @Test
-    @DisplayName("findBySellerIdAndChannelName()는 일치하는 채널이 없으면 null을 반환한다")
+    @DisplayName("일치하는 채널이 없으면 findBySellerIdAndChannelName으로 조회했을 때 null을 반환해야 한다")
     void findBySellerIdAndChannelName_returnsNullWhenNoMatch() {
         ChannelApi result = channelApiMapper.findBySellerIdAndChannelName("seller-NONE", "SHOPIFY");
 

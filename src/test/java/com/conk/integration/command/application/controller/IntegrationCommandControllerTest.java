@@ -2,6 +2,8 @@ package com.conk.integration.command.application.controller;
 
 import com.conk.integration.command.application.controller.IntegrationCommandController;
 import java.util.List;
+import com.conk.integration.command.application.service.SellerChannelConnectService;
+import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
@@ -14,6 +16,7 @@ import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.common.exception.GlobalExceptionHandler;
+import com.conk.integration.query.dto.SellerChannelDetailDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -38,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 // fulfillment command API의 웹 계약을 슬라이스 테스트로 고정한다.
 @WebMvcTest(IntegrationCommandController.class)
 @Import(GlobalExceptionHandler.class)
-@DisplayName("[Controller] IntegrationCommandController 슬라이스 테스트")
+@DisplayName("IntegrationCommandController 테스트")
 class IntegrationCommandControllerTest {
 
     @Autowired
@@ -56,12 +59,121 @@ class IntegrationCommandControllerTest {
     @MockitoBean
     private ManualOrderInvoiceService manualOrderInvoiceService;
 
+    @MockitoBean
+    private SellerChannelConnectService sellerChannelConnectService;
+
     @Nested
-    @DisplayName("POST /integrations/seller/orders/fulfillment/{orderId} — fulfillment 생성 (INT-003)")
+    @DisplayName("셀러 채널 연결 테스트")
+    class ConnectSellerChannelTests {
+
+        private static final String REQUEST_BODY = """
+                {
+                  "storeName": "my-shopify-store",
+                  "channelApi": "shpat_test_token",
+                  "storeAlias": "Shopify KR Store",
+                  "contactEmail": "ops@example.com",
+                  "syncMode": "AUTO"
+                }
+                """;
+
+        @Test
+        @DisplayName("유효한 판매자 헤더와 Shopify 연결 요청이 주어지면 채널 연결을 요청했을 때 HTTP 200 응답과 연결 정보를 반환해야 한다")
+        void connectSellerChannel_returnsOk() throws Exception {
+            SellerChannelDetailDto response = new SellerChannelDetailDto(
+                    "SHOPIFY",
+                    "my-shopify-store",
+                    "shpat_test_token",
+                    java.time.LocalDateTime.of(2026, 4, 10, 10, 30));
+            given(sellerChannelConnectService.connect(anyString(), anyString(), any())).willReturn(response);
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/connect", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.channelName").value("SHOPIFY"))
+                    .andExpect(jsonPath("$.data.storeName").value("my-shopify-store"))
+                    .andExpect(jsonPath("$.data.channelApi").value("shpat_test_token"));
+        }
+
+        @Test
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 채널 연결을 요청했을 때 HTTP 400 응답을 반환해야 한다")
+        void connectSellerChannel_missingSellerIdHeader_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/connect", "SHOPIFY")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: X-Seller-Id"));
+        }
+
+        @Test
+        @DisplayName("지원하지 않는 채널 키가 주어지면 채널 연결을 요청했을 때 HTTP 400 응답을 반환해야 한다")
+        void connectSellerChannel_unsupportedChannel_returns400() throws Exception {
+            given(sellerChannelConnectService.connect(anyString(), anyString(), any()))
+                    .willThrow(new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL,
+                            "지원하지 않는 채널 연결 채널입니다: AMAZON"));
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/connect", "AMAZON")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-004"))
+                    .andExpect(jsonPath("$.message").value("지원하지 않는 채널 연결 채널입니다: AMAZON"));
+        }
+
+        @Test
+        @DisplayName("storeName이 없는 요청이 주어지면 채널 연결을 요청했을 때 HTTP 400 응답을 반환해야 한다")
+        void connectSellerChannel_missingStoreName_returns400() throws Exception {
+            given(sellerChannelConnectService.connect(anyString(), anyString(), any()))
+                    .willThrow(new BusinessException(ErrorCode.INVALID_SELLER_ID, "storeName는 필수입니다."));
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/connect", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"storeName":" ","channelApi":"shpat_test_token"}
+                                    """))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("storeName는 필수입니다."));
+        }
+
+        @Test
+        @DisplayName("Shopify 연결 검증에 실패하면 채널 연결을 요청했을 때 HTTP 404 응답을 반환해야 한다")
+        void connectSellerChannel_pingFail_returns404() throws Exception {
+            given(sellerChannelConnectService.connect(anyString(), anyString(), any()))
+                    .willThrow(new BusinessException(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND,
+                            "Shopify 채널 연결에 실패했습니다."));
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/connect", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-404"))
+                    .andExpect(jsonPath("$.message").value("Shopify 채널 연결에 실패했습니다."));
+        }
+
+        @Test
+        @DisplayName("GET 메서드로 채널 연결을 요청했을 때 HTTP 405 응답을 반환해야 한다")
+        void connectSellerChannel_wrongMethod_returns405() throws Exception {
+            mockMvc.perform(get("/integrations/seller/channels/{channelKey}/connect", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isMethodNotAllowed());
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 fulfillment 생성 테스트")
     class CreateSellerOrderFulfillmentTests {
 
         @Test
-        @DisplayName("정상 요청 — HTTP 200과 success:true, data:null 이 반환된다")
+        @DisplayName("유효한 주문 번호가 주어지면 fulfillment 생성을 요청했을 때 HTTP 200 응답을 반환해야 한다")
         void createSellerOrderFulfillment_returnsOk() throws Exception {
             mockMvc.perform(post("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001"))
                     .andExpect(status().isOk())
@@ -74,7 +186,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("주문이 없으면 HTTP 404가 반환된다")
+        @DisplayName("존재하지 않는 주문 번호가 주어지면 fulfillment 생성을 요청했을 때 HTTP 404 응답을 반환해야 한다")
         void createSellerOrderFulfillment_orderNotFound_returns404() throws Exception {
             doThrow(new BusinessException(ErrorCode.ORDER_NOT_FOUND, "주문을 찾을 수 없습니다: ORD-404"))
                     .when(fulfillmentDispatchService)
@@ -88,7 +200,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("송장 미발급 주문이면 HTTP 409가 반환된다")
+        @DisplayName("송장이 발급되지 않은 주문 번호가 주어지면 fulfillment 생성을 요청했을 때 HTTP 409 응답을 반환해야 한다")
         void createSellerOrderFulfillment_orderNotInvoiced_returns409() throws Exception {
             doThrow(new BusinessException(ErrorCode.ORDER_NOT_INVOICED, "송장이 발급되지 않은 주문입니다: ORD-20260330-0001"))
                     .when(fulfillmentDispatchService)
@@ -102,7 +214,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
+        @DisplayName("GET 메서드로 fulfillment 생성을 요청했을 때 HTTP 405 응답을 반환해야 한다")
         void createSellerOrderFulfillment_wrongMethod_returns405() throws Exception {
             mockMvc.perform(get("/integrations/seller/orders/fulfillment/{orderId}", "ORD-20260330-0001"))
                     .andExpect(status().isMethodNotAllowed());
@@ -110,7 +222,7 @@ class IntegrationCommandControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /integrations/seller/orders/invoice — EasyPost 단건 송장 발급 (INT-005)")
+    @DisplayName("단건 송장 발급 테스트")
     class CreateShipmentInvoiceTests {
 
         private static final String REQUEST_BODY = """
@@ -118,7 +230,7 @@ class IntegrationCommandControllerTest {
                 """;
 
         @Test
-        @DisplayName("정상 요청 — HTTP 200과 success:true, data(송장 정보)가 반환된다")
+        @DisplayName("유효한 송장 발급 요청이 주어지면 단건 송장 발급을 요청했을 때 HTTP 200 응답과 송장 정보를 반환해야 한다")
         void createShipmentInvoice_returnsOk() throws Exception {
             EasypostShipmentInvoice invoice = EasypostShipmentInvoice.builder()
                     .invoiceNo("shp_test_001")
@@ -144,7 +256,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("운임 정보가 없으면 HTTP 404가 반환된다")
+        @DisplayName("운임 정보가 없는 요청이 주어지면 단건 송장 발급을 요청했을 때 HTTP 404 응답을 반환해야 한다")
         void createShipmentInvoice_noRates_returns404() throws Exception {
             given(easyPostInvoiceSaveService.createAndSaveInvoice(any()))
                     .willThrow(new BusinessException(ErrorCode.NO_SHIPPING_RATES));
@@ -159,7 +271,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
+        @DisplayName("GET 메서드로 단건 송장 발급을 요청했을 때 HTTP 405 응답을 반환해야 한다")
         void createShipmentInvoice_wrongMethod_returns405() throws Exception {
             mockMvc.perform(get("/integrations/seller/orders/invoice"))
                     .andExpect(status().isMethodNotAllowed());
@@ -167,7 +279,7 @@ class IntegrationCommandControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /integrations/seller/orders/bulk-invoice — EasyPost 일괄 송장 발급 (INT-006)")
+    @DisplayName("일괄 송장 발급 테스트")
     class CreateBulkShipmentInvoiceTests {
 
         private static final String REQUEST_BODY = """
@@ -175,7 +287,7 @@ class IntegrationCommandControllerTest {
                 """;
 
         @Test
-        @DisplayName("정상 요청 — HTTP 200과 success:true, data(successCount/failCount)가 반환된다")
+        @DisplayName("유효한 일괄 송장 발급 요청이 주어지면 일괄 송장 발급을 요청했을 때 HTTP 200 응답과 처리 건수를 반환해야 한다")
         void createBulkShipmentInvoice_returnsOk() throws Exception {
             given(easyPostInvoiceSaveService.createAndSaveBulkInvoices(any(), any(), any()))
                     .willReturn(new BulkInvoiceResponse(2, 0));
@@ -190,7 +302,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("예기치 못한 서버 오류는 HTTP 500이 반환된다")
+        @DisplayName("내부 서버 오류가 발생하면 일괄 송장 발급을 요청했을 때 HTTP 500 응답을 반환해야 한다")
         void createBulkShipmentInvoice_unexpectedError_returns500() throws Exception {
             given(easyPostInvoiceSaveService.createAndSaveBulkInvoices(any(), any(), any()))
                     .willThrow(new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR, "DB 연결 오류"));
@@ -205,7 +317,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
+        @DisplayName("GET 메서드로 일괄 송장 발급을 요청했을 때 HTTP 405 응답을 반환해야 한다")
         void createBulkShipmentInvoice_wrongMethod_returns405() throws Exception {
             mockMvc.perform(get("/integrations/seller/orders/bulk-invoice"))
                     .andExpect(status().isMethodNotAllowed());
@@ -213,7 +325,81 @@ class IntegrationCommandControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /integrations/seller/orders/sync — 채널 주문 동기화 (INT-007)")
+    @DisplayName("일괄 fulfillment 전송 테스트")
+    class CreateBulkFulfillmentTests {
+
+        private static final String REQUEST_BODY = """
+                {"orderChannel":"SHOPIFY"}
+                """;
+
+        @Test
+        @DisplayName("유효한 판매자 헤더와 채널 정보가 주어지면 일괄 fulfillment 전송을 요청했을 때 HTTP 200 응답과 처리 건수를 반환해야 한다")
+        void createBulkFulfillment_returnsOk() throws Exception {
+            given(fulfillmentDispatchService.fulfillBulk(anyString(), any()))
+                    .willReturn(new BulkFulfillmentResponse(2, 1));
+
+            mockMvc.perform(post("/integrations/seller/orders/bulk-fulfillment")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.successCount").value(2))
+                    .andExpect(jsonPath("$.data.failCount").value(1));
+        }
+
+        @Test
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 일괄 fulfillment 전송을 요청했을 때 HTTP 400 응답을 반환해야 한다")
+        void createBulkFulfillment_missingSellerIdHeader_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/orders/bulk-fulfillment")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: X-Seller-Id"));
+        }
+
+        @Test
+        @DisplayName("지원하지 않는 채널 정보가 주어지면 일괄 fulfillment 전송을 요청했을 때 HTTP 400 응답을 반환해야 한다")
+        void createBulkFulfillment_unsupportedChannel_returns400() throws Exception {
+            given(fulfillmentDispatchService.fulfillBulk(anyString(), any()))
+                    .willThrow(new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL, "지원하지 않는 fulfillment 채널입니다."));
+
+            mockMvc.perform(post("/integrations/seller/orders/bulk-fulfillment")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-004"))
+                    .andExpect(jsonPath("$.message").value("지원하지 않는 fulfillment 채널입니다."));
+        }
+
+        @Test
+        @DisplayName("서비스에서 예기치 않은 예외가 발생하면 일괄 fulfillment 전송을 요청했을 때 HTTP 500 응답을 반환해야 한다")
+        void createBulkFulfillment_serviceThrows_returns500() throws Exception {
+            given(fulfillmentDispatchService.fulfillBulk(anyString(), any()))
+                    .willThrow(new RuntimeException("예상치 못한 서버 오류"));
+
+            mockMvc.perform(post("/integrations/seller/orders/bulk-fulfillment")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.success").value(false));
+        }
+
+        @Test
+        @DisplayName("GET 메서드로 일괄 fulfillment 전송을 요청했을 때 HTTP 405 응답을 반환해야 한다")
+        void createBulkFulfillment_wrongMethod_returns405() throws Exception {
+            mockMvc.perform(get("/integrations/seller/orders/bulk-fulfillment")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isMethodNotAllowed());
+        }
+    }
+
+    @Nested
+    @DisplayName("채널 주문 동기화 테스트")
     class SyncChannelOrdersTests {
 
         private static final String REQUEST_BODY = """
@@ -221,7 +407,7 @@ class IntegrationCommandControllerTest {
                 """;
 
         @Test
-        @DisplayName("정상 요청 — HTTP 200과 success:true, data(savedCount/skippedCount)가 반환된다")
+        @DisplayName("유효한 판매자 헤더와 채널 정보가 주어지면 채널 주문 동기화를 요청했을 때 HTTP 200 응답과 저장 결과를 반환해야 한다")
         void syncChannelOrders_validRequest_returns200() throws Exception {
             ChannelOrderSyncResponse response = new ChannelOrderSyncResponse(3, 1, List.of());
             given(orderSyncDispatchService.sync(any(), any())).willReturn(response);
@@ -237,7 +423,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("X-Seller-Id 헤더가 없으면 HTTP 400이 반환된다")
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 채널 주문 동기화를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void syncChannelOrders_missingSellerIdHeader_returns400() throws Exception {
             mockMvc.perform(post("/integrations/seller/orders/sync")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -248,7 +434,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Service가 BusinessException(INT-004)을 던지면 HTTP 400이 반환된다")
+        @DisplayName("서비스에서 BusinessException(INT-004)이 발생하면 채널 주문 동기화를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void syncChannelOrders_serviceThrows_returns400() throws Exception {
             given(orderSyncDispatchService.sync(any(), any()))
                     .willThrow(new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL, "지원하지 않는 채널"));
@@ -264,20 +450,62 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
+        @DisplayName("GET 메서드로 채널 주문 동기화를 요청했을 때 HTTP 405 응답을 반환해야 한다")
         void syncChannelOrders_wrongMethod_returns405() throws Exception {
             mockMvc.perform(get("/integrations/seller/orders/sync")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isMethodNotAllowed());
+        }
+
+        @Test
+        @DisplayName("유효한 판매자 헤더와 채널 키가 주어지면 채널 기준 주문 동기화를 요청했을 때 HTTP 200 응답과 저장 결과를 반환해야 한다")
+        void syncChannelOrdersByChannel_validRequest_returns200() throws Exception {
+            ChannelOrderSyncResponse response = new ChannelOrderSyncResponse(2, 1, List.of());
+            given(orderSyncDispatchService.sync(any(), any())).willReturn(response);
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/sync", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.savedCount").value(2))
+                    .andExpect(jsonPath("$.data.skippedCount").value(1));
+        }
+
+        @Test
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 채널 기준 주문 동기화를 요청했을 때 HTTP 400 응답을 반환해야 한다")
+        void syncChannelOrdersByChannel_missingSellerIdHeader_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/sync", "SHOPIFY"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: X-Seller-Id"));
+        }
+
+        @Test
+        @DisplayName("지원하지 않는 채널 키가 주어지면 채널 기준 주문 동기화를 요청했을 때 HTTP 400 응답을 반환해야 한다")
+        void syncChannelOrdersByChannel_unsupportedChannel_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/sync", "UNKNOWN")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-004"))
+                    .andExpect(jsonPath("$.message").value("지원하지 않는 주문 동기화 채널입니다: UNKNOWN"));
+        }
+
+        @Test
+        @DisplayName("GET 메서드로 채널 기준 주문 동기화를 요청했을 때 HTTP 405 응답을 반환해야 한다")
+        void syncChannelOrdersByChannel_wrongMethod_returns405() throws Exception {
+            mockMvc.perform(get("/integrations/seller/channels/{channelKey}/sync", "SHOPIFY")
                             .header("X-Seller-Id", "seller-001"))
                     .andExpect(status().isMethodNotAllowed());
         }
     }
 
     @Nested
-    @DisplayName("POST /integrations/seller/channels/{channelKey}/import-orders — 채널 주문 가져오기")
+    @DisplayName("채널 주문 가져오기 테스트")
     class ImportChannelOrdersTests {
 
         @Test
-        @DisplayName("정상 요청 — body 없이 호출해도 importedCount/skippedCount가 반환된다")
+        @DisplayName("요청 본문이 없는 요청이 주어지면 채널 주문 가져오기를 요청했을 때 HTTP 200 응답과 처리 건수를 반환해야 한다")
         void importChannelOrders_withoutBody_returns200() throws Exception {
             ChannelOrderSyncResponse response = new ChannelOrderSyncResponse(10, 2, List.of());
             given(orderSyncDispatchService.sync(any(), any())).willReturn(response);
@@ -291,7 +519,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("정상 요청 — 빈 JSON body여도 importedCount/skippedCount가 반환된다")
+        @DisplayName("빈 JSON 본문이 주어지면 채널 주문 가져오기를 요청했을 때 HTTP 200 응답과 처리 건수를 반환해야 한다")
         void importChannelOrders_emptyJsonBody_returns200() throws Exception {
             ChannelOrderSyncResponse response = new ChannelOrderSyncResponse(3, 1, List.of());
             given(orderSyncDispatchService.sync(any(), any())).willReturn(response);
@@ -307,7 +535,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("X-Seller-Id 헤더가 없으면 HTTP 400이 반환된다")
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 채널 주문 가져오기를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void importChannelOrders_missingSellerIdHeader_returns400() throws Exception {
             mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-orders", "SHOPIFY"))
                     .andExpect(status().isBadRequest())
@@ -316,7 +544,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("지원하지 않는 channelKey면 HTTP 400이 반환된다")
+        @DisplayName("지원하지 않는 채널 키가 주어지면 채널 주문 가져오기를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void importChannelOrders_unsupportedChannel_returns400() throws Exception {
             mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-orders", "UNKNOWN")
                             .header("X-Seller-Id", "seller-001"))
@@ -327,7 +555,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Service가 지원 불가 예외를 던지면 HTTP 400이 반환된다")
+        @DisplayName("서비스에서 지원하지 않는 채널 예외가 발생하면 채널 주문 가져오기를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void importChannelOrders_serviceThrows_returns400() throws Exception {
             given(orderSyncDispatchService.sync(any(), any()))
                     .willThrow(new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL, "지원하지 않는 주문 동기화 채널입니다: SHOPIFY"));
@@ -339,10 +567,18 @@ class IntegrationCommandControllerTest {
                     .andExpect(jsonPath("$.code").value("INT-004"))
                     .andExpect(jsonPath("$.message").value("지원하지 않는 주문 동기화 채널입니다: SHOPIFY"));
         }
+
+        @Test
+        @DisplayName("GET 메서드로 채널 주문 가져오기를 요청했을 때 HTTP 405 응답을 반환해야 한다")
+        void importChannelOrders_wrongMethod_returns405() throws Exception {
+            mockMvc.perform(get("/integrations/seller/channels/{channelKey}/import-orders", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isMethodNotAllowed());
+        }
     }
 
     @Nested
-    @DisplayName("POST /integrations/seller/orders/manual-invoice — 수동 주문 기입 및 송장 발급 (INT-008)")
+    @DisplayName("수동 주문 송장 발급 테스트")
     class CreateManualOrderInvoiceTests {
 
         private static final String REQUEST_BODY = """
@@ -362,7 +598,7 @@ class IntegrationCommandControllerTest {
                 """;
 
         @Test
-        @DisplayName("정상 요청 — HTTP 200과 success:true, data(주문+송장 정보)가 반환된다")
+        @DisplayName("유효한 수동 주문 요청이 주어지면 수동 주문 송장 발급을 요청했을 때 HTTP 200 응답과 주문 및 송장 정보를 반환해야 한다")
         void createManualOrderInvoice_returnsOk() throws Exception {
             List<ManualOrderInvoiceResponse.OrderItemBody> items =
                     List.of(new ManualOrderInvoiceResponse.OrderItemBody("SKU-001", "상품명", 2));
@@ -387,7 +623,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("X-Seller-Id 헤더가 없으면 HTTP 400이 반환된다")
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 수동 주문 송장 발급을 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void createManualOrderInvoice_missingSellerIdHeader_returns400() throws Exception {
             mockMvc.perform(post("/integrations/seller/orders/manual-invoice")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -398,7 +634,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("이미 송장이 발급된 주문 재요청 → HTTP 409이 반환된다")
+        @DisplayName("이미 송장이 발급된 주문 정보가 주어지면 수동 주문 송장 발급을 요청했을 때 HTTP 409 응답을 반환해야 한다")
         void createManualOrderInvoice_alreadyInvoiced_returns409() throws Exception {
             given(manualOrderInvoiceService.issue(anyString(), any()))
                     .willThrow(new BusinessException(ErrorCode.INVOICE_ALREADY_EXISTS, "이미 송장이 발급된 주문입니다: ORD-MANUAL-001"));
@@ -414,7 +650,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("EasyPost 운임 정보 없음 → HTTP 404이 반환된다")
+        @DisplayName("운임 정보가 없는 요청이 주어지면 수동 주문 송장 발급을 요청했을 때 HTTP 404 응답을 반환해야 한다")
         void createManualOrderInvoice_easyPostFails_returns404() throws Exception {
             given(manualOrderInvoiceService.issue(anyString(), any()))
                     .willThrow(new BusinessException(ErrorCode.NO_SHIPPING_RATES));
@@ -430,7 +666,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("POST 외 메서드로 호출하면 HTTP 405가 반환된다")
+        @DisplayName("GET 메서드로 수동 주문 송장 발급을 요청했을 때 HTTP 405 응답을 반환해야 한다")
         void createManualOrderInvoice_wrongMethod_returns405() throws Exception {
             mockMvc.perform(get("/integrations/seller/orders/manual-invoice")
                             .header("X-Seller-Id", "seller-001"))
@@ -438,7 +674,7 @@ class IntegrationCommandControllerTest {
         }
 
         @Test
-        @DisplayName("Service에서 예상치 못한 RuntimeException 발생 시 HTTP 500이 반환된다")
+        @DisplayName("서비스에서 예기치 않은 예외가 발생하면 수동 주문 송장 발급을 요청했을 때 HTTP 500 응답을 반환해야 한다")
         void createManualOrderInvoice_unexpectedError_returns500() throws Exception {
             given(manualOrderInvoiceService.issue(anyString(), any()))
                     .willThrow(new RuntimeException("예상치 못한 서버 오류"));

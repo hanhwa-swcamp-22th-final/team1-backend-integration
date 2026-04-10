@@ -3,6 +3,7 @@ package com.conk.integration.e2e.flow;
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.domain.aggregate.*;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
+import com.conk.integration.command.domain.aggregate.embeddable.ChannelOrderItemId;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.infrastructure.repository.*;
@@ -14,6 +15,7 @@ import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApi
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.query.dto.ShopifyCredentialDto;
 import com.conk.integration.query.service.ChannelApiQueryService;
+import com.conk.integration.query.service.ShopifyPingClient;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -58,7 +60,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
-@DisplayName("[통합 테스트] 전체 시스템 데이터 흐름 검증 (Controller → Service → DB)")
+@DisplayName("전체 시스템 통합 테스트")
 class IntegrationTest {
 
     /* ---------- MockMvc (HTTP 계층 테스트) ---------- */
@@ -74,6 +76,9 @@ class IntegrationTest {
 
     @MockitoBean
     private ChannelApiQueryService channelApiQueryService;
+
+    @MockitoBean
+    private ShopifyPingClient shopifyPingClient;
 
     /* ---------- 실제 Bean ---------- */
     @Autowired
@@ -99,12 +104,12 @@ class IntegrationTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("ShopifyOrderSyncService 통합 — Shopify API 응답이 DB에 저장된다")
+    @DisplayName("Shopify 주문 동기화 통합 테스트")
     class SyncOrdersIntegrationTests {
 
         // 외부 주문 응답이 실제 DB 저장으로 이어지는지 본다.
         @Test
-        @DisplayName("syncOrders() — Shopify 주문 2건 반환 시 DB에 2건이 저장된다")
+        @DisplayName("Shopify 주문 2건이 주어지면 주문 동기화를 수행했을 때 DB에 2건을 저장해야 한다")
         void syncOrders_persistsTwoOrders() {
             // given
             ShopifyOrderResponse.OrderNode dto1 = buildShopifyOrderNode(9001L, "#9001", "Alice", "100 Main St");
@@ -124,7 +129,7 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("syncOrders() — 이미 저장된 주문은 중복 저장되지 않는다 (멱등성)")
+        @DisplayName("이미 저장된 주문이 다시 주어지면 주문 동기화를 수행했을 때 중복 저장하지 않아야 한다")
         void syncOrders_idempotent_doesNotDuplicateExistingOrder() {
             // 같은 주문이 다시 들어와도 DB 건수는 유지되어야 한다.
             // given — 주문 9003은 이미 DB에 존재
@@ -147,7 +152,7 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("syncOrders() — Shopify API 주문이 0건이면 DB에 아무 것도 저장되지 않는다")
+        @DisplayName("Shopify 주문이 비어 있으면 주문 동기화를 수행했을 때 DB에 저장하지 않아야 한다")
         void syncOrders_emptyResponse_savesNothing() {
             // given
             given(channelApiQueryService.findShopifyCredential("seller-integration-C")).willReturn(buildCredential());
@@ -162,7 +167,7 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("syncOrders() — lineItems가 있으면 channel_order_item도 함께 저장된다")
+        @DisplayName("lineItems가 포함된 주문이 주어지면 주문 동기화를 수행했을 때 주문 아이템도 함께 저장해야 한다")
         void syncOrders_persistsChannelOrderItems_whenLineItemsPresent() {
             // given
             ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(9010L, "#9010", "Diana", "400 Elm St");
@@ -184,7 +189,7 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("syncOrders() — 반환값에 savedCount와 skippedCount가 정확히 포함된다")
+        @DisplayName("기존 주문과 신규 주문이 함께 주어지면 주문 동기화를 수행했을 때 savedCount와 skippedCount를 정확히 반환해야 한다")
         void syncOrders_returnsCorrectSavedAndSkippedCount() {
             // given — 9020은 이미 DB에 존재, 9021은 신규
             channelOrderRepository.save(ChannelOrder.builder()
@@ -214,12 +219,12 @@ class IntegrationTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("ChannelFulfillmentDispatchService 통합 — DB 조회 후 Shopify API를 호출한다")
+    @DisplayName("fulfillment 전송 통합 테스트")
     class FulfillmentIntegrationTests {
 
         // DB에 필요한 데이터가 있으면 외부 fulfillment API까지 이어지는지 본다.
         @Test
-        @DisplayName("fulfill() — 주문과 invoice가 DB에 있으면 Shopify fulfillment API가 호출된다")
+        @DisplayName("주문과 송장 정보가 DB에 저장되어 있으면 fulfillment를 수행했을 때 Shopify fulfillment API를 호출해야 한다")
         void fulfill_callsShopifyApiWhenDataExists() {
             // given — Invoice와 ChannelOrder를 DB에 미리 저장
             invoiceRepository.save(EasypostShipmentInvoice.builder()
@@ -247,7 +252,7 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("fulfill() — DB에 주문이 없으면 BusinessException(INT-101)이 발생한다")
+        @DisplayName("DB에 주문이 없으면 fulfillment를 수행했을 때 BusinessException(INT-101)을 발생시켜야 한다")
         void fulfill_throwsWhenOrderNotInDb() {
             assertThatThrownBy(() -> fulfillmentDispatchService.fulfill("ORDER-NOT-EXIST"))
                     .isInstanceOf(BusinessException.class)
@@ -255,7 +260,7 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("fulfill() — 주문에 invoiceNo가 없으면 BusinessException(INT-202)이 발생한다")
+        @DisplayName("송장 번호가 없는 주문이 주어지면 fulfillment를 수행했을 때 BusinessException(INT-202)를 발생시켜야 한다")
         void fulfill_throwsWhenNoInvoiceInOrder() {
             // given — invoiceNo가 없는 주문
             channelOrderRepository.save(ChannelOrder.builder()
@@ -278,12 +283,12 @@ class IntegrationTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("GET /integrations/seller/orders — HTTP 전체 흐름 통합 테스트")
+    @DisplayName("주문 조회 HTTP 통합 테스트")
     class OrderQueryHttpIntegrationTests {
 
         // MyBatis 조회 결과가 HTTP 응답 JSON까지 전달되는 전체 경로를 확인한다.
         @Test
-        @DisplayName("DB에 주문이 있을 때 HTTP 요청으로 조회하면 200과 주문 데이터가 반환된다")
+        @DisplayName("DB에 주문이 저장되어 있으면 주문 조회를 요청했을 때 HTTP 200 응답과 주문 데이터를 반환해야 한다")
         void getOrders_e2e_returnsHttpOkWithData() throws Exception {
             // given — DB에 직접 저장 (JPA 영속성 컨텍스트를 DB와 동기화하여 MyBatis에서 읽을 수 있게 flush 처리)
             channelOrderRepository.saveAndFlush(ChannelOrder.builder()
@@ -310,7 +315,7 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("DB에 주문이 없을 때 HTTP 요청으로 조회하면 200과 빈 배열이 반환된다")
+        @DisplayName("DB에 주문이 저장되어 있지 않으면 주문 조회를 요청했을 때 HTTP 200 응답과 빈 배열을 반환해야 한다")
         void getOrders_e2e_returnsEmptyWhenNoData() throws Exception {
             // when & then — 데이터 없는 sellerId로 조회
             mockMvc.perform(get("/integrations/seller/orders")
@@ -322,14 +327,14 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("X-Seller-Id 헤더 누락 시 HTTP 400이 반환된다")
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 주문 조회를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void getOrders_e2e_missingHeader_returns400() throws Exception {
             mockMvc.perform(get("/integrations/seller/orders"))
                     .andExpect(status().isBadRequest());
         }
 
         @Test
-        @DisplayName("invoiceNo가 있는 주문 조회 시 status가 PROCESSING으로 반환된다")
+        @DisplayName("송장 번호가 있는 주문이 저장되어 있으면 주문 조회를 요청했을 때 PROCESSING 상태를 반환해야 한다")
         void getOrders_e2e_processingStatusWhenInvoiceExists() throws Exception {
             // given — DB에 직접 저장하고 flush 처리
             channelOrderRepository.saveAndFlush(ChannelOrder.builder()
@@ -355,12 +360,12 @@ class IntegrationTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("POST /integrations/seller/orders/sync — HTTP 전체 흐름 통합 테스트")
+    @DisplayName("주문 동기화 HTTP 통합 테스트")
     class SyncOrdersHttpIntegrationTests {
 
         // HTTP 요청 → Controller → DispatchService → SyncService → DB 저장 전체 흐름을 확인한다.
         @Test
-        @DisplayName("정상 요청 — HTTP 200과 savedCount/skippedCount가 반환된다")
+        @DisplayName("유효한 주문 동기화 요청이 주어지면 주문 동기화를 요청했을 때 HTTP 200 응답과 처리 건수를 반환해야 한다")
         void syncOrders_e2e_returnsHttpOkWithCounts() throws Exception {
             // given
             ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(8001L, "#8001", "Alice", "100 Main St");
@@ -382,7 +387,7 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("sync 후 DB에 주문이 실제로 저장된다")
+        @DisplayName("유효한 주문 동기화 요청이 주어지면 주문 동기화를 요청했을 때 DB에 주문을 저장해야 한다")
         void syncOrders_e2e_persistsOrderToDb() throws Exception {
             // given
             ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(8002L, "#8002", "Bob", "200 Oak Ave");
@@ -406,7 +411,7 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("채널 크리덴셜이 없는 셀러 요청 시 HTTP 404가 반환된다")
+        @DisplayName("채널 자격 증명이 없는 판매자 요청이 주어지면 주문 동기화를 요청했을 때 HTTP 404 응답을 반환해야 한다")
         void syncOrders_e2e_missingCredential_returns404() throws Exception {
             // given — 크리덴셜 조회 시 예외 발생 (등록되지 않은 셀러)
             given(channelApiQueryService.findShopifyCredential("seller-no-cred"))
@@ -422,13 +427,48 @@ class IntegrationTest {
         }
 
         @Test
-        @DisplayName("X-Seller-Id 헤더 누락 시 HTTP 400이 반환된다")
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 주문 동기화를 요청했을 때 HTTP 400 응답을 반환해야 한다")
         void syncOrders_e2e_missingSellerIdHeader_returns400() throws Exception {
             mockMvc.perform(post("/integrations/seller/orders/sync")
                             .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                             .content("{\"orderChannel\":\"SHOPIFY\"}"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false));
+        }
+
+        @Test
+        @DisplayName("유효한 판매자 헤더와 채널 키가 주어지면 채널 기준 주문 동기화를 요청했을 때 HTTP 200 응답과 처리 건수를 반환해야 한다")
+        void syncOrdersByChannel_e2e_returnsHttpOkWithCounts() throws Exception {
+            ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(8101L, "#8101", "Grace", "700 Cedar St");
+            given(channelApiQueryService.findShopifyCredential("seller-http-channel-A")).willReturn(buildCredential());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/sync", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-http-channel-A"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.savedCount").value(1))
+                    .andExpect(jsonPath("$.data.skippedCount").value(0))
+                    .andExpect(jsonPath("$.data.orders[0].orderId").value("8101"));
+        }
+
+        @Test
+        @DisplayName("유효한 판매자 헤더와 채널 키가 주어지면 채널 기준 주문 동기화를 요청했을 때 DB에 주문을 저장해야 한다")
+        void syncOrdersByChannel_e2e_persistsOrderToDb() throws Exception {
+            ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(8102L, "#8102", "Henry", "800 Maple Ave");
+            node.setLineItems(buildLineItemConnection("SKU-HTTP-02", "Gadget C", 2, null));
+            given(channelApiQueryService.findShopifyCredential("seller-http-channel-B")).willReturn(buildCredential());
+            given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/sync", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-http-channel-B"))
+                    .andExpect(status().isOk());
+
+            channelOrderRepository.flush();
+            ChannelOrder saved = channelOrderRepository.findById("8102").orElseThrow();
+            assertThat(saved.getChannelOrderNo()).isEqualTo("#8102");
+            assertThat(saved.getItems()).hasSize(1);
+            assertThat(saved.getItems().get(0).getId().getSkuId()).isEqualTo("SKU-HTTP-02");
         }
     }
 
@@ -437,12 +477,12 @@ class IntegrationTest {
      * =================================================================== */
 
     @Nested
-    @DisplayName("ChannelApi DB 저장 및 조회 통합 테스트")
+    @DisplayName("채널 API 저장 및 조회 통합 테스트")
     class ChannelApiIntegrationTests {
 
         // 채널 연결 정보의 저장과 sellerId 기반 조회를 함께 검증한다.
         @Test
-        @DisplayName("ChannelApi 저장 후 findByIdSellerId()로 조회하면 정상적으로 반환된다")
+        @DisplayName("채널 API 정보를 저장하면 판매자 ID로 조회했을 때 저장한 채널 정보를 반환해야 한다")
         void saveAndFindChannelApi() {
             // given
             ChannelApiId id = new ChannelApiId("seller-intg", "SHOPIFY");
@@ -457,6 +497,156 @@ class IntegrationTest {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getId().getChannelName()).isEqualTo("SHOPIFY");
             assertThat(result.get(0).getChannelApi()).isEqualTo("shopify-api-token");
+        }
+
+        @Test
+        @DisplayName("채널 API 정보를 저장하면 저장했을 때 createdAt과 updatedAt을 자동으로 기록해야 한다")
+        void saveChannelApi_setsAuditFields() {
+            ChannelApi saved = channelApiRepository.saveAndFlush(
+                    ChannelApi.builder()
+                            .id(new ChannelApiId("seller-audit", "SHOPIFY"))
+                            .channelApi("audit-token")
+                            .storeName("audit-store")
+                            .build());
+
+            assertThat(saved.getAudit().getCreatedAt()).isNotNull();
+            assertThat(saved.getAudit().getUpdatedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("기존 채널 API 정보를 수정하면 수정했을 때 updatedAt을 갱신해야 한다")
+        void updateChannelApi_updatesUpdatedAt() {
+            ChannelApi saved = channelApiRepository.saveAndFlush(
+                    ChannelApi.builder()
+                            .id(new ChannelApiId("seller-audit-update", "SHOPIFY"))
+                            .channelApi("old-token")
+                            .storeName("old-store")
+                            .build());
+            LocalDateTime createdAt = saved.getAudit().getCreatedAt();
+
+            saved.updateConnection("new-token", "new-store");
+            ChannelApi updated = channelApiRepository.saveAndFlush(saved);
+
+            assertThat(updated.getAudit().getCreatedAt()).isEqualTo(createdAt);
+            assertThat(updated.getAudit().getUpdatedAt()).isNotNull();
+            assertThat(updated.getAudit().getUpdatedAt()).isAfterOrEqualTo(createdAt);
+        }
+    }
+
+    @Nested
+    @DisplayName("셀러 채널 연결 HTTP 통합 테스트")
+    class ConnectSellerChannelHttpIntegrationTests {
+
+        @Test
+        @DisplayName("유효한 Shopify 연결 요청이 주어지면 채널 연결을 요청했을 때 HTTP 200 응답과 저장된 연결 정보를 반환해야 한다")
+        void connectSellerChannel_e2e_returnsSavedConnection() throws Exception {
+            given(shopifyPingClient.ping("my-shopify-store", "shpat_http_token")).willReturn(true);
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/connect", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-http-connect")
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "storeName":"my-shopify-store",
+                                      "channelApi":"shpat_http_token",
+                                      "storeAlias":"Shopify KR Store",
+                                      "contactEmail":"ops@example.com",
+                                      "syncMode":"AUTO"
+                                    }
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.channelName").value("SHOPIFY"))
+                    .andExpect(jsonPath("$.data.storeName").value("my-shopify-store"))
+                    .andExpect(jsonPath("$.data.channelApi").value("shpat_http_token"));
+
+            ChannelApi saved = channelApiRepository.findById(
+                    new ChannelApiId("seller-http-connect", "SHOPIFY")).orElseThrow();
+            assertThat(saved.getStoreName()).isEqualTo("my-shopify-store");
+            assertThat(saved.getChannelApi()).isEqualTo("shpat_http_token");
+        }
+
+        @Test
+        @DisplayName("기존 Shopify 연결 정보가 있으면 채널 연결을 다시 요청했을 때 row를 추가하지 않고 갱신해야 한다")
+        void connectSellerChannel_e2e_updatesExistingRow() throws Exception {
+            channelApiRepository.saveAndFlush(ChannelApi.builder()
+                    .id(new ChannelApiId("seller-http-update", "SHOPIFY"))
+                    .channelApi("old-token")
+                    .storeName("old-store")
+                    .build());
+            given(shopifyPingClient.ping("new-store", "new-token")).willReturn(true);
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/connect", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-http-update")
+                            .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"storeName":"new-store","channelApi":"new-token"}
+                                    """))
+                    .andExpect(status().isOk());
+
+            List<ChannelApi> result = channelApiMapper.findByIdSellerId("seller-http-update");
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getStoreName()).isEqualTo("new-store");
+            assertThat(result.get(0).getChannelApi()).isEqualTo("new-token");
+        }
+    }
+
+    @Nested
+    @DisplayName("주문 아이템 audit 통합 테스트")
+    class ChannelOrderItemAuditIntegrationTests {
+
+        @Test
+        @DisplayName("주문 아이템을 저장하면 저장했을 때 createdAt과 updatedAt을 자동으로 기록해야 한다")
+        void saveChannelOrderItem_setsAuditFields() {
+            ChannelOrder order = ChannelOrder.builder()
+                    .orderId("ORDER-ITEM-AUDIT-001")
+                    .channelOrderNo("#ITEM-001")
+                    .orderChannel(OrderChannel.SHOPIFY)
+                    .sellerId("seller-item-audit")
+                    .build();
+            ChannelOrderItem item = ChannelOrderItem.builder()
+                    .id(new ChannelOrderItemId("ORDER-ITEM-AUDIT-001", "SKU-001"))
+                    .channelOrder(order)
+                    .quantity(2)
+                    .productNameSnapshot("상품 A")
+                    .build();
+            order.addItem(item);
+
+            ChannelOrder saved = channelOrderRepository.saveAndFlush(order);
+
+            assertThat(saved.getItems()).hasSize(1);
+            assertThat(saved.getItems().get(0).getAudit().getCreatedAt()).isNotNull();
+            assertThat(saved.getItems().get(0).getAudit().getUpdatedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("기존 주문 아이템을 수정하면 수정했을 때 updatedAt을 갱신해야 한다")
+        void updateChannelOrderItem_updatesUpdatedAt() {
+            ChannelOrder order = ChannelOrder.builder()
+                    .orderId("ORDER-ITEM-AUDIT-002")
+                    .channelOrderNo("#ITEM-002")
+                    .orderChannel(OrderChannel.SHOPIFY)
+                    .sellerId("seller-item-audit")
+                    .build();
+            ChannelOrderItem item = ChannelOrderItem.builder()
+                    .id(new ChannelOrderItemId("ORDER-ITEM-AUDIT-002", "SKU-002"))
+                    .channelOrder(order)
+                    .quantity(1)
+                    .productNameSnapshot("상품 B")
+                    .build();
+            order.addItem(item);
+            channelOrderRepository.saveAndFlush(order);
+
+            ChannelOrder saved = channelOrderRepository.findById("ORDER-ITEM-AUDIT-002").orElseThrow();
+            ChannelOrderItem savedItem = saved.getItems().get(0);
+            LocalDateTime createdAt = savedItem.getAudit().getCreatedAt();
+
+            savedItem.updateProductNameSnapshot("상품 B 수정");
+            channelOrderRepository.saveAndFlush(saved);
+
+            assertThat(savedItem.getAudit().getCreatedAt()).isEqualTo(createdAt);
+            assertThat(savedItem.getAudit().getUpdatedAt()).isNotNull();
+            assertThat(savedItem.getAudit().getUpdatedAt()).isAfterOrEqualTo(createdAt);
         }
     }
 

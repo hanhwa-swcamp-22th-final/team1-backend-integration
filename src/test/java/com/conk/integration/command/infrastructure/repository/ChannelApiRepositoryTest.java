@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 // ChannelApiRepository는 복합 키 기반 JPA 동작만 좁게 검증한다.
 @DataJpaTest
 @ActiveProfiles("test")
-@DisplayName("ChannelApiRepository Tests")
+@DisplayName("ChannelApiRepository 테스트")
 class ChannelApiRepositoryTest {
 
     @Autowired
@@ -22,7 +22,7 @@ class ChannelApiRepositoryTest {
 
     // 복합 키 조회는 개별 채널 설정을 수정/조회하는 기본 동작이다.
     @Test
-    @DisplayName("복합 키로 findById() 조회 시 올바른 엔티티가 반환된다")
+    @DisplayName("복합 키가 주어지면 findById로 조회했을 때 올바른 엔티티를 반환해야 한다")
     void findById_withCompositeKey_returnsCorrectEntity() {
         ChannelApiId id = new ChannelApiId("seller-C", "SHOPIFY");
         channelApiRepository.save(
