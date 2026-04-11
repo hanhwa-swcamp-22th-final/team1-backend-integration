@@ -14,10 +14,12 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
@@ -109,6 +111,41 @@ class ShopifyOrderClientTest {
         List<ShopifyOrderResponse.OrderNode> orders = client.getOrders(STORE_NAME, ACCESS_TOKEN);
 
         assertThat(orders).isEmpty();
+    }
+
+    @Test
+    @DisplayName("시작 시각이 주어지면 이후 주문 목록을 조회했을 때 created_at 필터를 포함한 GraphQL 요청을 전송해야 한다")
+    void getOrdersSince_includesCreatedAtFilter() {
+        LocalDateTime since = LocalDateTime.of(2026, 4, 11, 9, 0);
+
+        mockServer.expect(requestTo(graphqlUrl()))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("created_at:>'2026-04-11T09:00Z'")))
+                .andRespond(withSuccess(ordersResponseJson(), MediaType.APPLICATION_JSON));
+
+        client.getOrdersSince(STORE_NAME, ACCESS_TOKEN, since);
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("다음 페이지가 있으면 이후 주문 건수를 조회했을 때 모든 페이지를 순회해 전체 건수를 반환해야 한다")
+    void countOrdersSince_fetchesAllPages() {
+        LocalDateTime since = LocalDateTime.of(2026, 4, 11, 9, 0);
+
+        mockServer.expect(requestTo(graphqlUrl()))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("created_at:>'2026-04-11T09:00Z'")))
+                .andRespond(withSuccess(pagedOrdersResponseJson(true, "cursor-1", 250), MediaType.APPLICATION_JSON));
+
+        mockServer.expect(requestTo(graphqlUrl()))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(content().string(containsString("after: \\\"cursor-1\\\"")))
+                .andRespond(withSuccess(pagedOrdersResponseJson(false, null, 20), MediaType.APPLICATION_JSON));
+
+        int total = client.countOrdersSince(STORE_NAME, ACCESS_TOKEN, since);
+
+        assertThat(total).isEqualTo(270);
+        mockServer.verify();
     }
 
     // ─────────────────────────────────────────────────────────
@@ -233,5 +270,41 @@ class ShopifyOrderClientTest {
                   }
                 }
                 """;
+    }
+
+    private String pagedOrdersResponseJson(boolean hasNextPage, String endCursor, int edgeCount) {
+        StringBuilder edges = new StringBuilder();
+        for (int i = 0; i < edgeCount; i++) {
+            if (i > 0) {
+                edges.append(",");
+            }
+            edges.append("""
+                    {
+                      "node": {
+                        "id": "gid://shopify/Order/%d",
+                        "name": "#%d",
+                        "email": "paged@test.com",
+                        "createdAt": "2024-01-15T10:00:00-05:00",
+                        "shippingAddress": null,
+                        "fulfillmentOrders": { "edges": [] }
+                      }
+                    }
+                    """.formatted(2000 + i, 2000 + i));
+        }
+
+        String cursorJson = endCursor == null ? "null" : "\"" + endCursor + "\"";
+        return """
+                {
+                  "data": {
+                    "orders": {
+                      "edges": [%s],
+                      "pageInfo": {
+                        "hasNextPage": %s,
+                        "endCursor": %s
+                      }
+                    }
+                  }
+                }
+                """.formatted(edges, hasNextPage, cursorJson);
     }
 }

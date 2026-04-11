@@ -7,10 +7,12 @@ import com.conk.integration.command.application.dto.response.BulkFulfillmentResp
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
+import com.conk.integration.command.application.dto.response.SellerChannelImportPreviewResponse;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.command.application.service.ChannelOrderSyncDispatchService;
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
 import com.conk.integration.command.application.service.ManualOrderInvoiceService;
+import com.conk.integration.command.application.service.SellerChannelImportPreviewService;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.common.exception.BusinessException;
@@ -61,6 +63,9 @@ class IntegrationCommandControllerTest {
 
     @MockitoBean
     private SellerChannelConnectService sellerChannelConnectService;
+
+    @MockitoBean
+    private SellerChannelImportPreviewService sellerChannelImportPreviewService;
 
     @Nested
     @DisplayName("셀러 채널 연결 테스트")
@@ -572,6 +577,84 @@ class IntegrationCommandControllerTest {
         @DisplayName("GET 메서드로 채널 주문 가져오기를 요청했을 때 HTTP 405 응답을 반환해야 한다")
         void importChannelOrders_wrongMethod_returns405() throws Exception {
             mockMvc.perform(get("/integrations/seller/channels/{channelKey}/import-orders", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isMethodNotAllowed());
+        }
+    }
+
+    @Nested
+    @DisplayName("채널 주문 가져오기 미리보기 테스트")
+    class ImportChannelPreviewTests {
+
+        private static final String REQUEST_BODY = """
+                {
+                  "storeAlias": "Shopify KR Store",
+                  "contactEmail": "ops@example.com",
+                  "syncWindow": "최근 7일",
+                  "autoImport": true
+                }
+                """;
+
+        @Test
+        @DisplayName("유효한 판매자 헤더와 요청 본문이 주어지면 채널 주문 가져오기 미리보기를 요청했을 때 HTTP 200 응답과 미리보기 정보를 반환해야 한다")
+        void importChannelPreview_returns200() throws Exception {
+            SellerChannelImportPreviewResponse response = new SellerChannelImportPreviewResponse(
+                    5,
+                    java.time.LocalDateTime.of(2026, 4, 11, 9, 0));
+            given(sellerChannelImportPreviewService.preview(anyString(), any(), any())).willReturn(response);
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-preview", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.pendingOrders").value(5))
+                    .andExpect(jsonPath("$.data.lastSyncedAt").value("2026-04-11T09:00:00"));
+        }
+
+        @Test
+        @DisplayName("요청 본문이 없는 요청이 주어지면 채널 주문 가져오기 미리보기를 요청했을 때 HTTP 200 응답과 미리보기 정보를 반환해야 한다")
+        void importChannelPreview_withoutBody_returns200() throws Exception {
+            SellerChannelImportPreviewResponse response = new SellerChannelImportPreviewResponse(0, null);
+            given(sellerChannelImportPreviewService.preview(anyString(), any(), any())).willReturn(response);
+
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-preview", "SHOPIFY")
+                            .header("X-Seller-Id", "seller-001"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.pendingOrders").value(0))
+                    .andExpect(jsonPath("$.data.lastSyncedAt").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("판매자 헤더가 없는 요청이 주어지면 채널 주문 가져오기 미리보기를 요청했을 때 HTTP 400 응답을 반환해야 한다")
+        void importChannelPreview_missingSellerIdHeader_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-preview", "SHOPIFY")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.message").value("필수 헤더가 누락되었습니다: X-Seller-Id"));
+        }
+
+        @Test
+        @DisplayName("지원하지 않는 채널 키가 주어지면 채널 주문 가져오기 미리보기를 요청했을 때 HTTP 400 응답을 반환해야 한다")
+        void importChannelPreview_unsupportedChannel_returns400() throws Exception {
+            mockMvc.perform(post("/integrations/seller/channels/{channelKey}/import-preview", "UNKNOWN")
+                            .header("X-Seller-Id", "seller-001")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(REQUEST_BODY))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INT-004"))
+                    .andExpect(jsonPath("$.message").value("지원하지 않는 주문 동기화 채널입니다: UNKNOWN"));
+        }
+
+        @Test
+        @DisplayName("GET 메서드로 채널 주문 가져오기 미리보기를 요청했을 때 HTTP 405 응답을 반환해야 한다")
+        void importChannelPreview_wrongMethod_returns405() throws Exception {
+            mockMvc.perform(get("/integrations/seller/channels/{channelKey}/import-preview", "SHOPIFY")
                             .header("X-Seller-Id", "seller-001"))
                     .andExpect(status().isMethodNotAllowed());
         }
