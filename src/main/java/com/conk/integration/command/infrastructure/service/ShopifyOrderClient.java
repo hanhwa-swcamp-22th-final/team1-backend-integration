@@ -14,6 +14,9 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -22,9 +25,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ShopifyOrderClient {
 
-    private static final String ORDERS_QUERY = """
+    private static final String ORDERS_QUERY_TEMPLATE = """
             {
-              orders(first: 250) {
+              orders(first: 250%s%s) {
                 edges {
                   node {
                     id
@@ -64,6 +67,10 @@ public class ShopifyOrderClient {
                     }
                   }
                 }
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
               }
             }
             """;
@@ -80,8 +87,52 @@ public class ShopifyOrderClient {
      * @return 주문 노드 목록
      */
     public List<ShopifyOrderResponse.OrderNode> getOrders(String storeName, String accessToken) {
+        return toOrderNodes(fetchOrders(storeName, accessToken, null, null));
+    }
+
+    /**
+     * Shopify GraphQL로 특정 시각 이후 주문 목록과 fulfillmentOrder ID를 한 번에 조회한다.
+     *
+     * @param storeName   Shopify 스토어명
+     * @param accessToken Shopify Admin API 액세스 토큰
+     * @param since       조회 시작 시각(초과 조건)
+     * @return 주문 노드 목록
+     */
+    public List<ShopifyOrderResponse.OrderNode> getOrdersSince(
+            String storeName,
+            String accessToken,
+            LocalDateTime since) {
+
+        return toOrderNodes(fetchOrders(storeName, accessToken, since, null));
+    }
+
+    public int countOrdersSince(String storeName, String accessToken, LocalDateTime since) {
+        String cursor = null;
+        int total = 0;
+
+        do {
+            ShopifyOrderResponse response = fetchOrders(storeName, accessToken, since, cursor);
+            List<ShopifyOrderResponse.OrderEdge> edges = getOrderEdges(response);
+            total += edges.size();
+
+            ShopifyOrderResponse.PageInfo pageInfo = response.getData().getOrders().getPageInfo();
+            if (pageInfo == null || !pageInfo.isHasNextPage()) {
+                break;
+            }
+            cursor = pageInfo.getEndCursor();
+        } while (cursor != null && !cursor.isBlank());
+
+        return total;
+    }
+
+    private ShopifyOrderResponse fetchOrders(
+            String storeName,
+            String accessToken,
+            LocalDateTime since,
+            String cursor) {
+
         try {
-            String jsonBody = objectMapper.writeValueAsString(Map.of("query", ORDERS_QUERY));
+            String jsonBody = objectMapper.writeValueAsString(Map.of("query", buildOrdersQuery(since, cursor)));
             HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildHeaders(accessToken));
 
             ShopifyOrderResponse response = restTemplate.exchange(
@@ -95,14 +146,32 @@ public class ShopifyOrderClient {
                     || response.getData().getOrders() == null) {
                 throw new BusinessException(ErrorCode.SHOPIFY_EMPTY_RESPONSE);
             }
-
-            return response.getData().getOrders().getEdges().stream()
-                    .map(ShopifyOrderResponse.OrderEdge::getNode)
-                    .toList();
+            return response;
 
         } catch (JsonProcessingException e) {
             throw new BusinessException(ErrorCode.SHOPIFY_SERIALIZATION_FAILED);
         }
+    }
+
+    private List<ShopifyOrderResponse.OrderNode> toOrderNodes(ShopifyOrderResponse response) {
+        return getOrderEdges(response).stream()
+                .map(ShopifyOrderResponse.OrderEdge::getNode)
+                .toList();
+    }
+
+    private List<ShopifyOrderResponse.OrderEdge> getOrderEdges(ShopifyOrderResponse response) {
+        List<ShopifyOrderResponse.OrderEdge> edges = response.getData().getOrders().getEdges();
+        return edges == null ? Collections.emptyList() : edges;
+    }
+
+    private String buildOrdersQuery(LocalDateTime since, String cursor) {
+        String filterClause = since == null ? "" : ", query: \"" + buildCreatedAtFilter(since) + "\"";
+        String cursorClause = (cursor == null || cursor.isBlank()) ? "" : ", after: \"" + cursor + "\"";
+        return ORDERS_QUERY_TEMPLATE.formatted(filterClause, cursorClause);
+    }
+
+    private String buildCreatedAtFilter(LocalDateTime since) {
+        return "created_at:>'" + since.atOffset(ZoneOffset.UTC) + "'";
     }
 
     // 토큰과 JSON content-type을 포함한 Shopify 요청 헤더다.

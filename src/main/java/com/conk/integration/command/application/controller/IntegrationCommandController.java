@@ -6,9 +6,11 @@ import com.conk.integration.command.application.dto.request.ChannelOrderSyncRequ
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.request.ManualOrderInvoiceRequest;
 import com.conk.integration.command.application.dto.request.SellerChannelConnectRequest;
+import com.conk.integration.command.application.dto.request.SellerChannelImportPreviewRequest;
 import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
 import com.conk.integration.command.application.dto.response.ChannelOrderImportResponse;
+import com.conk.integration.command.application.dto.response.SellerChannelImportPreviewResponse;
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.application.dto.response.EasyPostInvoiceResponse;
 import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
@@ -17,6 +19,7 @@ import com.conk.integration.command.application.service.ChannelOrderSyncDispatch
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
 import com.conk.integration.command.application.service.ManualOrderInvoiceService;
 import com.conk.integration.command.application.service.SellerChannelConnectService;
+import com.conk.integration.command.application.service.SellerChannelImportPreviewService;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.common.ApiResponse;
@@ -43,6 +46,7 @@ public class IntegrationCommandController {
     private final ChannelOrderSyncDispatchService orderSyncDispatchService;
     private final ManualOrderInvoiceService manualOrderInvoiceService;
     private final SellerChannelConnectService sellerChannelConnectService;
+    private final SellerChannelImportPreviewService sellerChannelImportPreviewService;
 
     /**
      * 셀러 채널 연결
@@ -96,6 +100,21 @@ public class IntegrationCommandController {
 
         ChannelOrderSyncResponse response = syncChannelOrdersByChannelKey(sellerId, channelKey);
         return ResponseEntity.ok(ApiResponse.ok(ChannelOrderImportResponse.from(response)));
+    }
+
+    /**
+     * 채널 주문 가져오기 미리보기
+     * POST /integrations/seller/channels/{channelKey}/import-preview
+     */
+    @PostMapping("/seller/channels/{channelKey}/import-preview")
+    public ResponseEntity<ApiResponse<SellerChannelImportPreviewResponse>> importChannelPreview(
+            @RequestHeader("X-Seller-Id") String sellerId,
+            @PathVariable String channelKey,
+            @RequestBody(required = false) SellerChannelImportPreviewRequest request) {
+
+        SellerChannelImportPreviewResponse response = sellerChannelImportPreviewService.preview(
+                sellerId, toOrderChannel(channelKey), request);
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     /**

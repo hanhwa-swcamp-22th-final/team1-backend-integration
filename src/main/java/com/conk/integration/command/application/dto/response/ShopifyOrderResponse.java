@@ -32,6 +32,21 @@ public class ShopifyOrderResponse {
 
         @JsonProperty("edges")
         private List<OrderEdge> edges;
+
+        @JsonProperty("pageInfo")
+        private PageInfo pageInfo;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class PageInfo {
+
+        @JsonProperty("hasNextPage")
+        private boolean hasNextPage;
+
+        @JsonProperty("endCursor")
+        private String endCursor;
     }
 
     @Getter
