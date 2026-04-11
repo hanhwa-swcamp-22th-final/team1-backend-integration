@@ -1,6 +1,6 @@
-package com.conk.integration.query.mapper;
+package com.conk.integration.command.infrastructure.mapper;
 
-import com.conk.integration.query.dto.InvoiceTargetDto;
+import com.conk.integration.command.application.dto.InvoiceTargetDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -10,6 +10,5 @@ import java.util.List;
 @Mapper
 public interface ChannelOrderInvoiceMapper {
 
-    // invoiceNo가 없는(미발급) 주문을 셀러별로 조회한다.
     List<InvoiceTargetDto> findOrdersWithoutInvoice(@Param("sellerId") String sellerId);
 }

@@ -1,7 +1,8 @@
 package com.conk.integration.query.mapper;
 
 import com.conk.integration.command.domain.aggregate.ChannelApi;
-import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ChannelConnectionInfo;
+import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -17,7 +18,7 @@ public interface ChannelApiMapper {
     // 특정 셀러의 모든 채널 API 설정을 조회한다.
     List<ChannelApi> findByIdSellerId(@Param("sellerId") String sellerId);
 
-    // 특정 셀러의 특정 채널 API 설정을 조회한다.
-    ChannelApi findBySellerIdAndChannelName(@Param("sellerId") String sellerId,
-                                            @Param("channelName") String channelName);
+    // 특정 셀러의 특정 채널 연결 상세를 조회한다.
+    ChannelConnectionInfo findConnectionInfo(@Param("sellerId") String sellerId,
+                                             @Param("channelName") String channelName);
 }

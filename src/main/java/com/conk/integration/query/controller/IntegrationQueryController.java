@@ -1,8 +1,8 @@
 package com.conk.integration.query.controller;
 
 import com.conk.integration.common.ApiResponse;
+import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
 import com.conk.integration.query.dto.SellerChannelCardDto;
-import com.conk.integration.query.dto.SellerChannelDetailDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.service.SellerChannelCardQueryService;
 import com.conk.integration.query.service.SellerChannelDetailQueryService;

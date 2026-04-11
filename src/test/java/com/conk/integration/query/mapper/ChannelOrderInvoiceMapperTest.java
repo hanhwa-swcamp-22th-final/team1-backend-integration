@@ -2,8 +2,9 @@ package com.conk.integration.query.mapper;
 
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
+import com.conk.integration.command.application.dto.InvoiceTargetDto;
+import com.conk.integration.command.infrastructure.mapper.ChannelOrderInvoiceMapper;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
-import com.conk.integration.query.dto.InvoiceTargetDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

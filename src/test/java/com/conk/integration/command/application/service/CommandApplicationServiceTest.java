@@ -13,10 +13,10 @@ import com.conk.integration.command.infrastructure.repository.ChannelOrderReposi
 import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
-import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
 import com.conk.integration.query.service.ChannelApiQueryService;
 import com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper;
-import com.conk.integration.query.mapper.ChannelFulfillmentMapper;
+import com.conk.integration.command.infrastructure.mapper.ChannelFulfillmentMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
