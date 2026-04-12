@@ -1,4 +1,4 @@
-package com.conk.integration.command.application.service;
+package com.conk.integration.common.channel;
 
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.common.exception.BusinessException;
@@ -28,9 +28,8 @@ public final class ChannelStrategySelector {
             List<T> strategies,
             OrderChannel orderChannel,
             String errorMessagePrefix) {
-
         return strategies.stream()
-                .filter(candidate -> candidate.supports(orderChannel))
+                .filter(s -> s.supports(orderChannel))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.UNSUPPORTED_CHANNEL,

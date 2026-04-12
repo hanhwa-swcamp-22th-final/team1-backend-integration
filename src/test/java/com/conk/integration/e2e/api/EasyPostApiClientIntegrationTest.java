@@ -1,9 +1,9 @@
 package com.conk.integration.e2e.api;
-import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostApiClient;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
-import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostShipmentResponse;
 import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
@@ -194,3 +194,4 @@ class EasyPostApiClientIntegrationTest {
         System.out.println("  InvoiceNo(2) : " + channelOrderRepository.findById("SANDBOX-BULK-002").orElseThrow().getInvoiceNo());
     }
 }
+

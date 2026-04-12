@@ -2,6 +2,7 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
+import com.conk.integration.common.channel.ChannelStrategySelector;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

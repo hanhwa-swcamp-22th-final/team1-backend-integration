@@ -1,10 +1,9 @@
 package com.conk.integration.query.service;
 
-import com.conk.integration.command.application.service.ShopifyCredentialReader;
 import com.conk.integration.common.channel.dto.ChannelConnectionInfo;
+import com.conk.integration.common.channel.dto.ChannelCredential;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
 import com.conk.integration.query.mapper.ChannelApiMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,24 +13,26 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
-public class ChannelApiQueryService implements ShopifyCredentialReader {
+public class ChannelApiQueryService {
 
     private final ChannelApiMapper channelApiMapper;
 
     /**
-     * sellerId로 Shopify 자격증명을 조회한다.
+     * sellerId와 channelName으로 채널 자격증명을 조회한다.
      *
      * @param sellerId 셀러 식별자
-     * @return storeName + accessToken이 담긴 자격증명 DTO
+     * @param channelName 정규화된 채널 코드
+     * @return 공통 채널 자격증명 DTO
      * @throws BusinessException 자격증명이 등록되지 않은 경우 (INT-103)
      */
-    @Override
-    public ShopifyCredentialDto findShopifyCredential(String sellerId) {
-        ShopifyCredentialDto cred = channelApiMapper.findShopifyCredential(sellerId);
-        if (cred == null) {
-            throw new BusinessException(ErrorCode.CHANNEL_CREDENTIALS_NOT_FOUND, "Shopify 자격증명을 찾을 수 없습니다: sellerId=" + sellerId);
+    public ChannelCredential findChannelCredential(String sellerId, String channelName) {
+        ChannelCredential credential = channelApiMapper.findChannelCredential(sellerId, channelName);
+        if (credential == null) {
+            throw new BusinessException(
+                    ErrorCode.CHANNEL_CREDENTIALS_NOT_FOUND,
+                    "채널 자격증명을 찾을 수 없습니다: sellerId=" + sellerId + ", channelName=" + channelName);
         }
-        return cred;
+        return credential;
     }
 
     /**

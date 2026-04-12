@@ -12,3 +12,4 @@ class Team1BackendIntegrationApplicationTests {
   }
 
 }
+

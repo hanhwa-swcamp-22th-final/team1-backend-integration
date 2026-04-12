@@ -7,7 +7,6 @@ import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
 import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
-import com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper;
 import com.conk.integration.command.application.dto.FulfillmentTargetDto;
 import com.conk.integration.command.infrastructure.mapper.ChannelFulfillmentMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +36,6 @@ class ChannelFulfillmentDispatchServiceTest {
     @Mock private ChannelOrderRepository channelOrderRepository;
     @Mock private EasypostShipmentInvoiceRepository invoiceRepository;
     @Mock private ChannelFulfillmentMapper channelFulfillmentMapper;
-    @Mock private ChannelOrderCommandMapper channelOrderCommandMapper;
     @Mock private ChannelFulfillmentSender shopifySender;
 
     private ChannelFulfillmentDispatchService service;
@@ -46,7 +44,7 @@ class ChannelFulfillmentDispatchServiceTest {
     void setUp() {
         service = new ChannelFulfillmentDispatchService(
                 channelOrderRepository, invoiceRepository, channelFulfillmentMapper,
-                channelOrderCommandMapper, List.of(shopifySender));
+                List.of(shopifySender));
     }
 
     // ─────────────────────────────────────────────────────────
@@ -159,7 +157,7 @@ class ChannelFulfillmentDispatchServiceTest {
         assertThat(response.getSuccessCount()).isZero();
         assertThat(response.getFailCount()).isZero();
         then(shopifySender).should(never()).sendBulk(any(), any());
-        then(channelOrderCommandMapper).should(never()).markAllSynced(any());
+        then(channelFulfillmentMapper).should(never()).markAllSynced(any());
     }
 
     @Test
@@ -176,7 +174,7 @@ class ChannelFulfillmentDispatchServiceTest {
         BulkFulfillmentResponse response = service.fulfillBulk("seller-001", OrderChannel.SHOPIFY);
 
         then(shopifySender).should().sendBulk("seller-001", targets);
-        then(channelOrderCommandMapper).should().markAllSynced(List.of("ORD-A", "ORD-B"));
+        then(channelFulfillmentMapper).should().markAllSynced(List.of("ORD-A", "ORD-B"));
         assertThat(response.getSuccessCount()).isEqualTo(2);
         assertThat(response.getFailCount()).isZero();
     }
@@ -197,7 +195,7 @@ class ChannelFulfillmentDispatchServiceTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Shopify 연결 실패");
 
-        then(channelOrderCommandMapper).should(never()).markAllSynced(any());
+        then(channelFulfillmentMapper).should(never()).markAllSynced(any());
     }
 
     @Test
@@ -211,7 +209,7 @@ class ChannelFulfillmentDispatchServiceTest {
                 .hasMessageContaining("DB 연결 오류");
 
         then(shopifySender).should(never()).sendBulk(any(), any());
-        then(channelOrderCommandMapper).should(never()).markAllSynced(any());
+        then(channelFulfillmentMapper).should(never()).markAllSynced(any());
     }
 
     @Test
@@ -229,7 +227,7 @@ class ChannelFulfillmentDispatchServiceTest {
                 .hasMessageContaining("지원하지 않는 fulfillment 채널입니다");
 
         then(shopifySender).should(never()).sendBulk(any(), any());
-        then(channelOrderCommandMapper).should(never()).markAllSynced(any());
+        then(channelFulfillmentMapper).should(never()).markAllSynced(any());
     }
 
     // ─────────────────────────────────────────────────────────
@@ -246,3 +244,4 @@ class ChannelFulfillmentDispatchServiceTest {
         return dto;
     }
 }
+

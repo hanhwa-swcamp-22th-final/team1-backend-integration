@@ -1,16 +1,16 @@
 package com.conk.integration.command.application.service.shopify;
 
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
-import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderResponse;
 import com.conk.integration.command.application.service.ChannelOrderSyncer;
-import com.conk.integration.command.application.service.ShopifyCredentialReader;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.ChannelOrderItem;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelOrderItemId;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
-import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderClient;
+import com.conk.integration.common.channel.dto.ChannelCredential;
+import com.conk.integration.query.service.ChannelApiQueryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,7 +30,7 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
 
     private final ShopifyOrderClient shopifyOrderClient;
     private final ChannelOrderRepository channelOrderRepository;
-    private final ShopifyCredentialReader shopifyCredentialReader;
+    private final ChannelApiQueryService channelApiQueryService;
 
     @Override
     public boolean supports(OrderChannel channel) {
@@ -48,8 +48,10 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
     @Override
     @Transactional
     public ChannelOrderSyncResponse syncOrders(String sellerId) {
-        ShopifyCredentialDto cred = shopifyCredentialReader.findShopifyCredential(sellerId);
-        List<ShopifyOrderResponse.OrderNode> orders = shopifyOrderClient.getOrders(cred.getStoreName(), cred.getAccessToken());
+        ChannelCredential credential = channelApiQueryService.findChannelCredential(sellerId, OrderChannel.SHOPIFY.name());
+        List<ShopifyOrderResponse.OrderNode> orders = shopifyOrderClient.getOrders(
+                credential.getStoreName(),
+                credential.getChannelApi());
         log.info("Shopify GraphQL API에서 {}건 주문 조회 완료 (sellerId={})", orders.size(), sellerId);
 
         int savedCount = 0;

@@ -51,3 +51,4 @@ class ChannelApiTest {
         assertThat(api.getAudit().getUpdatedBy()).isEqualTo("auditor");
     }
 }
+

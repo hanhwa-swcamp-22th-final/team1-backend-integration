@@ -1,7 +1,6 @@
-package com.conk.integration.command.infrastructure.service;
+package com.conk.integration.command.infrastructure.service.easypost;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
-import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.infrastructure.config.EasyPostProperties;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;

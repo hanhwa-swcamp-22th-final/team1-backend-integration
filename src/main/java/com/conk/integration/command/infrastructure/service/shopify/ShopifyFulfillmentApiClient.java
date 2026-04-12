@@ -1,10 +1,8 @@
-package com.conk.integration.command.infrastructure.service;
+package com.conk.integration.command.infrastructure.service.shopify;
 
-import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRequest;
-import com.conk.integration.command.application.dto.response.ShopifyFulfillmentResponse;
+import com.conk.integration.command.application.dto.FulfillmentTargetDto;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
-import com.conk.integration.command.application.dto.FulfillmentTargetDto;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;

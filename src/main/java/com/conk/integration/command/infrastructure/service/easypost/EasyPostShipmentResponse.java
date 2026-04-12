@@ -1,4 +1,4 @@
-package com.conk.integration.command.application.dto.response;
+package com.conk.integration.command.infrastructure.service.easypost;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;

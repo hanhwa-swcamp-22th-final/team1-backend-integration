@@ -1,14 +1,16 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.common.channel.ChannelConnectionVerifier;
+import com.conk.integration.common.channel.ChannelCredentialReader;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.query.dto.SellerChannelCardDto;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ChannelCredential;
 import com.conk.integration.query.mapper.SellerChannelCardMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -29,9 +31,17 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class SellerChannelCardQueryServiceTest {
 
     @Mock private SellerChannelCardMapper channelCardMapper;
-    @Mock private ChannelApiQueryService channelApiQueryService;
-    @Mock private ShopifyPingClient shopifyPingClient;
-    @InjectMocks private SellerChannelCardQueryService service;
+    @Mock private ChannelCredentialReader credentialReader;
+    @Mock private ChannelConnectionVerifier connectionVerifier;
+    private SellerChannelCardQueryService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new SellerChannelCardQueryService(
+                channelCardMapper,
+                List.of(credentialReader),
+                List.of(connectionVerifier));
+    }
 
     // ─────────────────────────────────────────────────────────
     // Happy Path
@@ -43,8 +53,10 @@ class SellerChannelCardQueryServiceTest {
         // mapper raw 값은 유지하고 label만 후처리되는지 확인한다.
         SellerChannelCardDto dto = buildCard("SHOPIFY", "ACTIVE", 3, 1, LocalDateTime.now());
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1")).willReturn(List.of(dto));
-        given(channelApiQueryService.findShopifyCredential("seller-1")).willReturn(buildCredential());
-        given(shopifyPingClient.ping(any(), any())).willReturn(true);
+        given(credentialReader.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(credentialReader.read("seller-1", "SHOPIFY")).willReturn(buildCredential());
+        given(connectionVerifier.verify(any(), any())).willReturn(true);
 
         List<SellerChannelCardDto> result = service.getChannelCards("seller-1");
 
@@ -90,8 +102,10 @@ class SellerChannelCardQueryServiceTest {
         LocalDateTime lastSync = LocalDateTime.of(2026, 3, 19, 9, 10);
         SellerChannelCardDto dto = buildCard("SHOPIFY", "ACTIVE", 14, 3, lastSync);
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1")).willReturn(List.of(dto));
-        given(channelApiQueryService.findShopifyCredential("seller-1")).willReturn(buildCredential());
-        given(shopifyPingClient.ping(any(), any())).willReturn(true);
+        given(credentialReader.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(credentialReader.read("seller-1", "SHOPIFY")).willReturn(buildCredential());
+        given(connectionVerifier.verify(any(), any())).willReturn(true);
 
         SellerChannelCardDto result = service.getChannelCards("seller-1").get(0);
 
@@ -109,8 +123,10 @@ class SellerChannelCardQueryServiceTest {
     void getChannelCards_shopify_pingSuccess_returnsConnected() {
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1"))
                 .willReturn(List.of(buildCard("SHOPIFY", "ACTIVE", 0, 0, null)));
-        given(channelApiQueryService.findShopifyCredential("seller-1")).willReturn(buildCredential());
-        given(shopifyPingClient.ping("test-store", "test-token")).willReturn(true);
+        given(credentialReader.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(credentialReader.read("seller-1", "SHOPIFY")).willReturn(buildCredential());
+        given(connectionVerifier.verify("test-store", "test-token")).willReturn(true);
 
         assertThat(service.getChannelCards("seller-1").get(0).getSyncStatus()).isEqualTo("CONNECTED");
     }
@@ -120,8 +136,10 @@ class SellerChannelCardQueryServiceTest {
     void getChannelCards_shopify_pingFail_returnsDisconnected() {
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1"))
                 .willReturn(List.of(buildCard("SHOPIFY", "ACTIVE", 0, 0, null)));
-        given(channelApiQueryService.findShopifyCredential("seller-1")).willReturn(buildCredential());
-        given(shopifyPingClient.ping("test-store", "test-token")).willReturn(false);
+        given(credentialReader.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(credentialReader.read("seller-1", "SHOPIFY")).willReturn(buildCredential());
+        given(connectionVerifier.verify("test-store", "test-token")).willReturn(false);
 
         assertThat(service.getChannelCards("seller-1").get(0).getSyncStatus()).isEqualTo("DISCONNECTED");
     }
@@ -131,11 +149,13 @@ class SellerChannelCardQueryServiceTest {
     void getChannelCards_shopify_noCredentials_returnsNotConfigured() {
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1"))
                 .willReturn(List.of(buildCard("SHOPIFY", "PLANNED", 0, 0, null)));
-        given(channelApiQueryService.findShopifyCredential("seller-1"))
+        given(credentialReader.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(credentialReader.read("seller-1", "SHOPIFY"))
                 .willThrow(new BusinessException(ErrorCode.CHANNEL_CREDENTIALS_NOT_FOUND));
 
         assertThat(service.getChannelCards("seller-1").get(0).getSyncStatus()).isEqualTo("NOT_CONFIGURED");
-        verifyNoInteractions(shopifyPingClient);
+        verify(connectionVerifier, times(0)).verify(any(), any());
     }
 
     @Test
@@ -145,8 +165,8 @@ class SellerChannelCardQueryServiceTest {
                 .willReturn(List.of(buildCard("AMAZON", "PLANNED", 0, 0, null)));
 
         assertThat(service.getChannelCards("seller-1").get(0).getSyncStatus()).isEqualTo("PLANNED");
-        verifyNoInteractions(shopifyPingClient);
-        verifyNoInteractions(channelApiQueryService);
+        verify(connectionVerifier, times(0)).verify(any(), any());
+        verify(credentialReader, times(0)).read(any(), any());
     }
 
     @Test
@@ -156,54 +176,16 @@ class SellerChannelCardQueryServiceTest {
                 .willReturn(List.of(
                         buildCard("SHOPIFY", "ACTIVE", 2, 1, null),
                         buildCard("AMAZON", "PLANNED", 0, 0, null)));
-        given(channelApiQueryService.findShopifyCredential("seller-1")).willReturn(buildCredential());
-        given(shopifyPingClient.ping(any(), any())).willReturn(true);
+        given(credentialReader.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(credentialReader.read("seller-1", "SHOPIFY")).willReturn(buildCredential());
+        given(connectionVerifier.verify(any(), any())).willReturn(true);
 
         List<SellerChannelCardDto> result = service.getChannelCards("seller-1");
 
         assertThat(result.get(0).getSyncStatus()).isEqualTo("CONNECTED");
         assertThat(result.get(1).getSyncStatus()).isEqualTo("PLANNED");
-        verify(shopifyPingClient, times(1)).ping(any(), any());
-    }
-
-    // ─────────────────────────────────────────────────────────
-    // toLabel 매핑
-    // ─────────────────────────────────────────────────────────
-
-    @Test
-    @DisplayName("SHOPIFY가 주어지면 표시 이름으로 변환했을 때 Shopify를 반환해야 한다")
-    void toLabel_shopify() {
-        assertThat(service.toLabel("SHOPIFY")).isEqualTo("Shopify");
-    }
-
-    @Test
-    @DisplayName("AMAZON이 주어지면 표시 이름으로 변환했을 때 Amazon을 반환해야 한다")
-    void toLabel_amazon() {
-        assertThat(service.toLabel("AMAZON")).isEqualTo("Amazon");
-    }
-
-    @Test
-    @DisplayName("MANUAL이 주어지면 표시 이름으로 변환했을 때 Manual을 반환해야 한다")
-    void toLabel_manual() {
-        assertThat(service.toLabel("MANUAL")).isEqualTo("Manual");
-    }
-
-    @Test
-    @DisplayName("EXCEL이 주어지면 표시 이름으로 변환했을 때 Excel을 반환해야 한다")
-    void toLabel_excel() {
-        assertThat(service.toLabel("EXCEL")).isEqualTo("Excel");
-    }
-
-    @Test
-    @DisplayName("알 수 없는 채널명이 주어지면 표시 이름으로 변환했을 때 원본 값을 반환해야 한다")
-    void toLabel_unknown_returnsAsIs() {
-        assertThat(service.toLabel("UNKNOWN_CHANNEL")).isEqualTo("UNKNOWN_CHANNEL");
-    }
-
-    @Test
-    @DisplayName("채널명이 null이면 표시 이름으로 변환했을 때 빈 문자열을 반환해야 한다")
-    void toLabel_null_returnsEmpty() {
-        assertThat(service.toLabel(null)).isEqualTo("");
+        verify(connectionVerifier, times(1)).verify(any(), any());
     }
 
     // ─────────────────────────────────────────────────────────
@@ -244,10 +226,12 @@ class SellerChannelCardQueryServiceTest {
     }
 
     // Shopify 자격증명 fixture 헬퍼다.
-    private ShopifyCredentialDto buildCredential() {
-        ShopifyCredentialDto cred = new ShopifyCredentialDto();
+    private ChannelCredential buildCredential() {
+        ChannelCredential cred = new ChannelCredential();
         cred.setStoreName("test-store");
         cred.setAccessToken("test-token");
         return cred;
     }
 }
+
+

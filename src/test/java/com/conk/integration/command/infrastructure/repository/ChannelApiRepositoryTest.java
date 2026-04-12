@@ -38,3 +38,4 @@ class ChannelApiRepositoryTest {
         assertThat(found.getChannelApi()).isEqualTo("shopify-api-key");
     }
 }
+

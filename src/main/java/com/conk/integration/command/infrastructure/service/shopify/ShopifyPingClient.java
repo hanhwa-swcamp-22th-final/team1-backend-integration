@@ -1,7 +1,7 @@
-package com.conk.integration.query.service;
+package com.conk.integration.command.infrastructure.service.shopify;
 
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
-import com.conk.integration.common.channel.ShopifyConnectionVerifier;
+import com.conk.integration.common.channel.ChannelConnectionVerifier;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpEntity;
@@ -15,11 +15,13 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Map;
 
 /**
- * Shopify GraphQL API에 경량 ping을 보내 자격증명 유효성을 확인하는 query 전용 클라이언트다.
+ * Shopify GraphQL API에 경량 ping을 보내 자격증명 유효성을 확인하는 클라이언트다.
  */
 @Service
 @RequiredArgsConstructor
-public class ShopifyPingClient implements ShopifyConnectionVerifier {
+public class ShopifyPingClient implements ChannelConnectionVerifier {
+
+    private static final String SHOPIFY = "SHOPIFY";
 
     /**
      * shop.id만 조회하는 최소 쿼리로 네트워크/서버 부담을 최소화한다.
@@ -38,7 +40,12 @@ public class ShopifyPingClient implements ShopifyConnectionVerifier {
      * @return 연결 성공 시 true, HTTP 오류/네트워크 실패 등 모든 예외 시 false
      */
     @Override
-    public boolean ping(String storeName, String accessToken) {
+    public boolean supports(String channelKey) {
+        return SHOPIFY.equalsIgnoreCase(channelKey);
+    }
+
+    @Override
+    public boolean verify(String storeName, String accessToken) {
         try {
             String body = objectMapper.writeValueAsString(Map.of("query", PING_QUERY));
             HttpEntity<String> entity = new HttpEntity<>(body, buildHeaders(accessToken));
@@ -53,6 +60,11 @@ public class ShopifyPingClient implements ShopifyConnectionVerifier {
             // 예외를 전파하면 AMAZON 등 다른 채널 카드 전체 응답이 실패하기 때문이다.
             return false;
         }
+    }
+
+    @Override
+    public String failureMessage(String channelKey) {
+        return "Shopify 채널 연결에 실패했습니다.";
     }
 
     /**

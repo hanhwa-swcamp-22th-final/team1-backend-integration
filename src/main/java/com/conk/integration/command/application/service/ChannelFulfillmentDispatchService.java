@@ -5,12 +5,12 @@ import com.conk.integration.command.application.dto.FulfillmentTargetDto;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
+import com.conk.integration.common.channel.ChannelStrategySelector;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.command.infrastructure.mapper.ChannelFulfillmentMapper;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
 import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
-import com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +28,6 @@ public class ChannelFulfillmentDispatchService {
     private final ChannelOrderRepository channelOrderRepository;
     private final EasypostShipmentInvoiceRepository invoiceRepository;
     private final ChannelFulfillmentMapper channelFulfillmentMapper;
-    private final ChannelOrderCommandMapper channelOrderCommandMapper;
     private final List<ChannelFulfillmentSender> senders;
 
     /**
@@ -82,7 +81,7 @@ public class ChannelFulfillmentDispatchService {
         List<String> orderIds = targets.stream()
                 .map(FulfillmentTargetDto::getOrderId)
                 .collect(Collectors.toList());
-        channelOrderCommandMapper.markAllSynced(orderIds);
+        channelFulfillmentMapper.markAllSynced(orderIds);
 
         return new BulkFulfillmentResponse(targets.size(), 0);
     }

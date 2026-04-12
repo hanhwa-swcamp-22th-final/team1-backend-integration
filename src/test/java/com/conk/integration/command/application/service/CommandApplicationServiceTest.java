@@ -1,9 +1,9 @@
 package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
-import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostShipmentResponse;
 import com.conk.integration.common.exception.BusinessException;
-import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderResponse;
 import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
@@ -11,12 +11,12 @@ import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
 import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
-import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
-import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostApiClient;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderClient;
+import com.conk.integration.common.channel.dto.ChannelCredential;
 import com.conk.integration.query.service.ChannelApiQueryService;
-import com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper;
 import com.conk.integration.command.infrastructure.mapper.ChannelFulfillmentMapper;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostShipmentConverter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -74,7 +74,7 @@ class CommandApplicationServiceTest {
             ShopifyOrderResponse.OrderNode existingNode = buildOrderNode(1001L, "#1001");
             ShopifyOrderResponse.OrderNode newNode = buildOrderNode(1002L, "#1002");
 
-            given(channelApiQueryService.findShopifyCredential("seller-A")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-A", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existingNode, newNode));
             given(channelOrderRepository.existsById("1001")).willReturn(true);
             given(channelOrderRepository.existsById("1002")).willReturn(false);
@@ -88,7 +88,7 @@ class CommandApplicationServiceTest {
         @DisplayName("모든 주문이 이미 저장되어 있으면 주문 동기화를 수행했을 때 주문을 저장하지 않아야 한다")
         void syncOrders_savesNothing_whenAllExist() {
             // 전체가 중복이면 저장 호출이 완전히 없어야 한다.
-            given(channelApiQueryService.findShopifyCredential("seller-B")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-B", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString()))
                     .willReturn(List.of(buildOrderNode(2001L, "#2001"), buildOrderNode(2002L, "#2002")));
             given(channelOrderRepository.existsById(anyString())).willReturn(true);
@@ -102,7 +102,7 @@ class CommandApplicationServiceTest {
         @DisplayName("Shopify 주문 목록이 비어 있으면 주문 동기화를 수행했을 때 주문을 저장하지 않아야 한다")
         void syncOrders_savesNothing_whenEmptyOrders() {
             // 외부 API가 빈 목록을 주면 서비스는 조용히 종료해야 한다.
-            given(channelApiQueryService.findShopifyCredential("seller-C")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-C", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of());
 
             shopifyOrderSyncService.syncOrders("seller-C");
@@ -119,8 +119,8 @@ class CommandApplicationServiceTest {
             return node;
         }
 
-        private ShopifyCredentialDto buildCredential() {
-            ShopifyCredentialDto cred = new ShopifyCredentialDto();
+        private ChannelCredential buildCredential() {
+            ChannelCredential cred = new ChannelCredential();
             cred.setStoreName("test-store");
             cred.setAccessToken("test-token");
             return cred;
@@ -195,7 +195,7 @@ class CommandApplicationServiceTest {
             EasyPostShipmentResponse.RateDto r3 = rate("r3", "9.99");
 
             EasyPostShipmentResponse.RateDto cheapest =
-                    easyPostInvoiceSaveService.selectCheapestRate(List.of(r1, r2, r3));
+                    EasyPostShipmentConverter.selectCheapestRate(List.of(r1, r2, r3));
 
             assertThat(cheapest.getId()).isEqualTo("r2");
             assertThat(cheapest.getRate()).isEqualTo("7.30");
@@ -205,7 +205,7 @@ class CommandApplicationServiceTest {
         @DisplayName("운임 정보가 비어 있으면 최저 운임을 조회했을 때 BusinessException(INT-104)를 발생시켜야 한다")
         void selectCheapestRate_throwsWhenEmpty() {
             // 송장 구매를 진행할 수 없는 입력은 빠르게 실패시킨다.
-            assertThatThrownBy(() -> easyPostInvoiceSaveService.selectCheapestRate(List.of()))
+            assertThatThrownBy(() -> EasyPostShipmentConverter.selectCheapestRate(List.of()))
                     .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("운임 정보가 없습니다");
         }
@@ -220,7 +220,7 @@ class CommandApplicationServiceTest {
             EasyPostShipmentResponse.RateDto rValid = rate("r-valid", "8.00");
 
             EasyPostShipmentResponse.RateDto result =
-                    easyPostInvoiceSaveService.selectCheapestRate(List.of(rNull, rValid));
+                    EasyPostShipmentConverter.selectCheapestRate(List.of(rNull, rValid));
 
             assertThat(result.getId()).isEqualTo("r-valid");
         }
@@ -259,9 +259,6 @@ class CommandApplicationServiceTest {
         private ChannelFulfillmentMapper channelFulfillmentMapper;
 
         @Mock
-        private ChannelOrderCommandMapper channelOrderCommandMapper;
-
-        @Mock
         private ChannelFulfillmentSender shopifySender;
 
         private ChannelFulfillmentDispatchService fulfillmentDispatchService;
@@ -270,7 +267,7 @@ class CommandApplicationServiceTest {
         void setUp() {
             fulfillmentDispatchService = new ChannelFulfillmentDispatchService(
                     channelOrderRepository, invoiceRepository, channelFulfillmentMapper,
-                    channelOrderCommandMapper, List.of(shopifySender));
+                    List.of(shopifySender));
         }
 
         @Test
@@ -374,3 +371,4 @@ class CommandApplicationServiceTest {
         }
     }
 }
+

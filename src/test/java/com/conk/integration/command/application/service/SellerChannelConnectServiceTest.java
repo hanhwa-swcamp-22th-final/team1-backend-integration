@@ -5,18 +5,19 @@ import com.conk.integration.command.domain.aggregate.ChannelApi;
 import com.conk.integration.command.domain.aggregate.embeddable.AuditFields;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import com.conk.integration.command.infrastructure.repository.ChannelApiRepository;
+import com.conk.integration.common.channel.ChannelConnectionVerifier;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
-import com.conk.integration.query.service.ShopifyPingClient;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,17 +35,22 @@ class SellerChannelConnectServiceTest {
     private ChannelApiRepository channelApiRepository;
 
     @Mock
-    private ShopifyPingClient shopifyPingClient;
+    private ChannelConnectionVerifier connectionVerifier;
 
-    @InjectMocks
     private SellerChannelConnectService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new SellerChannelConnectService(channelApiRepository, List.of(connectionVerifier));
+    }
 
     @Test
     @DisplayName("유효한 sellerId와 Shopify 연결 정보가 주어지면 채널 연결을 수행했을 때 신규 ChannelApi를 저장해야 한다")
     void connect_validRequest_savesNewChannelApi() {
         SellerChannelConnectRequest request = new SellerChannelConnectRequest(
                 "my-shopify-store", "shpat_token", "Shopify KR Store", "ops@example.com", "AUTO");
-        given(shopifyPingClient.ping("my-shopify-store", "shpat_token")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.verify("my-shopify-store", "shpat_token")).willReturn(true);
         given(channelApiRepository.findById(new ChannelApiId("seller-001", "SHOPIFY"))).willReturn(Optional.empty());
         given(channelApiRepository.saveAndFlush(any(ChannelApi.class))).willAnswer(invocation -> {
             ChannelApi entity = invocation.getArgument(0);
@@ -74,7 +80,8 @@ class SellerChannelConnectServiceTest {
         SellerChannelConnectRequest request = new SellerChannelConnectRequest(
                 "new-store", "new-token", "Shopify KR Store", "ops@example.com", "AUTO");
 
-        given(shopifyPingClient.ping("new-store", "new-token")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.verify("new-store", "new-token")).willReturn(true);
         given(channelApiRepository.findById(new ChannelApiId("seller-001", "SHOPIFY"))).willReturn(Optional.of(existing));
         given(channelApiRepository.saveAndFlush(existing)).willReturn(existing);
 
@@ -146,7 +153,8 @@ class SellerChannelConnectServiceTest {
     @DisplayName("Shopify 연결 검증에 실패하면 채널 연결을 수행했을 때 저장하지 않고 BusinessException(INT-404)를 발생시켜야 한다")
     void connect_pingFails_throwsNotFound() {
         SellerChannelConnectRequest request = validRequest();
-        given(shopifyPingClient.ping("my-shopify-store", "shpat_token")).willReturn(false);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.verify("my-shopify-store", "shpat_token")).willReturn(false);
 
         assertThatThrownBy(() -> service.connect("seller-001", "SHOPIFY", request))
                 .isInstanceOf(BusinessException.class)
@@ -161,3 +169,5 @@ class SellerChannelConnectServiceTest {
                 "my-shopify-store", "shpat_token", "Shopify KR Store", "ops@example.com", "AUTO");
     }
 }
+
+

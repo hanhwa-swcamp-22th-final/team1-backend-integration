@@ -3,7 +3,7 @@ package com.conk.integration.query.service;
 import com.conk.integration.common.channel.dto.ChannelConnectionInfo;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ChannelCredential;
 import com.conk.integration.query.mapper.ChannelApiMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,12 +29,12 @@ class ChannelApiQueryServiceTest {
     @Test
     @DisplayName("Shopify 자격 증명이 존재하면 자격 증명을 조회했을 때 DTO를 반환해야 한다")
     void findShopifyCredential_returnsCredentialWhenExists() {
-        ShopifyCredentialDto credential = new ShopifyCredentialDto();
+        ChannelCredential credential = new ChannelCredential();
         credential.setStoreName("test-store");
         credential.setAccessToken("test-token");
-        given(channelApiMapper.findShopifyCredential("seller-001")).willReturn(credential);
+        given(channelApiMapper.findChannelCredential("seller-001", "SHOPIFY")).willReturn(credential);
 
-        ShopifyCredentialDto result = service.findShopifyCredential("seller-001");
+        ChannelCredential result = service.findChannelCredential("seller-001", "SHOPIFY");
 
         assertThat(result.getStoreName()).isEqualTo("test-store");
         assertThat(result.getAccessToken()).isEqualTo("test-token");
@@ -43,9 +43,9 @@ class ChannelApiQueryServiceTest {
     @Test
     @DisplayName("Shopify 자격 증명이 없으면 자격 증명을 조회했을 때 BusinessException(INT-103)을 발생시켜야 한다")
     void findShopifyCredential_throwsWhenCredentialNotFound() {
-        given(channelApiMapper.findShopifyCredential("seller-001")).willReturn(null);
+        given(channelApiMapper.findChannelCredential("seller-001", "SHOPIFY")).willReturn(null);
 
-        assertThatThrownBy(() -> service.findShopifyCredential("seller-001"))
+        assertThatThrownBy(() -> service.findChannelCredential("seller-001", "SHOPIFY"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.CHANNEL_CREDENTIALS_NOT_FOUND);
@@ -78,3 +78,4 @@ class ChannelApiQueryServiceTest {
                 .isEqualTo(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND);
     }
 }
+

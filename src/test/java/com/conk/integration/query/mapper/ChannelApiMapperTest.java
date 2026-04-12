@@ -99,3 +99,4 @@ class ChannelApiMapperTest {
         assertThat(result).isNull();
     }
 }
+

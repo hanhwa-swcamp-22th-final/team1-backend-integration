@@ -49,3 +49,4 @@ class EasypostShipmentInvoiceRepositoryTest {
         assertThat(invoiceRepository.findById("NOT-EXIST")).isEmpty();
     }
 }
+

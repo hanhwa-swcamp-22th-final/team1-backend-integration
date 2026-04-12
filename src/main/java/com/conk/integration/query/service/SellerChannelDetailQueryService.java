@@ -1,8 +1,8 @@
 package com.conk.integration.query.service;
 
 import com.conk.integration.common.SellerIdValidator;
+import com.conk.integration.common.channel.ChannelConnectionVerifier;
 import com.conk.integration.common.channel.ChannelKeyResolver;
-import com.conk.integration.common.channel.ShopifyConnectionVerifier;
 import com.conk.integration.common.channel.dto.ChannelConnectionInfo;
 import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
 import com.conk.integration.common.exception.BusinessException;
@@ -10,13 +10,16 @@ import com.conk.integration.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Optional;
+
 // 채널 상세 연결 정보를 조회하고 필요 시 실연결 여부를 검증한다.
 @Service
 @RequiredArgsConstructor
 public class SellerChannelDetailQueryService {
 
     private final ChannelApiQueryService channelApiQueryService;
-    private final ShopifyConnectionVerifier shopifyConnectionVerifier;
+    private final List<ChannelConnectionVerifier> connectionVerifiers;
 
     /**
      * 셀러의 특정 채널 연결 상세를 조회한다.
@@ -47,11 +50,15 @@ public class SellerChannelDetailQueryService {
      * @throws BusinessException ping 검증에 실패한 경우 (INT-404)
      */
     private void ensureConnected(ChannelConnectionInfo connectionInfo) {
-        if (!"SHOPIFY".equalsIgnoreCase(connectionInfo.getChannelName())) {
+        Optional<ChannelConnectionVerifier> verifier = connectionVerifiers.stream()
+                .filter(candidate -> candidate.supports(connectionInfo.getChannelName()))
+                .findFirst();
+
+        if (verifier.isEmpty()) {
             return;
         }
 
-        boolean connected = shopifyConnectionVerifier.ping(connectionInfo.getStoreName(), connectionInfo.getChannelApi());
+        boolean connected = verifier.get().verify(connectionInfo.getStoreName(), connectionInfo.getChannelApi());
         if (!connected) {
             throw new BusinessException(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND);
         }

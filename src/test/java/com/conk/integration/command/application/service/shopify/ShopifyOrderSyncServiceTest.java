@@ -1,14 +1,14 @@
-package com.conk.integration.command.application.service;
+package com.conk.integration.command.application.service.shopify;
 
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
-import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderResponse;
 import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.ChannelOrderItem;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
-import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderClient;
+import com.conk.integration.common.channel.dto.ChannelCredential;
 import com.conk.integration.query.service.ChannelApiQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,8 +46,8 @@ class ShopifyOrderSyncServiceTest {
 
     private static final String SELLER_ID = "seller-001";
 
-    private ShopifyCredentialDto buildCredential() {
-        ShopifyCredentialDto dto = new ShopifyCredentialDto();
+    private ChannelCredential buildCredential() {
+        ChannelCredential dto = new ChannelCredential();
         dto.setStoreName("conktest");
         dto.setAccessToken("test-token");
         return dto;
@@ -63,7 +63,7 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/4502818226334", "#1001", "2024-01-15T10:00:00-05:00",
                 "gid://shopify/FulfillmentOrder/99");
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("4502818226334")).willReturn(false);
 
@@ -78,7 +78,7 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/4502818226334", "#1001", "2024-01-15T10:00:00-05:00",
                 "gid://shopify/FulfillmentOrder/99");
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("4502818226334")).willReturn(true);
 
@@ -97,7 +97,7 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode newTwo = buildOrderNode(
                 "gid://shopify/Order/1002", "#1002", "2024-01-15T00:00:00-05:00", null);
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existing, newOne, newTwo));
         given(channelOrderRepository.existsById("1000")).willReturn(true);
         given(channelOrderRepository.existsById("1001")).willReturn(false);
@@ -111,7 +111,7 @@ class ShopifyOrderSyncServiceTest {
     @Test
     @DisplayName("API 주문 목록이 비어 있으면 주문 동기화를 수행했을 때 save를 호출하지 않아야 한다")
     void syncOrders_doesNotSave_whenNoOrdersReturned() {
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of());
 
         syncService.syncOrders(SELLER_ID);
@@ -137,7 +137,7 @@ class ShopifyOrderSyncServiceTest {
         node.getShippingAddress().setZip("98101");
         node.getShippingAddress().setPhone("206-555-1234");
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("4502818226334")).willReturn(false);
 
@@ -167,7 +167,7 @@ class ShopifyOrderSyncServiceTest {
                 "gid://shopify/Order/5000", "#5000", "2024-01-20T10:00:00-05:00",
                 "gid://shopify/FulfillmentOrder/777");
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("5000")).willReturn(false);
 
@@ -186,7 +186,7 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/6000", "#6000", "2024-01-20T10:00:00-05:00", null);
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("6000")).willReturn(false);
 
@@ -207,7 +207,7 @@ class ShopifyOrderSyncServiceTest {
         node.setCreatedAt("2025-01-20T10:00:00-05:00");
         node.setShippingAddress(null);
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("9999")).willReturn(false);
 
@@ -227,7 +227,7 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/8888", "#8888", null, null);
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("8888")).willReturn(false);
 
@@ -248,7 +248,7 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/7777", "#7777", "   ", null);
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("7777")).willReturn(false);
 
@@ -265,7 +265,7 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode node = buildOrderNode(
                 "gid://shopify/Order/1111", "#1111", "2024-01-15T10:00:00-05:00", null);
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("1111")).willReturn(false);
         given(channelOrderRepository.save(any())).willThrow(new RuntimeException("DB 저장 실패"));
@@ -278,7 +278,7 @@ class ShopifyOrderSyncServiceTest {
     @Test
     @DisplayName("API 호출에서 401 오류가 발생하면 주문 동기화를 수행했을 때 호출자에게 예외를 전파해야 한다")
     void syncOrders_propagatesException_whenApiClientThrowsUnauthorized() {
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString()))
                 .willThrow(new HttpClientErrorException(HttpStatus.UNAUTHORIZED));
 
@@ -292,7 +292,7 @@ class ShopifyOrderSyncServiceTest {
     @Test
     @DisplayName("API 호출에서 500 오류가 발생하면 주문 동기화를 수행했을 때 호출자에게 예외를 전파해야 한다")
     void syncOrders_propagatesException_whenApiClientThrowsServerError() {
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString()))
                 .willThrow(new HttpServerErrorException(HttpStatus.INTERNAL_SERVER_ERROR));
 
@@ -312,7 +312,7 @@ class ShopifyOrderSyncServiceTest {
                 "gid://shopify/Order/2000", "#2000", "2024-02-01T10:00:00-05:00", null);
         node.setLineItems(buildLineItemConnection("SKU-001", "Product A", 3, null));
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("2000")).willReturn(false);
 
@@ -336,7 +336,7 @@ class ShopifyOrderSyncServiceTest {
                 "gid://shopify/Order/3000", "#3000", "2024-02-01T10:00:00-05:00", null);
         node.setLineItems(buildLineItemConnection("", "Product B", 1, "gid://shopify/ProductVariant/99999"));
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("3000")).willReturn(false);
 
@@ -356,7 +356,7 @@ class ShopifyOrderSyncServiceTest {
                 "gid://shopify/Order/4000", "#4000", "2024-02-01T10:00:00-05:00", null);
         node.setLineItems(null);
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("4000")).willReturn(false);
 
@@ -374,7 +374,7 @@ class ShopifyOrderSyncServiceTest {
                 "gid://shopify/Order/4100", "#4100", "2024-02-01T10:00:00-05:00", null);
         node.setLineItems(buildLineItemConnection(null, "Product Without SKU", 1, null));
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("4100")).willReturn(false);
 
@@ -398,7 +398,7 @@ class ShopifyOrderSyncServiceTest {
         connection.setEdges(List.of(fulfillmentOrderEdge));
         node.setFulfillmentOrders(connection);
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
         given(channelOrderRepository.existsById("6100")).willReturn(false);
 
@@ -417,7 +417,7 @@ class ShopifyOrderSyncServiceTest {
         ShopifyOrderResponse.OrderNode newOne = buildOrderNode(
                 "gid://shopify/Order/5001", "#5001", "2024-02-01T10:00:00-05:00", null);
 
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
         given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existing, newOne));
         given(channelOrderRepository.existsById("5000")).willReturn(true);
         given(channelOrderRepository.existsById("5001")).willReturn(false);

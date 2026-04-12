@@ -1,7 +1,8 @@
 package com.conk.integration.command.infrastructure.service;
 
-import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRequest;
-import com.conk.integration.command.application.dto.response.ShopifyFulfillmentResponse;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyFulfillmentApiClient;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyFulfillmentRequest;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyFulfillmentResponse;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
 import com.conk.integration.command.application.dto.FulfillmentTargetDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -234,3 +235,4 @@ class ShopifyFulfillmentApiClientTest {
                 + "\"tracking_number\":\"1Z999AA10123456784\",\"tracking_company\":\"UPS\"}}";
     }
 }
+

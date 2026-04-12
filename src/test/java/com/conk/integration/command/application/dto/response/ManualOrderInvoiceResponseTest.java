@@ -104,3 +104,4 @@ class ManualOrderInvoiceResponseTest {
                 .build();
     }
 }
+

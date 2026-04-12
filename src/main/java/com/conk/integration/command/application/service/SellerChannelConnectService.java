@@ -5,23 +5,23 @@ import com.conk.integration.command.domain.aggregate.ChannelApi;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import com.conk.integration.command.infrastructure.repository.ChannelApiRepository;
 import com.conk.integration.common.SellerIdValidator;
+import com.conk.integration.common.channel.ChannelConnectionVerifier;
 import com.conk.integration.common.channel.ChannelKeyResolver;
-import com.conk.integration.common.channel.ShopifyConnectionVerifier;
 import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 // 셀러 채널 연결 요청을 검증하고 channel_api에 저장한다.
 @Service
 @RequiredArgsConstructor
 public class SellerChannelConnectService {
 
-    private static final String SHOPIFY = "SHOPIFY";
-
     private final ChannelApiRepository channelApiRepository;
-    private final ShopifyConnectionVerifier shopifyConnectionVerifier;
+    private final List<ChannelConnectionVerifier> connectionVerifiers;
 
     public SellerChannelDetailDto connect(String sellerId, String channelKey, SellerChannelConnectRequest request) {
         SellerIdValidator.requireValid(sellerId);
@@ -30,11 +30,8 @@ public class SellerChannelConnectService {
                 ErrorCode.UNSUPPORTED_CHANNEL,
                 "지원하지 않는 채널 연결 채널입니다: " + channelKey);
         validateRequest(request);
-        ChannelKeyResolver.requireSupported(
-                normalizedChannelKey,
-                SHOPIFY,
-                "지원하지 않는 채널 연결 채널입니다: ");
-        ensureShopifyConnection(request.getStoreName(), request.getChannelApi());
+        ChannelConnectionVerifier verifier = findVerifier(normalizedChannelKey);
+        ensureConnection(verifier, normalizedChannelKey, request.getStoreName(), request.getChannelApi());
 
         ChannelApiId id = new ChannelApiId(sellerId, normalizedChannelKey);
         ChannelApi channelApi = channelApiRepository.findById(id)
@@ -63,10 +60,23 @@ public class SellerChannelConnectService {
      * @param channelApi Shopify Admin API 액세스 토큰
      * @throws BusinessException Shopify 연결 검증에 실패한 경우 (INT-404)
      */
-    private void ensureShopifyConnection(String storeName, String channelApi) {
-        if (!shopifyConnectionVerifier.ping(storeName.trim(), channelApi.trim())) {
+    private ChannelConnectionVerifier findVerifier(String channelKey) {
+        return connectionVerifiers.stream()
+                .filter(candidate -> candidate.supports(channelKey))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.UNSUPPORTED_CHANNEL,
+                        "지원하지 않는 채널 연결 채널입니다: " + channelKey));
+    }
+
+    private void ensureConnection(
+            ChannelConnectionVerifier verifier,
+            String channelKey,
+            String storeName,
+            String channelApi) {
+        if (!verifier.verify(storeName.trim(), channelApi.trim())) {
             throw new BusinessException(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND,
-                    "Shopify 채널 연결에 실패했습니다.");
+                    verifier.failureMessage(channelKey));
         }
     }
 

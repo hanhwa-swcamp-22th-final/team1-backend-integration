@@ -1,13 +1,13 @@
 package com.conk.integration.command.application.service.shopify;
 
-import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRequest;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyFulfillmentRequest;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
-import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyFulfillmentApiClient;
 import com.conk.integration.command.application.dto.FulfillmentTargetDto;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ChannelCredential;
 import com.conk.integration.query.service.ChannelApiQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -67,7 +67,7 @@ class ShopifyFulfillmentSenderTest {
     @Test
     @DisplayName("주문과 송장 정보가 주어지면 fulfillment 전송을 수행했을 때 Shopify 요청으로 변환해 API를 호출해야 한다")
     void send_buildsRequestAndCallsApiClient() {
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
 
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-001")
@@ -97,7 +97,7 @@ class ShopifyFulfillmentSenderTest {
     @Test
     @DisplayName("Shopify API 호출 중 예외가 발생하면 fulfillment 전송을 수행했을 때 예외를 그대로 전파해야 한다")
     void send_propagatesExceptionFromClient() {
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
 
         ChannelOrder order = ChannelOrder.builder()
                 .orderId("ORD-004")
@@ -127,7 +127,7 @@ class ShopifyFulfillmentSenderTest {
     @Test
     @DisplayName("일괄 fulfillment 대상이 주어지면 일괄 fulfillment 전송을 수행했을 때 API 호출에 그대로 위임해야 한다")
     void sendBulk_delegatesToApiClient() {
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
 
         List<FulfillmentTargetDto> targets = List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "UPS"),
@@ -142,7 +142,7 @@ class ShopifyFulfillmentSenderTest {
     @Test
     @DisplayName("일괄 fulfillment API 호출 중 예외가 발생하면 일괄 fulfillment 전송을 수행했을 때 예외를 그대로 전파해야 한다")
     void sendBulk_propagatesExceptionFromClient() {
-        given(channelApiQueryService.findShopifyCredential(SELLER_ID)).willReturn(buildCredential());
+        given(channelApiQueryService.findChannelCredential(SELLER_ID, "SHOPIFY")).willReturn(buildCredential());
 
         List<FulfillmentTargetDto> targets = List.of(
                 buildTarget("ORD-A", "gid://shopify/FulfillmentOrder/1", "INV-A", "USPS")
@@ -159,8 +159,8 @@ class ShopifyFulfillmentSenderTest {
     // Helper
     // ─────────────────────────────────────────────────────────
 
-    private ShopifyCredentialDto buildCredential() {
-        ShopifyCredentialDto dto = new ShopifyCredentialDto();
+    private ChannelCredential buildCredential() {
+        ChannelCredential dto = new ChannelCredential();
         dto.setStoreName(STORE_NAME);
         dto.setAccessToken(ACCESS_TOKEN);
         return dto;
@@ -176,3 +176,4 @@ class ShopifyFulfillmentSenderTest {
         return dto;
     }
 }
+

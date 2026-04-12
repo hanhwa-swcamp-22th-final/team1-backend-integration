@@ -1,12 +1,16 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.common.channel.ChannelConnectionVerifier;
+import com.conk.integration.common.channel.ChannelCredentialReader;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ChannelCredential;
+import com.conk.integration.query.mapper.ChannelApiMapper;
 import com.conk.integration.query.mapper.SellerChannelCardMapper;
 import com.conk.integration.query.mapper.SellerChannelOrderMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -169,13 +173,20 @@ class QueryServiceTest {
         private SellerChannelCardMapper channelCardMapper;
 
         @Mock
-        private ChannelApiQueryService channelApiQueryService;
+        private ChannelCredentialReader credentialReader;
 
         @Mock
-        private ShopifyPingClient shopifyPingClient;
+        private ChannelConnectionVerifier connectionVerifier;
 
-        @InjectMocks
         private SellerChannelCardQueryService sellerChannelCardQueryService;
+
+        @BeforeEach
+        void setUp() {
+            sellerChannelCardQueryService = new SellerChannelCardQueryService(
+                    channelCardMapper,
+                    List.of(credentialReader),
+                    List.of(connectionVerifier));
+        }
 
         @Test
         @DisplayName("조회 결과가 주어지면 채널 카드 목록을 조회했을 때 label을 후처리해 반환해야 한다")
@@ -187,8 +198,10 @@ class QueryServiceTest {
 
             given(channelCardMapper.findBySellerIdGroupedByChannel("seller-A"))
                     .willReturn(List.of(card));
-            given(channelApiQueryService.findShopifyCredential("seller-A")).willReturn(buildCredential());
-            given(shopifyPingClient.ping(any(), any())).willReturn(true);
+            given(credentialReader.supports("SHOPIFY")).willReturn(true);
+            given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+            given(credentialReader.read("seller-A", "SHOPIFY")).willReturn(buildCredential());
+            given(connectionVerifier.verify(any(), any())).willReturn(true);
 
             List<SellerChannelCardDto> result = sellerChannelCardQueryService.getChannelCards("seller-A");
 
@@ -208,8 +221,10 @@ class QueryServiceTest {
 
             given(channelCardMapper.findBySellerIdGroupedByChannel("seller-B"))
                     .willReturn(List.of(shopify, amazon));
-            given(channelApiQueryService.findShopifyCredential("seller-B")).willReturn(buildCredential());
-            given(shopifyPingClient.ping(any(), any())).willReturn(true);
+            given(credentialReader.supports("SHOPIFY")).willReturn(true);
+            given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+            given(credentialReader.read("seller-B", "SHOPIFY")).willReturn(buildCredential());
+            given(connectionVerifier.verify(any(), any())).willReturn(true);
 
             List<SellerChannelCardDto> result = sellerChannelCardQueryService.getChannelCards("seller-B");
 
@@ -235,35 +250,13 @@ class QueryServiceTest {
                     .hasMessageContaining("sellerId는 필수");
         }
 
-        @Test
-        @DisplayName("알려진 채널명이 주어지면 표시 이름으로 변환했을 때 올바른 값을 반환해야 한다")
-        void toLabel_mapsKnownChannels() {
-            // 주요 채널은 사용자가 읽기 쉬운 고정 라벨로 변환한다.
-            assertThat(sellerChannelCardQueryService.toLabel("SHOPIFY")).isEqualTo("Shopify");
-            assertThat(sellerChannelCardQueryService.toLabel("AMAZON")).isEqualTo("Amazon");
-            assertThat(sellerChannelCardQueryService.toLabel("MANUAL")).isEqualTo("Manual");
-            assertThat(sellerChannelCardQueryService.toLabel("EXCEL")).isEqualTo("Excel");
-        }
-
-        @Test
-        @DisplayName("알 수 없는 채널명이 주어지면 표시 이름으로 변환했을 때 원래 문자열을 반환해야 한다")
-        void toLabel_returnsOriginalForUnknown() {
-            // 미등록 채널은 원본 값을 유지해야 신규 채널 추가 시에도 안전하다.
-            assertThat(sellerChannelCardQueryService.toLabel("TIKTOK")).isEqualTo("TIKTOK");
-        }
-
-        @Test
-        @DisplayName("채널명이 null이면 표시 이름으로 변환했을 때 빈 문자열을 반환해야 한다")
-        void toLabel_returnsEmpty_whenNull() {
-            // null key는 화면 표시 단계에서 빈 값으로 정리한다.
-            assertThat(sellerChannelCardQueryService.toLabel(null)).isEmpty();
-        }
-
-        private ShopifyCredentialDto buildCredential() {
-            ShopifyCredentialDto cred = new ShopifyCredentialDto();
+        private ChannelCredential buildCredential() {
+            ChannelCredential cred = new ChannelCredential();
             cred.setStoreName("test-store");
             cred.setAccessToken("test-token");
             return cred;
         }
     }
 }
+
+

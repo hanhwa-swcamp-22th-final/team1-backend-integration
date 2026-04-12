@@ -1,5 +1,6 @@
-package com.conk.integration.query.service;
+package com.conk.integration.command.infrastructure.service;
 
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyPingClient;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +55,7 @@ class ShopifyPingClientTest {
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
-        client.ping(STORE_NAME, ACCESS_TOKEN);
+        client.verify(STORE_NAME, ACCESS_TOKEN);
         mockServer.verify();
     }
 
@@ -65,7 +66,7 @@ class ShopifyPingClientTest {
                 .andExpect(header("X-Shopify-Access-Token", ACCESS_TOKEN))
                 .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
-        client.ping(STORE_NAME, ACCESS_TOKEN);
+        client.verify(STORE_NAME, ACCESS_TOKEN);
         mockServer.verify();
     }
 
@@ -79,7 +80,7 @@ class ShopifyPingClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withSuccess("{\"data\":{\"shop\":{\"id\":\"gid://shopify/Shop/1\"}}}", MediaType.APPLICATION_JSON));
 
-        assertThat(client.ping(STORE_NAME, ACCESS_TOKEN)).isTrue();
+        assertThat(client.verify(STORE_NAME, ACCESS_TOKEN)).isTrue();
     }
 
     @Test
@@ -88,7 +89,7 @@ class ShopifyPingClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
-        assertThat(client.ping(STORE_NAME, ACCESS_TOKEN)).isFalse();
+        assertThat(client.verify(STORE_NAME, ACCESS_TOKEN)).isFalse();
     }
 
     @Test
@@ -97,7 +98,7 @@ class ShopifyPingClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withStatus(HttpStatus.FORBIDDEN));
 
-        assertThat(client.ping(STORE_NAME, ACCESS_TOKEN)).isFalse();
+        assertThat(client.verify(STORE_NAME, ACCESS_TOKEN)).isFalse();
     }
 
     @Test
@@ -106,13 +107,13 @@ class ShopifyPingClientTest {
         mockServer.expect(requestTo(graphqlUrl()))
                 .andRespond(withServerError());
 
-        assertThat(client.ping(STORE_NAME, ACCESS_TOKEN)).isFalse();
+        assertThat(client.verify(STORE_NAME, ACCESS_TOKEN)).isFalse();
     }
 
     @Test
     @DisplayName("유효하지 않은 storeName이 주어지면 연결 확인을 수행했을 때 예외를 전파하지 않고 false를 반환해야 한다")
     void ping_returnsFalse_whenStoreNameIsInvalid() {
-        assertThat(client.ping("https://evil.example", ACCESS_TOKEN)).isFalse();
+        assertThat(client.verify("https://evil.example", ACCESS_TOKEN)).isFalse();
     }
 
     // ─────────────────────────────────────────────────────────

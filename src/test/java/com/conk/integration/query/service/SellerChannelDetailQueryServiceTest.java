@@ -1,17 +1,19 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.common.channel.ChannelConnectionVerifier;
 import com.conk.integration.common.channel.dto.ChannelConnectionInfo;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,15 +26,21 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class SellerChannelDetailQueryServiceTest {
 
     @Mock private ChannelApiQueryService channelApiQueryService;
-    @Mock private ShopifyPingClient shopifyPingClient;
-    @InjectMocks private SellerChannelDetailQueryService service;
+    @Mock private ChannelConnectionVerifier connectionVerifier;
+    private SellerChannelDetailQueryService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new SellerChannelDetailQueryService(channelApiQueryService, List.of(connectionVerifier));
+    }
 
     @Test
     @DisplayName("Shopify 자격 증명이 있고 ping에 성공하면 채널 상세를 조회했을 때 계약 DTO를 반환해야 한다")
-    void getChannelDetail_shopifyConnected_returnsDetail() {
+        void getChannelDetail_shopifyConnected_returnsDetail() {
         ChannelConnectionInfo connectionInfo = buildConnectionInfo("SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store", LocalDateTime.of(2026, 1, 15, 9, 0));
         given(channelApiQueryService.findChannelConnectionInfo("seller-A", "SHOPIFY")).willReturn(connectionInfo);
-        given(shopifyPingClient.ping("my-shopify-store", "shpat_xxxxxxxx")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.verify("my-shopify-store", "shpat_xxxxxxxx")).willReturn(true);
 
         SellerChannelDetailDto result = service.getChannelDetail("seller-A", "shopify");
 
@@ -52,7 +60,7 @@ class SellerChannelDetailQueryServiceTest {
 
         assertThat(result.getChannelName()).isEqualTo("AMAZON");
         assertThat(result.getStoreName()).isEqualTo("amazon-store");
-        verifyNoInteractions(shopifyPingClient);
+        verify(connectionVerifier).supports("AMAZON");
     }
 
     @Test
@@ -60,7 +68,8 @@ class SellerChannelDetailQueryServiceTest {
     void getChannelDetail_shopifyDisconnected_throwsNotFound() {
         ChannelConnectionInfo connectionInfo = buildConnectionInfo("SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store", LocalDateTime.of(2026, 1, 15, 9, 0));
         given(channelApiQueryService.findChannelConnectionInfo("seller-A", "SHOPIFY")).willReturn(connectionInfo);
-        given(shopifyPingClient.ping("my-shopify-store", "shpat_xxxxxxxx")).willReturn(false);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.verify("my-shopify-store", "shpat_xxxxxxxx")).willReturn(false);
 
         assertThatThrownBy(() -> service.getChannelDetail("seller-A", "SHOPIFY"))
                 .isInstanceOf(BusinessException.class)
@@ -95,7 +104,8 @@ class SellerChannelDetailQueryServiceTest {
     void getChannelDetail_normalizesChannelKeyToUpperCase() {
         ChannelConnectionInfo connectionInfo = buildConnectionInfo("SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store", LocalDateTime.of(2026, 1, 15, 9, 0));
         given(channelApiQueryService.findChannelConnectionInfo("seller-A", "SHOPIFY")).willReturn(connectionInfo);
-        given(shopifyPingClient.ping("my-shopify-store", "shpat_xxxxxxxx")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.verify("my-shopify-store", "shpat_xxxxxxxx")).willReturn(true);
 
         service.getChannelDetail("seller-A", "shopify");
 
@@ -138,3 +148,5 @@ class SellerChannelDetailQueryServiceTest {
         return new ChannelConnectionInfo(channelName, storeName, token, connectedAt);
     }
 }
+
+
