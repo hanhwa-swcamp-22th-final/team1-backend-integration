@@ -1,0 +1,67 @@
+package com.conk.integration.command.application.controller;
+
+import com.conk.integration.command.application.dto.request.BulkInvoiceRequest;
+import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
+import com.conk.integration.command.application.dto.request.ManualOrderInvoiceRequest;
+import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
+import com.conk.integration.command.application.dto.response.EasyPostInvoiceResponse;
+import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
+import com.conk.integration.command.application.service.EasyPostInvoiceSaveService;
+import com.conk.integration.command.application.service.ManualOrderInvoiceService;
+import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
+import com.conk.integration.common.ApiResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+// 단건·일괄·수동 송장 발급 command API 엔드포인트를 노출한다.
+@RestController
+@RequestMapping("/integrations")
+@RequiredArgsConstructor
+public class InvoiceCommandController {
+
+    private final EasyPostInvoiceSaveService easyPostInvoiceSaveService;
+    private final ManualOrderInvoiceService manualOrderInvoiceService;
+
+    /**
+     * EasyPost 단건 송장 발급
+     * POST /integrations/seller/orders/invoice
+     */
+    @PostMapping("/seller/orders/invoice")
+    public ResponseEntity<ApiResponse<EasyPostInvoiceResponse>> createShipmentInvoice(
+            @RequestBody EasyPostCreateShipmentRequest request) {
+
+        EasypostShipmentInvoice invoice = easyPostInvoiceSaveService.createAndSaveInvoice(request);
+        return ResponseEntity.ok(ApiResponse.ok(EasyPostInvoiceResponse.from(invoice)));
+    }
+
+    /**
+     * EasyPost 일괄 송장 발급
+     * POST /integrations/seller/orders/bulk-invoice
+     */
+    @PostMapping("/seller/orders/bulk-invoice")
+    public ResponseEntity<ApiResponse<BulkInvoiceResponse>> createBulkShipmentInvoice(
+            @RequestBody BulkInvoiceRequest request) {
+
+        BulkInvoiceResponse response = easyPostInvoiceSaveService.createAndSaveBulkInvoices(
+                request.getSellerId(), request.getFromAddress(), request.getParcel());
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    /**
+     * 수동 주문 기입 및 EasyPost 송장 발급
+     * POST /integrations/seller/orders/manual-invoice
+     */
+    @PostMapping("/seller/orders/manual-invoice")
+    public ResponseEntity<ApiResponse<ManualOrderInvoiceResponse>> createManualOrderInvoice(
+            @RequestHeader("X-Seller-Id") String sellerId,
+            @RequestBody ManualOrderInvoiceRequest request) {
+
+        ManualOrderInvoiceResponse response = manualOrderInvoiceService.issue(sellerId, request);
+        return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+}
