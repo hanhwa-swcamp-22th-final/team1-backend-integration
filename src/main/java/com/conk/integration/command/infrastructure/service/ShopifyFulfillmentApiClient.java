@@ -4,9 +4,9 @@ import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRe
 import com.conk.integration.command.application.dto.response.ShopifyFulfillmentResponse;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
+import com.conk.integration.command.application.dto.FulfillmentTargetDto;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
-import com.conk.integration.query.dto.FulfillmentTargetDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -20,14 +20,16 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Map;
 
-// Shopify fulfillment 생성 API 호출을 담당한다.
+/**
+ * Shopify fulfillment 생성 API 호출을 담당한다.
+ */
 @Service
 @RequiredArgsConstructor
 public class ShopifyFulfillmentApiClient {
 
     private final RestTemplate restTemplate;
     private final ShopifyProperties properties;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     /**
      * 주문별 단건 fulfillment 생성 요청을 전송한다.
@@ -77,7 +79,12 @@ public class ShopifyFulfillmentApiClient {
         }
     }
 
-    // 각 주문을 alias로 구분한 fulfillmentCreate mutation을 동적으로 조합한다.
+    /**
+     * 각 주문을 alias로 구분한 fulfillmentCreate mutation을 동적으로 조합한다.
+     *
+     * @param targets fulfillment 전송 대상 목록
+     * @return GraphQL bulk mutation 문자열
+     */
     private String buildBulkMutation(List<FulfillmentTargetDto> targets) {
         StringBuilder sb = new StringBuilder("mutation {");
         for (int i = 0; i < targets.size(); i++) {
@@ -102,7 +109,12 @@ public class ShopifyFulfillmentApiClient {
         return sb.toString();
     }
 
-    // 토큰과 JSON content-type을 포함한 Shopify 요청 헤더다.
+    /**
+     * 토큰과 JSON content-type을 포함한 Shopify 요청 헤더를 생성한다.
+     *
+     * @param accessToken Shopify Admin API 액세스 토큰
+     * @return Shopify 요청 헤더
+     */
     private HttpHeaders buildHeaders(String accessToken) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Shopify-Access-Token", accessToken);

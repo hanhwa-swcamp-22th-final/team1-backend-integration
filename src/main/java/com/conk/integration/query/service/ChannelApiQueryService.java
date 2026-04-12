@@ -1,17 +1,20 @@
 package com.conk.integration.query.service;
 
-import com.conk.integration.command.domain.aggregate.ChannelApi;
+import com.conk.integration.command.application.service.ShopifyCredentialReader;
+import com.conk.integration.common.channel.dto.ChannelConnectionInfo;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
-import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
 import com.conk.integration.query.mapper.ChannelApiMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-// 채널 API 자격증명을 query side에서 조회하는 서비스다.
+/**
+ * 채널 API 자격증명과 연결 상세 정보를 query side에서 조회하는 서비스다.
+ */
 @Service
 @RequiredArgsConstructor
-public class ChannelApiQueryService {
+public class ChannelApiQueryService implements ShopifyCredentialReader {
 
     private final ChannelApiMapper channelApiMapper;
 
@@ -22,6 +25,7 @@ public class ChannelApiQueryService {
      * @return storeName + accessToken이 담긴 자격증명 DTO
      * @throws BusinessException 자격증명이 등록되지 않은 경우 (INT-103)
      */
+    @Override
     public ShopifyCredentialDto findShopifyCredential(String sellerId) {
         ShopifyCredentialDto cred = channelApiMapper.findShopifyCredential(sellerId);
         if (cred == null) {
@@ -35,14 +39,14 @@ public class ChannelApiQueryService {
      *
      * @param sellerId 셀러 식별자
      * @param channelName 채널 코드
-     * @return 채널 API 연결 상세 엔티티
+     * @return 채널 연결 상세 read model
      * @throws BusinessException 연결 정보가 등록되지 않은 경우
      */
-    public ChannelApi findChannelApi(String sellerId, String channelName) {
-        ChannelApi channelApi = channelApiMapper.findBySellerIdAndChannelName(sellerId, channelName);
-        if (channelApi == null) {
+    public ChannelConnectionInfo findChannelConnectionInfo(String sellerId, String channelName) {
+        ChannelConnectionInfo connectionInfo = channelApiMapper.findConnectionInfo(sellerId, channelName);
+        if (connectionInfo == null) {
             throw new BusinessException(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND);
         }
-        return channelApi;
+        return connectionInfo;
     }
 }

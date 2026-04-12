@@ -8,11 +8,11 @@ import com.conk.integration.command.application.dto.response.BulkInvoiceResponse
 import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
+import com.conk.integration.command.application.dto.InvoiceTargetDto;
+import com.conk.integration.command.infrastructure.mapper.ChannelOrderInvoiceMapper;
 import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper;
 import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
-import com.conk.integration.query.dto.InvoiceTargetDto;
-import com.conk.integration.query.mapper.ChannelOrderInvoiceMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

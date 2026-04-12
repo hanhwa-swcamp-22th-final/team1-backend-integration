@@ -4,7 +4,7 @@ import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.query.controller.IntegrationQueryController;
 import com.conk.integration.query.dto.SellerChannelCardDto;
-import com.conk.integration.query.dto.SellerChannelDetailDto;
+import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.service.SellerChannelCardQueryService;
 import com.conk.integration.query.service.SellerChannelDetailQueryService;

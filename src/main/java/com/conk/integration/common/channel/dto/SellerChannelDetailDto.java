@@ -1,11 +1,13 @@
-package com.conk.integration.query.dto;
+package com.conk.integration.common.channel.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
 
-// 셀러 채널 상세 연결 정보 응답 DTO
+/**
+ * 셀러 채널 연결 상세 응답 DTO다.
+ */
 @Getter
 @AllArgsConstructor
 public class SellerChannelDetailDto {

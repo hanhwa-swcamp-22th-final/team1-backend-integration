@@ -4,7 +4,7 @@ import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
-import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
 import com.conk.integration.query.mapper.SellerChannelCardMapper;
 import com.conk.integration.query.mapper.SellerChannelOrderMapper;
 import org.junit.jupiter.api.DisplayName;

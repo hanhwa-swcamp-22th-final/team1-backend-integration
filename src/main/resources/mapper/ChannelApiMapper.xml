@@ -6,7 +6,7 @@
 
     <select id="findShopifyCredential"
             parameterType="string"
-            resultType="com.conk.integration.query.dto.ShopifyCredentialDto">
+            resultType="com.conk.integration.common.channel.dto.ShopifyCredentialDto">
         SELECT store_name  AS storeName,
                channel_api AS accessToken
         FROM   channel_api
@@ -17,17 +17,17 @@
     <resultMap id="channelApiIdResultMap"
                type="com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId">
         <constructor>
-            <arg column="seller_id"   javaType="String"/>
+            <arg column="seller_id" javaType="String"/>
             <arg column="channel_name" javaType="String"/>
         </constructor>
     </resultMap>
 
     <resultMap id="auditFieldsResultMap"
                type="com.conk.integration.command.domain.aggregate.embeddable.AuditFields">
-        <result property="createdAt"  column="created_at"/>
-        <result property="updatedAt"  column="updated_at"/>
-        <result property="createdBy"  column="created_by"/>
-        <result property="updatedBy"  column="updated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updatedBy" column="updated_by"/>
     </resultMap>
 
     <resultMap id="channelApiResultMap"
@@ -36,9 +36,19 @@
             <arg resultMap="channelApiIdResultMap"
                  javaType="com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId"/>
             <arg column="channel_api" javaType="String"/>
-            <arg column="store_name"  javaType="String"/>
+            <arg column="store_name" javaType="String"/>
             <arg resultMap="auditFieldsResultMap"
                  javaType="com.conk.integration.command.domain.aggregate.embeddable.AuditFields"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="channelConnectionInfoResultMap"
+               type="com.conk.integration.common.channel.dto.ChannelConnectionInfo">
+        <constructor>
+            <arg column="channel_name" javaType="String"/>
+            <arg column="store_name" javaType="String"/>
+            <arg column="channel_api" javaType="String"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
         </constructor>
     </resultMap>
 
@@ -51,10 +61,9 @@
         WHERE  seller_id = #{sellerId}
     </select>
 
-    <select id="findBySellerIdAndChannelName"
-            resultMap="channelApiResultMap">
-        SELECT seller_id, channel_name, channel_api, store_name,
-               created_at, updated_at, created_by, updated_by
+    <select id="findConnectionInfo"
+            resultMap="channelConnectionInfoResultMap">
+        SELECT channel_name, channel_api, store_name, created_at
         FROM   channel_api
         WHERE  seller_id = #{sellerId}
           AND  channel_name = #{channelName}

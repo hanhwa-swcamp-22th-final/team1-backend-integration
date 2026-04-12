@@ -23,9 +23,8 @@ import com.conk.integration.command.application.service.SellerChannelImportPrevi
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.common.ApiResponse;
-import com.conk.integration.common.exception.BusinessException;
-import com.conk.integration.common.exception.ErrorCode;
-import com.conk.integration.query.dto.SellerChannelDetailDto;
+import com.conk.integration.common.channel.ChannelKeyResolver;
+import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -181,16 +180,23 @@ public class IntegrationCommandController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    /**
+     * path variable channelKey를 주문 채널 enum으로 변환한다.
+     *
+     * @param channelKey 채널 코드 path variable
+     * @return 변환된 주문 채널 enum
+     */
     private OrderChannel toOrderChannel(String channelKey) {
-        try {
-            return OrderChannel.valueOf(channelKey.trim().toUpperCase());
-        } catch (RuntimeException e) {
-            throw new BusinessException(
-                    ErrorCode.UNSUPPORTED_CHANNEL,
-                    "지원하지 않는 주문 동기화 채널입니다: " + channelKey);
-        }
+        return ChannelKeyResolver.toOrderChannel(channelKey, "지원하지 않는 주문 동기화 채널입니다: ");
     }
 
+    /**
+     * channelKey 기준 주문 동기화와 주문 가져오기 엔드포인트가 공유하는 변환/호출 흐름이다.
+     *
+     * @param sellerId 셀러 식별자
+     * @param channelKey 채널 코드 path variable
+     * @return 채널 주문 동기화 결과
+     */
     private ChannelOrderSyncResponse syncChannelOrdersByChannelKey(String sellerId, String channelKey) {
         OrderChannel orderChannel = toOrderChannel(channelKey);
         return orderSyncDispatchService.sync(sellerId, orderChannel);

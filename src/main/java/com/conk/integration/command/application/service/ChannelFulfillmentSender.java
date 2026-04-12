@@ -3,14 +3,14 @@ package com.conk.integration.command.application.service;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
+import com.conk.integration.command.application.dto.FulfillmentTargetDto;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
-import com.conk.integration.query.dto.FulfillmentTargetDto;
 
 import java.util.List;
 
 // 채널별 fulfillment 전송 전략이 따라야 하는 최소 계약이다.
-public interface ChannelFulfillmentSender {
+public interface ChannelFulfillmentSender extends ChannelStrategy {
 
     /**
      * 이 sender가 주어진 채널을 지원하는지 확인한다.
@@ -18,6 +18,7 @@ public interface ChannelFulfillmentSender {
      * @param channel 확인할 주문 채널
      * @return 지원하면 true
      */
+    @Override
     boolean supports(OrderChannel channel);
 
     /**

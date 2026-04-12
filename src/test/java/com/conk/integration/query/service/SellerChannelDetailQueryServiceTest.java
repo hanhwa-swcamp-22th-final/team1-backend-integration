@@ -1,11 +1,9 @@
 package com.conk.integration.query.service;
 
-import com.conk.integration.command.domain.aggregate.ChannelApi;
-import com.conk.integration.command.domain.aggregate.embeddable.AuditFields;
-import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
+import com.conk.integration.common.channel.dto.ChannelConnectionInfo;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
-import com.conk.integration.query.dto.SellerChannelDetailDto;
+import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,8 +30,8 @@ class SellerChannelDetailQueryServiceTest {
     @Test
     @DisplayName("Shopify 자격 증명이 있고 ping에 성공하면 채널 상세를 조회했을 때 계약 DTO를 반환해야 한다")
     void getChannelDetail_shopifyConnected_returnsDetail() {
-        ChannelApi channelApi = buildChannelApi("seller-A", "SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store");
-        given(channelApiQueryService.findChannelApi("seller-A", "SHOPIFY")).willReturn(channelApi);
+        ChannelConnectionInfo connectionInfo = buildConnectionInfo("SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store", LocalDateTime.of(2026, 1, 15, 9, 0));
+        given(channelApiQueryService.findChannelConnectionInfo("seller-A", "SHOPIFY")).willReturn(connectionInfo);
         given(shopifyPingClient.ping("my-shopify-store", "shpat_xxxxxxxx")).willReturn(true);
 
         SellerChannelDetailDto result = service.getChannelDetail("seller-A", "shopify");
@@ -47,8 +45,8 @@ class SellerChannelDetailQueryServiceTest {
     @Test
     @DisplayName("Shopify가 아닌 채널이 주어지면 채널 상세를 조회했을 때 ping 없이 상세 DTO를 반환해야 한다")
     void getChannelDetail_nonShopify_returnsDetailWithoutPing() {
-        ChannelApi channelApi = buildChannelApi("seller-A", "AMAZON", "amazon-token", "amazon-store");
-        given(channelApiQueryService.findChannelApi("seller-A", "AMAZON")).willReturn(channelApi);
+        ChannelConnectionInfo connectionInfo = buildConnectionInfo("AMAZON", "amazon-token", "amazon-store", LocalDateTime.of(2026, 1, 15, 9, 0));
+        given(channelApiQueryService.findChannelConnectionInfo("seller-A", "AMAZON")).willReturn(connectionInfo);
 
         SellerChannelDetailDto result = service.getChannelDetail("seller-A", "AMAZON");
 
@@ -60,8 +58,8 @@ class SellerChannelDetailQueryServiceTest {
     @Test
     @DisplayName("Shopify ping에 실패하면 채널 상세를 조회했을 때 연결 정보 없음 예외를 발생시켜야 한다")
     void getChannelDetail_shopifyDisconnected_throwsNotFound() {
-        ChannelApi channelApi = buildChannelApi("seller-A", "SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store");
-        given(channelApiQueryService.findChannelApi("seller-A", "SHOPIFY")).willReturn(channelApi);
+        ChannelConnectionInfo connectionInfo = buildConnectionInfo("SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store", LocalDateTime.of(2026, 1, 15, 9, 0));
+        given(channelApiQueryService.findChannelConnectionInfo("seller-A", "SHOPIFY")).willReturn(connectionInfo);
         given(shopifyPingClient.ping("my-shopify-store", "shpat_xxxxxxxx")).willReturn(false);
 
         assertThatThrownBy(() -> service.getChannelDetail("seller-A", "SHOPIFY"))
@@ -95,25 +93,20 @@ class SellerChannelDetailQueryServiceTest {
     @Test
     @DisplayName("소문자 채널 키가 주어지면 채널 상세를 조회했을 때 대문자로 정규화해 조회해야 한다")
     void getChannelDetail_normalizesChannelKeyToUpperCase() {
-        ChannelApi channelApi = buildChannelApi("seller-A", "SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store");
-        given(channelApiQueryService.findChannelApi("seller-A", "SHOPIFY")).willReturn(channelApi);
+        ChannelConnectionInfo connectionInfo = buildConnectionInfo("SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store", LocalDateTime.of(2026, 1, 15, 9, 0));
+        given(channelApiQueryService.findChannelConnectionInfo("seller-A", "SHOPIFY")).willReturn(connectionInfo);
         given(shopifyPingClient.ping("my-shopify-store", "shpat_xxxxxxxx")).willReturn(true);
 
         service.getChannelDetail("seller-A", "shopify");
 
-        verify(channelApiQueryService).findChannelApi("seller-A", "SHOPIFY");
+        verify(channelApiQueryService).findChannelConnectionInfo("seller-A", "SHOPIFY");
     }
 
     @Test
     @DisplayName("audit가 null이면 채널 상세를 조회했을 때 connectedAt을 null로 반환해야 한다")
     void getChannelDetail_returnsNullConnectedAtWhenAuditIsNull() {
-        ChannelApi channelApi = ChannelApi.builder()
-                .id(new ChannelApiId("seller-A", "AMAZON"))
-                .channelApi("amazon-token")
-                .storeName("amazon-store")
-                .audit(null)
-                .build();
-        given(channelApiQueryService.findChannelApi("seller-A", "AMAZON")).willReturn(channelApi);
+        ChannelConnectionInfo connectionInfo = buildConnectionInfo("AMAZON", "amazon-token", "amazon-store", null);
+        given(channelApiQueryService.findChannelConnectionInfo("seller-A", "AMAZON")).willReturn(connectionInfo);
 
         SellerChannelDetailDto result = service.getChannelDetail("seller-A", "AMAZON");
 
@@ -123,7 +116,7 @@ class SellerChannelDetailQueryServiceTest {
     @Test
     @DisplayName("ChannelApiQueryService에서 예외가 발생하면 채널 상세를 조회했을 때 호출자에게 그대로 전파해야 한다")
     void getChannelDetail_propagatesWhenChannelApiQueryServiceThrows() {
-        given(channelApiQueryService.findChannelApi("seller-A", "SHOPIFY"))
+        given(channelApiQueryService.findChannelConnectionInfo("seller-A", "SHOPIFY"))
                 .willThrow(new BusinessException(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND));
 
         assertThatThrownBy(() -> service.getChannelDetail("seller-A", "SHOPIFY"))
@@ -141,14 +134,7 @@ class SellerChannelDetailQueryServiceTest {
                 .isEqualTo(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND);
     }
 
-    private ChannelApi buildChannelApi(String sellerId, String channelName, String token, String storeName) {
-        return ChannelApi.builder()
-                .id(new ChannelApiId(sellerId, channelName))
-                .channelApi(token)
-                .storeName(storeName)
-                .audit(AuditFields.builder()
-                        .createdAt(LocalDateTime.of(2026, 1, 15, 9, 0))
-                        .build())
-                .build();
+    private ChannelConnectionInfo buildConnectionInfo(String channelName, String token, String storeName, LocalDateTime connectedAt) {
+        return new ChannelConnectionInfo(channelName, storeName, token, connectedAt);
     }
 }

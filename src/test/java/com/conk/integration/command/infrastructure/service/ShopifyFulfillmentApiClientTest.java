@@ -3,7 +3,8 @@ package com.conk.integration.command.infrastructure.service;
 import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRequest;
 import com.conk.integration.command.application.dto.response.ShopifyFulfillmentResponse;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
-import com.conk.integration.query.dto.FulfillmentTargetDto;
+import com.conk.integration.command.application.dto.FulfillmentTargetDto;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ class ShopifyFulfillmentApiClientTest {
         ShopifyProperties properties = new ShopifyProperties();
         properties.setApiVersion(API_VERSION);
 
-        client = new ShopifyFulfillmentApiClient(restTemplate, properties);
+        client = new ShopifyFulfillmentApiClient(restTemplate, properties, new ObjectMapper());
     }
 
     // ─────────────────────────────────────────────────────────

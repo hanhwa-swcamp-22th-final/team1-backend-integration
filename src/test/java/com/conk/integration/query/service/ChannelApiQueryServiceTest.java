@@ -1,10 +1,9 @@
 package com.conk.integration.query.service;
 
-import com.conk.integration.command.domain.aggregate.ChannelApi;
-import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
+import com.conk.integration.common.channel.dto.ChannelConnectionInfo;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
-import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
 import com.conk.integration.query.mapper.ChannelApiMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,27 +52,27 @@ class ChannelApiQueryServiceTest {
     }
 
     @Test
-    @DisplayName("채널 연결 정보가 존재하면 채널 연결 정보를 조회했을 때 엔티티를 반환해야 한다")
-    void findChannelApi_returnsChannelApiWhenExists() {
-        ChannelApi channelApi = ChannelApi.builder()
-                .id(new ChannelApiId("seller-001", "SHOPIFY"))
-                .channelApi("token-value")
-                .storeName("store-name")
-                .build();
-        given(channelApiMapper.findBySellerIdAndChannelName("seller-001", "SHOPIFY")).willReturn(channelApi);
+    @DisplayName("채널 연결 정보가 존재하면 채널 연결 정보를 조회했을 때 read model을 반환해야 한다")
+    void findChannelConnectionInfo_returnsConnectionInfoWhenExists() {
+        ChannelConnectionInfo connectionInfo = new ChannelConnectionInfo(
+                "SHOPIFY",
+                "store-name",
+                "token-value",
+                null);
+        given(channelApiMapper.findConnectionInfo("seller-001", "SHOPIFY")).willReturn(connectionInfo);
 
-        ChannelApi result = service.findChannelApi("seller-001", "SHOPIFY");
+        ChannelConnectionInfo result = service.findChannelConnectionInfo("seller-001", "SHOPIFY");
 
-        assertThat(result.getId().getSellerId()).isEqualTo("seller-001");
-        assertThat(result.getId().getChannelName()).isEqualTo("SHOPIFY");
+        assertThat(result.getChannelName()).isEqualTo("SHOPIFY");
+        assertThat(result.getStoreName()).isEqualTo("store-name");
     }
 
     @Test
     @DisplayName("채널 연결 정보가 없으면 채널 연결 정보를 조회했을 때 BusinessException(INT-404)를 발생시켜야 한다")
-    void findChannelApi_throwsWhenChannelConnectionNotFound() {
-        given(channelApiMapper.findBySellerIdAndChannelName("seller-001", "SHOPIFY")).willReturn(null);
+    void findChannelConnectionInfo_throwsWhenChannelConnectionNotFound() {
+        given(channelApiMapper.findConnectionInfo("seller-001", "SHOPIFY")).willReturn(null);
 
-        assertThatThrownBy(() -> service.findChannelApi("seller-001", "SHOPIFY"))
+        assertThatThrownBy(() -> service.findChannelConnectionInfo("seller-001", "SHOPIFY"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.CHANNEL_CONNECTION_NOT_FOUND);

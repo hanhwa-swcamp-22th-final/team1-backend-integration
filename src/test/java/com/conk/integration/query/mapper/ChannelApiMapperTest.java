@@ -3,6 +3,7 @@ package com.conk.integration.query.mapper;
 import com.conk.integration.command.domain.aggregate.ChannelApi;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelApiId;
 import com.conk.integration.command.infrastructure.repository.ChannelApiRepository;
+import com.conk.integration.common.channel.dto.ChannelConnectionInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,8 +64,8 @@ class ChannelApiMapperTest {
     }
 
     @Test
-    @DisplayName("판매자 ID와 채널명이 주어지면 findBySellerIdAndChannelName으로 조회했을 때 둘 다 일치하는 채널만 반환해야 한다")
-    void findBySellerIdAndChannelName_returnsMatchingChannelApi() {
+    @DisplayName("판매자 ID와 채널명이 주어지면 findConnectionInfo로 조회했을 때 둘 다 일치하는 연결 정보만 반환해야 한다")
+    void findConnectionInfo_returnsMatchingChannelConnection() {
         channelApiRepository.saveAllAndFlush(List.of(
                 ChannelApi.builder()
                         .id(new ChannelApiId("seller-A", "SHOPIFY"))
@@ -83,18 +84,17 @@ class ChannelApiMapperTest {
                         .build()
         ));
 
-        ChannelApi result = channelApiMapper.findBySellerIdAndChannelName("seller-A", "SHOPIFY");
+        ChannelConnectionInfo result = channelApiMapper.findConnectionInfo("seller-A", "SHOPIFY");
 
         assertThat(result).isNotNull();
-        assertThat(result.getId().getSellerId()).isEqualTo("seller-A");
-        assertThat(result.getId().getChannelName()).isEqualTo("SHOPIFY");
+        assertThat(result.getChannelName()).isEqualTo("SHOPIFY");
         assertThat(result.getStoreName()).isEqualTo("store-a");
     }
 
     @Test
-    @DisplayName("일치하는 채널이 없으면 findBySellerIdAndChannelName으로 조회했을 때 null을 반환해야 한다")
-    void findBySellerIdAndChannelName_returnsNullWhenNoMatch() {
-        ChannelApi result = channelApiMapper.findBySellerIdAndChannelName("seller-NONE", "SHOPIFY");
+    @DisplayName("일치하는 채널이 없으면 findConnectionInfo로 조회했을 때 null을 반환해야 한다")
+    void findConnectionInfo_returnsNullWhenNoMatch() {
+        ChannelConnectionInfo result = channelApiMapper.findConnectionInfo("seller-NONE", "SHOPIFY");
 
         assertThat(result).isNull();
     }

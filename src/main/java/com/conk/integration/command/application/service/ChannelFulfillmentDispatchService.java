@@ -1,16 +1,16 @@
 package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.response.BulkFulfillmentResponse;
+import com.conk.integration.command.application.dto.FulfillmentTargetDto;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
-import com.conk.integration.common.exception.BusinessException;
-import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
+import com.conk.integration.command.infrastructure.mapper.ChannelFulfillmentMapper;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
 import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper;
-import com.conk.integration.query.dto.FulfillmentTargetDto;
-import com.conk.integration.query.mapper.ChannelFulfillmentMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// 주문/송장 조회와 채널별 sender 선택을 담당하는 fulfillment orchestration 서비스다.
+/**
+ * 주문/송장 조회와 채널별 sender 선택을 담당하는 fulfillment orchestration 서비스다.
+ */
 @Service
 @RequiredArgsConstructor
 public class ChannelFulfillmentDispatchService {
@@ -46,10 +48,10 @@ public class ChannelFulfillmentDispatchService {
         EasypostShipmentInvoice invoice = invoiceRepository.findById(order.getInvoiceNo())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVOICE_NOT_FOUND, "송장을 찾을 수 없습니다: " + order.getInvoiceNo()));
 
-        ChannelFulfillmentSender sender = senders.stream()
-                .filter(candidate -> candidate.supports(order.getOrderChannel()))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL, "지원하지 않는 fulfillment 채널입니다: " + order.getOrderChannel()));
+        ChannelFulfillmentSender sender = ChannelStrategySelector.select(
+                senders,
+                order.getOrderChannel(),
+                "지원하지 않는 fulfillment 채널입니다: ");
 
         sender.send(order, invoice);
     }
@@ -70,10 +72,10 @@ public class ChannelFulfillmentDispatchService {
             return new BulkFulfillmentResponse(0, 0);
         }
 
-        ChannelFulfillmentSender sender = senders.stream()
-                .filter(candidate -> candidate.supports(orderChannel))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNSUPPORTED_CHANNEL, "지원하지 않는 fulfillment 채널입니다: " + orderChannel));
+        ChannelFulfillmentSender sender = ChannelStrategySelector.select(
+                senders,
+                orderChannel,
+                "지원하지 않는 fulfillment 채널입니다: ");
 
         sender.sendBulk(sellerId, targets);
 
