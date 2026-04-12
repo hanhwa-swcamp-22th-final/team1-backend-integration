@@ -1,7 +1,7 @@
 package com.conk.integration.e2e.api;
 
-import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
-import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderResponse;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -58,3 +58,4 @@ class ShopifyApiClientIntegrationTest {
         });
     }
 }
+

@@ -4,12 +4,12 @@ import com.conk.integration.command.application.dto.request.EasyPostCreateShipme
 import com.conk.integration.command.application.dto.request.OrderInvoicePair;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
-import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostShipmentResponse;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
-import com.conk.integration.command.infrastructure.mapper.ChannelOrderCommandMapper;
-import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostApiClient;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostShipmentConverter;
 import com.conk.integration.command.application.dto.InvoiceTargetDto;
 import com.conk.integration.command.infrastructure.mapper.ChannelOrderInvoiceMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -40,7 +40,6 @@ class EasyPostInvoiceSaveServiceTest {
 
     @Mock private EasyPostApiClient easyPostApiClient;
     @Mock private EasypostShipmentInvoiceRepository invoiceRepository;
-    @Mock private ChannelOrderCommandMapper channelOrderCommandMapper;
     @Mock private ChannelOrderInvoiceMapper channelOrderInvoiceMapper;
 
     @InjectMocks
@@ -81,7 +80,7 @@ class EasyPostInvoiceSaveServiceTest {
                 buildRate("r_mid", "FEDEX", "9.50")
         );
 
-        EasyPostShipmentResponse.RateDto cheapest = service.selectCheapestRate(rates);
+        EasyPostShipmentResponse.RateDto cheapest = EasyPostShipmentConverter.selectCheapestRate(rates);
 
         assertThat(cheapest.getId()).isEqualTo("r_cheap");
         assertThat(cheapest.getRate()).isEqualTo("5.99");
@@ -140,7 +139,7 @@ class EasyPostInvoiceSaveServiceTest {
     @Test
     @DisplayName("운임 정보가 null이면 최저 운임을 선택했을 때 BusinessException(INT-104)를 발생시켜야 한다")
     void selectCheapestRate_throwsWhenNull() {
-        assertThatThrownBy(() -> service.selectCheapestRate(null))
+        assertThatThrownBy(() -> EasyPostShipmentConverter.selectCheapestRate(null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("운임 정보가 없습니다");
     }
@@ -148,7 +147,7 @@ class EasyPostInvoiceSaveServiceTest {
     @Test
     @DisplayName("운임 정보가 빈 목록이면 최저 운임을 선택했을 때 BusinessException(INT-104)를 발생시켜야 한다")
     void selectCheapestRate_throwsWhenEmpty() {
-        assertThatThrownBy(() -> service.selectCheapestRate(List.of()))
+        assertThatThrownBy(() -> EasyPostShipmentConverter.selectCheapestRate(List.of()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("운임 정보가 없습니다");
     }
@@ -259,7 +258,7 @@ class EasyPostInvoiceSaveServiceTest {
                 buildRate("r2", "UPS", "free")
         );
 
-        assertThatThrownBy(() -> service.selectCheapestRate(rates))
+        assertThatThrownBy(() -> EasyPostShipmentConverter.selectCheapestRate(rates))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("운임 정보가 없습니다");
     }
@@ -298,7 +297,7 @@ class EasyPostInvoiceSaveServiceTest {
         assertThat(response.getSuccessCount()).isEqualTo(2);
         assertThat(response.getFailCount()).isZero();
         verify(easyPostApiClient, times(2)).createShipment(any());
-        verify(channelOrderCommandMapper).bulkAssignInvoice(captor.capture());
+        verify(channelOrderInvoiceMapper).bulkAssignInvoice(captor.capture());
         List<OrderInvoicePair> pairs = captor.getValue();
         assertThat(pairs).hasSize(2);
         assertThat(pairs.get(0).getOrderId()).isEqualTo("ORD-BULK-001");
@@ -318,7 +317,7 @@ class EasyPostInvoiceSaveServiceTest {
         assertThat(response.getSuccessCount()).isZero();
         assertThat(response.getFailCount()).isZero();
         verify(easyPostApiClient, never()).createShipment(any());
-        verify(channelOrderCommandMapper, never()).bulkAssignInvoice(any());
+        verify(channelOrderInvoiceMapper, never()).bulkAssignInvoice(any());
     }
 
     @Test
@@ -344,7 +343,7 @@ class EasyPostInvoiceSaveServiceTest {
 
         assertThat(response.getSuccessCount()).isEqualTo(1);
         assertThat(response.getFailCount()).isEqualTo(1);
-        verify(channelOrderCommandMapper).bulkAssignInvoice(
+        verify(channelOrderInvoiceMapper).bulkAssignInvoice(
                 List.of(new OrderInvoicePair("ORD-OK-001", "shp_ok_001")));
     }
 
@@ -376,7 +375,7 @@ class EasyPostInvoiceSaveServiceTest {
 
         assertThat(response.getSuccessCount()).isZero();
         assertThat(response.getFailCount()).isEqualTo(2);
-        verify(channelOrderCommandMapper, never()).bulkAssignInvoice(any());
+        verify(channelOrderInvoiceMapper, never()).bulkAssignInvoice(any());
     }
 
     // ─────────────────────────────────────────────────────────
@@ -476,3 +475,4 @@ class EasyPostInvoiceSaveServiceTest {
         return r;
     }
 }
+

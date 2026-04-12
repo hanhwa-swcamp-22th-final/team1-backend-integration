@@ -4,14 +4,14 @@ import com.conk.integration.command.application.dto.request.EasyPostCreateShipme
 import com.conk.integration.command.application.dto.request.ManualOrderInvoiceRequest;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
-import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostShipmentResponse;
 import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
-import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostApiClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -617,3 +617,4 @@ class ManualOrderInvoiceServiceTest {
                 .build();
     }
 }
+

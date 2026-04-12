@@ -2,26 +2,22 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.request.ManualOrderInvoiceRequest;
-import com.conk.integration.common.exception.BusinessException;
-import com.conk.integration.common.exception.ErrorCode;
-import com.conk.integration.command.application.dto.response.EasyPostShipmentResponse;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostShipmentResponse;
 import com.conk.integration.command.application.dto.response.ManualOrderInvoiceResponse;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.ChannelOrderItem;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelOrderItemId;
-import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
-import com.conk.integration.command.infrastructure.service.EasyPostApiClient;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostApiClient;
+import com.conk.integration.command.infrastructure.service.easypost.EasyPostShipmentConverter;
+import com.conk.integration.common.exception.BusinessException;
+import com.conk.integration.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 // 수동 주문 기입 및 EasyPost 송장 발급 전체 흐름을 조율한다.
 @Service
@@ -54,11 +50,11 @@ public class ManualOrderInvoiceService {
         channelOrderRepository.save(order);
 
         // ④ EasyPost rate 선택 및 구매 (실제 결제 — 이후 롤백 불가)
-        EasyPostShipmentResponse.RateDto cheapest = selectCheapestRate(shipment.getRates());
+        EasyPostShipmentResponse.RateDto cheapest = EasyPostShipmentConverter.selectCheapestRate(shipment.getRates());
         EasyPostShipmentResponse bought = easyPostApiClient.buyRate(shipment.getId(), cheapest.getId());
 
         // ⑤ [TX-3, REQUIRES_NEW] invoice 저장 + invoiceNo 업데이트
-        EasypostShipmentInvoice invoice = toInvoice(bought);
+        EasypostShipmentInvoice invoice = EasyPostShipmentConverter.toInvoice(bought);
         EasypostShipmentInvoice saved = invoicePersistenceService.saveInvoiceAndAssign(invoice, order);
 
         return ManualOrderInvoiceResponse.of(order, saved);
@@ -130,67 +126,5 @@ public class ManualOrderInvoiceService {
                         .parcel(request.getParcel())
                         .build())
                 .build();
-    }
-
-    private EasyPostShipmentResponse.RateDto selectCheapestRate(List<EasyPostShipmentResponse.RateDto> rates) {
-        if (rates == null || rates.isEmpty()) {
-            throw new BusinessException(ErrorCode.NO_SHIPPING_RATES);
-        }
-        return rates.stream()
-                .filter(r -> r.getRate() != null && isNumeric(r.getRate()))
-                .min(Comparator.comparingDouble(r -> Double.parseDouble(r.getRate())))
-                .orElseThrow(() -> new BusinessException(ErrorCode.NO_SHIPPING_RATES));
-    }
-
-    private EasypostShipmentInvoice toInvoice(EasyPostShipmentResponse response) {
-        EasyPostShipmentResponse.RateDto selected = response.getSelectedRate();
-        String labelUrl = response.getPostageLabel() != null ? response.getPostageLabel().getLabelUrl() : null;
-        String trackingUrl = resolveTrackingUrl(response);
-        String shipToAddress = resolveShipToAddress(response.getToAddress());
-
-        int freightChargeAmtCents = 0;
-        if (selected != null && selected.getRate() != null && isNumeric(selected.getRate())) {
-            freightChargeAmtCents = (int) Math.round(Double.parseDouble(selected.getRate()) * 100);
-        }
-
-        CarrierType carrierType = selected != null
-                ? CarrierType.fromEasyPostName(selected.getCarrier())
-                : CarrierType.USPS;
-
-        return EasypostShipmentInvoice.builder()
-                .invoiceNo(response.getId())
-                .trackingCode(response.getTrackingCode())
-                .carrierType(carrierType)
-                .freightChargeAmt(freightChargeAmtCents)
-                .shipToAddress(shipToAddress)
-                .trackingUrl(trackingUrl)
-                .labelFileUrl(labelUrl)
-                .build();
-    }
-
-    private String resolveTrackingUrl(EasyPostShipmentResponse response) {
-        if (response.getTracker() != null && response.getTracker().getPublicUrl() != null) {
-            return response.getTracker().getPublicUrl();
-        }
-        if (response.getTrackingCode() != null) {
-            return "https://track.easypost.com/" + response.getTrackingCode();
-        }
-        return null;
-    }
-
-    private String resolveShipToAddress(EasyPostShipmentResponse.AddressDto addr) {
-        if (addr == null) return null;
-        return Stream.of(addr.getStreet1(), addr.getCity(), addr.getState(), addr.getZip(), addr.getCountry())
-                .filter(s -> s != null && !s.isBlank())
-                .collect(Collectors.joining(", "));
-    }
-
-    private boolean isNumeric(String s) {
-        try {
-            Double.parseDouble(s);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
     }
 }

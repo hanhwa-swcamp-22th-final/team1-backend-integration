@@ -1,6 +1,7 @@
 package com.conk.integration.command.infrastructure.service;
 
-import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderClient;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderResponse;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
 import com.conk.integration.common.exception.BusinessException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -309,3 +310,4 @@ class ShopifyOrderClientTest {
                 """.formatted(edges, hasNextPage, cursorJson);
     }
 }
+

@@ -1,14 +1,14 @@
 package com.conk.integration.command.application.service.shopify;
 
-import com.conk.integration.command.application.dto.request.ShopifyFulfillmentRequest;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyFulfillmentRequest;
 import com.conk.integration.command.application.service.ChannelFulfillmentSender;
-import com.conk.integration.command.application.service.ShopifyCredentialReader;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.command.application.dto.FulfillmentTargetDto;
-import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyFulfillmentApiClient;
+import com.conk.integration.common.channel.dto.ChannelCredential;
+import com.conk.integration.query.service.ChannelApiQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -20,7 +20,7 @@ import java.util.List;
 public class ShopifyFulfillmentSender implements ChannelFulfillmentSender {
 
     private final ShopifyFulfillmentApiClient shopifyFulfillmentApiClient;
-    private final ShopifyCredentialReader shopifyCredentialReader;
+    private final ChannelApiQueryService channelApiQueryService;
 
     @Override
     public boolean supports(OrderChannel channel) {
@@ -29,7 +29,7 @@ public class ShopifyFulfillmentSender implements ChannelFulfillmentSender {
 
     @Override
     public void send(ChannelOrder order, EasypostShipmentInvoice invoice) {
-        ShopifyCredentialDto cred = shopifyCredentialReader.findShopifyCredential(order.getSellerId());
+        ChannelCredential credential = channelApiQueryService.findChannelCredential(order.getSellerId(), OrderChannel.SHOPIFY.name());
 
         ShopifyFulfillmentRequest request = ShopifyFulfillmentRequest.builder()
                 .fulfillment(ShopifyFulfillmentRequest.FulfillmentBody.builder()
@@ -43,12 +43,15 @@ public class ShopifyFulfillmentSender implements ChannelFulfillmentSender {
                 .build();
 
         shopifyFulfillmentApiClient.createFulfillment(
-                cred.getStoreName(), cred.getAccessToken(), order.getChannelOrderNo(), request);
+                credential.getStoreName(), credential.getChannelApi(), order.getChannelOrderNo(), request);
     }
 
     @Override
     public void sendBulk(String sellerId, List<FulfillmentTargetDto> targets) {
-        ShopifyCredentialDto cred = shopifyCredentialReader.findShopifyCredential(sellerId);
-        shopifyFulfillmentApiClient.createBulkFulfillment(cred.getStoreName(), cred.getAccessToken(), targets);
+        ChannelCredential credential = channelApiQueryService.findChannelCredential(sellerId, OrderChannel.SHOPIFY.name());
+        shopifyFulfillmentApiClient.createBulkFulfillment(
+                credential.getStoreName(),
+                credential.getChannelApi(),
+                targets);
     }
 }

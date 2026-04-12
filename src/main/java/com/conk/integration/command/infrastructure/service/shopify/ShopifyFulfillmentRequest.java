@@ -1,4 +1,4 @@
-package com.conk.integration.command.application.dto.request;
+package com.conk.integration.command.infrastructure.service.shopify;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;

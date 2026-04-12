@@ -1,6 +1,5 @@
-package com.conk.integration.command.infrastructure.service;
+package com.conk.integration.command.infrastructure.service.shopify;
 
-import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
