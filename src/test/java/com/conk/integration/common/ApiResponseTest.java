@@ -26,3 +26,4 @@ class ApiResponseTest {
         assertThat(response.getData()).isEqualTo("error");
     }
 }
+

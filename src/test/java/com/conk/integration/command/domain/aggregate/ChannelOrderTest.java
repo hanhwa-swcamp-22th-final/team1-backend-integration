@@ -66,3 +66,4 @@ class ChannelOrderTest {
         assertThat(order.getItems().getFirst().getQuantity()).isEqualTo(2);
     }
 }
+

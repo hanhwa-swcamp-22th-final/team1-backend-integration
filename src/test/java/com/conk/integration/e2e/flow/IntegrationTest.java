@@ -10,14 +10,15 @@ import com.conk.integration.command.infrastructure.repository.*;
 import com.conk.integration.query.mapper.ChannelApiMapper;
 import com.conk.integration.command.application.service.ChannelFulfillmentDispatchService;
 import com.conk.integration.command.application.service.shopify.ShopifyOrderSyncService;
-import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
-import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
-import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderClient;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyFulfillmentApiClient;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderResponse;
+import com.conk.integration.common.channel.dto.ChannelCredential;
 import com.conk.integration.query.service.ChannelApiQueryService;
-import com.conk.integration.query.service.ShopifyPingClient;
+import com.conk.integration.command.infrastructure.service.shopify.ShopifyPingClient;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -99,6 +100,11 @@ class IntegrationTest {
     @Autowired
     private ChannelApiMapper channelApiMapper;
 
+    @BeforeEach
+    void setUpChannelSupport() {
+        given(shopifyPingClient.supports("SHOPIFY")).willReturn(true);
+    }
+
     /* ===================================================================
      * 1) ShopifyOrderSyncService — 전체 흐름 (API → DB 저장)
      * =================================================================== */
@@ -115,7 +121,7 @@ class IntegrationTest {
             ShopifyOrderResponse.OrderNode dto1 = buildShopifyOrderNode(9001L, "#9001", "Alice", "100 Main St");
             ShopifyOrderResponse.OrderNode dto2 = buildShopifyOrderNode(9002L, "#9002", "Bob",   "200 Oak Ave");
 
-            given(channelApiQueryService.findShopifyCredential("seller-integration-A")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-integration-A", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(dto1, dto2));
 
             // when
@@ -140,7 +146,7 @@ class IntegrationTest {
 
             // Shopify API는 동일한 주문을 다시 반환
             ShopifyOrderResponse.OrderNode existingNode = buildShopifyOrderNode(9003L, "#9003", "Charlie", "300 Pine Rd");
-            given(channelApiQueryService.findShopifyCredential("seller-integration-B")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-integration-B", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existingNode));
 
             // when
@@ -155,7 +161,7 @@ class IntegrationTest {
         @DisplayName("Shopify 주문이 비어 있으면 주문 동기화를 수행했을 때 DB에 저장하지 않아야 한다")
         void syncOrders_emptyResponse_savesNothing() {
             // given
-            given(channelApiQueryService.findShopifyCredential("seller-integration-C")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-integration-C", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of());
 
             // when
@@ -173,7 +179,7 @@ class IntegrationTest {
             ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(9010L, "#9010", "Diana", "400 Elm St");
             node.setLineItems(buildLineItemConnection("SKU-A", "Widget A", 2, null));
 
-            given(channelApiQueryService.findShopifyCredential("seller-integration-D")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-integration-D", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
 
             // when
@@ -200,7 +206,7 @@ class IntegrationTest {
             ShopifyOrderResponse.OrderNode existing = buildShopifyOrderNode(9020L, "#9020", "Eve", "500 Pine St");
             ShopifyOrderResponse.OrderNode newOne   = buildShopifyOrderNode(9021L, "#9021", "Frank", "600 Oak Ave");
 
-            given(channelApiQueryService.findShopifyCredential("seller-integration-E")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-integration-E", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(existing, newOne));
 
             // when
@@ -241,7 +247,7 @@ class IntegrationTest {
                     .invoiceNo("INV-INTEGRATION-001")
                     .build());
 
-            given(channelApiQueryService.findShopifyCredential("seller-X")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-X", "SHOPIFY")).willReturn(buildCredential());
 
             // when
             fulfillmentDispatchService.fulfill("ORDER-INTG-001");
@@ -369,7 +375,7 @@ class IntegrationTest {
         void syncOrders_e2e_returnsHttpOkWithCounts() throws Exception {
             // given
             ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(8001L, "#8001", "Alice", "100 Main St");
-            given(channelApiQueryService.findShopifyCredential("seller-http-A")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-http-A", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
 
             // when & then
@@ -392,7 +398,7 @@ class IntegrationTest {
             // given
             ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(8002L, "#8002", "Bob", "200 Oak Ave");
             node.setLineItems(buildLineItemConnection("SKU-HTTP-01", "Gadget B", 1, null));
-            given(channelApiQueryService.findShopifyCredential("seller-http-B")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-http-B", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
 
             // when
@@ -414,7 +420,7 @@ class IntegrationTest {
         @DisplayName("채널 자격 증명이 없는 판매자 요청이 주어지면 주문 동기화를 요청했을 때 HTTP 404 응답을 반환해야 한다")
         void syncOrders_e2e_missingCredential_returns404() throws Exception {
             // given — 크리덴셜 조회 시 예외 발생 (등록되지 않은 셀러)
-            given(channelApiQueryService.findShopifyCredential("seller-no-cred"))
+            given(channelApiQueryService.findChannelCredential("seller-no-cred", "SHOPIFY"))
                     .willThrow(new BusinessException(ErrorCode.CHANNEL_CREDENTIALS_NOT_FOUND, "채널 API 정보가 존재하지 않습니다"));
 
             mockMvc.perform(post("/integrations/seller/orders/sync")
@@ -440,7 +446,7 @@ class IntegrationTest {
         @DisplayName("유효한 판매자 헤더와 채널 키가 주어지면 채널 기준 주문 동기화를 요청했을 때 HTTP 200 응답과 처리 건수를 반환해야 한다")
         void syncOrdersByChannel_e2e_returnsHttpOkWithCounts() throws Exception {
             ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(8101L, "#8101", "Grace", "700 Cedar St");
-            given(channelApiQueryService.findShopifyCredential("seller-http-channel-A")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-http-channel-A", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
 
             mockMvc.perform(post("/integrations/seller/channels/{channelKey}/sync", "SHOPIFY")
@@ -457,7 +463,7 @@ class IntegrationTest {
         void syncOrdersByChannel_e2e_persistsOrderToDb() throws Exception {
             ShopifyOrderResponse.OrderNode node = buildShopifyOrderNode(8102L, "#8102", "Henry", "800 Maple Ave");
             node.setLineItems(buildLineItemConnection("SKU-HTTP-02", "Gadget C", 2, null));
-            given(channelApiQueryService.findShopifyCredential("seller-http-channel-B")).willReturn(buildCredential());
+            given(channelApiQueryService.findChannelCredential("seller-http-channel-B", "SHOPIFY")).willReturn(buildCredential());
             given(shopifyOrderClient.getOrders(anyString(), anyString())).willReturn(List.of(node));
 
             mockMvc.perform(post("/integrations/seller/channels/{channelKey}/sync", "SHOPIFY")
@@ -540,7 +546,7 @@ class IntegrationTest {
         @Test
         @DisplayName("유효한 Shopify 연결 요청이 주어지면 채널 연결을 요청했을 때 HTTP 200 응답과 저장된 연결 정보를 반환해야 한다")
         void connectSellerChannel_e2e_returnsSavedConnection() throws Exception {
-            given(shopifyPingClient.ping("my-shopify-store", "shpat_http_token")).willReturn(true);
+            given(shopifyPingClient.verify("my-shopify-store", "shpat_http_token")).willReturn(true);
 
             mockMvc.perform(post("/integrations/seller/channels/{channelKey}/connect", "SHOPIFY")
                             .header("X-Seller-Id", "seller-http-connect")
@@ -574,7 +580,7 @@ class IntegrationTest {
                     .channelApi("old-token")
                     .storeName("old-store")
                     .build());
-            given(shopifyPingClient.ping("new-store", "new-token")).willReturn(true);
+            given(shopifyPingClient.verify("new-store", "new-token")).willReturn(true);
 
             mockMvc.perform(post("/integrations/seller/channels/{channelKey}/connect", "SHOPIFY")
                             .header("X-Seller-Id", "seller-http-update")
@@ -654,8 +660,8 @@ class IntegrationTest {
      * 헬퍼 메서드
      * =================================================================== */
 
-    private ShopifyCredentialDto buildCredential() {
-        ShopifyCredentialDto cred = new ShopifyCredentialDto();
+    private ChannelCredential buildCredential() {
+        ChannelCredential cred = new ChannelCredential();
         cred.setStoreName("test-store");
         cred.setAccessToken("test-token");
         return cred;
@@ -707,3 +713,5 @@ class IntegrationTest {
         return connection;
     }
 }
+
+

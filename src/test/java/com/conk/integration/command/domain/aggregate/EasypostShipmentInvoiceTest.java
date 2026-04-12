@@ -91,3 +91,4 @@ class EasypostShipmentInvoiceTest {
         assertThat(invoice.getAudit().getUpdatedAt()).isAfter(LocalDateTime.of(2026, 1, 1, 0, 0));
     }
 }
+

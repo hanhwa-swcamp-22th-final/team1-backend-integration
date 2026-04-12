@@ -47,3 +47,4 @@ class ShopifyPropertiesTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }
+
