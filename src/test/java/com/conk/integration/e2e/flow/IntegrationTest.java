@@ -13,7 +13,7 @@ import com.conk.integration.command.application.service.shopify.ShopifyOrderSync
 import com.conk.integration.command.infrastructure.service.ShopifyOrderClient;
 import com.conk.integration.command.infrastructure.service.ShopifyFulfillmentApiClient;
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
-import com.conk.integration.query.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
 import com.conk.integration.query.service.ChannelApiQueryService;
 import com.conk.integration.query.service.ShopifyPingClient;
 import com.conk.integration.common.exception.BusinessException;

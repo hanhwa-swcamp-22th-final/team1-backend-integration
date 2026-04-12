@@ -3,6 +3,7 @@ package com.conk.integration.command.infrastructure.service;
 import com.conk.integration.command.application.dto.response.ShopifyOrderResponse;
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
 import com.conk.integration.common.exception.BusinessException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,7 +43,7 @@ class ShopifyOrderClientTest {
         ShopifyProperties properties = new ShopifyProperties();
         properties.setApiVersion(API_VERSION);
 
-        client = new ShopifyOrderClient(restTemplate, properties);
+        client = new ShopifyOrderClient(restTemplate, properties, new ObjectMapper());
     }
 
     // ─────────────────────────────────────────────────────────

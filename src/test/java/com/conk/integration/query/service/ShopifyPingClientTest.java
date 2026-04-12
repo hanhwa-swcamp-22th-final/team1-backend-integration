@@ -1,6 +1,7 @@
 package com.conk.integration.query.service;
 
 import com.conk.integration.command.infrastructure.config.ShopifyProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,7 @@ class ShopifyPingClientTest {
         ShopifyProperties properties = new ShopifyProperties();
         properties.setApiVersion(API_VERSION);
 
-        client = new ShopifyPingClient(restTemplate, properties);
+        client = new ShopifyPingClient(restTemplate, properties, new ObjectMapper());
     }
 
     // ─────────────────────────────────────────────────────────
