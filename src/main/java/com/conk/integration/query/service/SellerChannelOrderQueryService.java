@@ -1,7 +1,6 @@
 package com.conk.integration.query.service;
 
-import com.conk.integration.common.exception.BusinessException;
-import com.conk.integration.common.exception.ErrorCode;
+import com.conk.integration.common.SellerIdValidator;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
 import com.conk.integration.query.mapper.SellerChannelOrderMapper;
@@ -26,7 +25,7 @@ public class SellerChannelOrderQueryService {
      * @throws BusinessException sellerId가 null이거나 공백인 경우 (INT-001)
      */
     public List<SellerChannelOrderDto> getOrders(String sellerId) {
-        validateSellerId(sellerId);
+        SellerIdValidator.requireValid(sellerId);
         // mapper 결과를 표시 전용 DTO로 일괄 변환한다.
         return channelOrderMapper.findBySellerIdWithItemSummary(sellerId)
                 .stream()
@@ -61,12 +60,5 @@ public class SellerChannelOrderQueryService {
         if (shippedAt != null && !shippedAt.isBlank()) return "SHIPPED";
         if (invoiceNo != null) return "PROCESSING";
         return "NEW";
-    }
-
-    // 조회 API 공통 입력 검증.
-    private void validateSellerId(String sellerId) {
-        if (sellerId == null || sellerId.isBlank()) {
-            throw new BusinessException(ErrorCode.INVALID_SELLER_ID);
-        }
     }
 }

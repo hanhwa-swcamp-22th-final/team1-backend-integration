@@ -4,7 +4,7 @@ import com.conk.integration.command.application.dto.response.ChannelOrderSyncRes
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 
 // 채널별 주문 동기화 전략이 따라야 하는 최소 계약이다.
-public interface ChannelOrderSyncer {
+public interface ChannelOrderSyncer extends ChannelStrategy {
 
     /**
      * 이 syncer가 주어진 채널을 지원하는지 확인한다.
@@ -12,6 +12,7 @@ public interface ChannelOrderSyncer {
      * @param channel 확인할 주문 채널
      * @return 지원하면 true
      */
+    @Override
     boolean supports(OrderChannel channel);
 
     /**

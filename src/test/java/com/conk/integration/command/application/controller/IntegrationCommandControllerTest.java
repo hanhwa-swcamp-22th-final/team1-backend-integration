@@ -18,7 +18,7 @@ import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.common.exception.ErrorCode;
 import com.conk.integration.common.exception.GlobalExceptionHandler;
-import com.conk.integration.query.dto.SellerChannelDetailDto;
+import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
