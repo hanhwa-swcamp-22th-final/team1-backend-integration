@@ -75,3 +75,4 @@ class ChannelOrderSyncDispatchServiceTest {
         then(shopifySyncer).should().syncOrders("seller-xyz");
     }
 }
+

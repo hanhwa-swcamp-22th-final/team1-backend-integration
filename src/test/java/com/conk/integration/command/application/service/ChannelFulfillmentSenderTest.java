@@ -36,3 +36,4 @@ class ChannelFulfillmentSenderTest {
                 .isEqualTo(ErrorCode.UNSUPPORTED_BULK_FULFILLMENT);
     }
 }
+

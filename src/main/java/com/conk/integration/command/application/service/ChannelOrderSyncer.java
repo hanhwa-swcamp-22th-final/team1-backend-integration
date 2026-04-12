@@ -2,6 +2,7 @@ package com.conk.integration.command.application.service;
 
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
+import com.conk.integration.common.channel.ChannelStrategy;
 
 // 채널별 주문 동기화 전략이 따라야 하는 최소 계약이다.
 public interface ChannelOrderSyncer extends ChannelStrategy {

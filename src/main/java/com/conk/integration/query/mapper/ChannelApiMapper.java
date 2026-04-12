@@ -2,7 +2,7 @@ package com.conk.integration.query.mapper;
 
 import com.conk.integration.command.domain.aggregate.ChannelApi;
 import com.conk.integration.common.channel.dto.ChannelConnectionInfo;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ChannelCredential;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -12,8 +12,9 @@ import java.util.List;
 @Mapper
 public interface ChannelApiMapper {
 
-    // sellerId에 해당하는 Shopify 스토어 자격증명을 조회한다.
-    ShopifyCredentialDto findShopifyCredential(@Param("sellerId") String sellerId);
+    // sellerId와 channelName에 해당하는 채널 자격증명을 조회한다.
+    ChannelCredential findChannelCredential(@Param("sellerId") String sellerId,
+                                            @Param("channelName") String channelName);
 
     // 특정 셀러의 모든 채널 API 설정을 조회한다.
     List<ChannelApi> findByIdSellerId(@Param("sellerId") String sellerId);

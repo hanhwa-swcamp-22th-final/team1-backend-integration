@@ -1,15 +1,18 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.common.channel.ChannelConnectionVerifier;
+import com.conk.integration.common.channel.ChannelCredentialReader;
+import com.conk.integration.common.channel.ChannelLabelResolver;
 import com.conk.integration.common.SellerIdValidator;
 import com.conk.integration.common.exception.BusinessException;
-import com.conk.integration.common.channel.ShopifyConnectionVerifier;
-import com.conk.integration.common.channel.dto.ShopifyCredentialDto;
+import com.conk.integration.common.channel.dto.ChannelCredential;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.mapper.SellerChannelCardMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 // 채널 카드 raw 조회 결과에 표시용 라벨과 실시간 연동 상태를 덧입혀 반환한다.
 @Service
@@ -17,8 +20,8 @@ import java.util.List;
 public class SellerChannelCardQueryService {
 
     private final SellerChannelCardMapper channelCardMapper;
-    private final ChannelApiQueryService channelApiQueryService;
-    private final ShopifyConnectionVerifier shopifyConnectionVerifier;
+    private final List<ChannelCredentialReader> credentialReaders;
+    private final List<ChannelConnectionVerifier> connectionVerifiers;
 
     /**
      * 셀러의 채널 연동 카드 목록을 조회하고 표시용 라벨을 부여해 반환한다.
@@ -33,10 +36,10 @@ public class SellerChannelCardQueryService {
         List<SellerChannelCardDto> cards = channelCardMapper.findBySellerIdGroupedByChannel(sellerId);
         cards.forEach(card -> {
             // DB에는 코드값만 있으므로 화면 표시에 맞는 label을 후처리한다.
-            card.setLabel(toLabel(card.getKey()));
-            // SHOPIFY 채널은 주문 존재 여부 대신 실제 API 연동 상태를 반영한다.
-            if ("SHOPIFY".equals(card.getKey())) {
-                card.setSyncStatus(resolveShopifySyncStatus(sellerId));
+            card.setLabel(ChannelLabelResolver.toLabel(card.getKey()));
+            Optional<String> syncStatus = resolveChannelSyncStatus(sellerId, card.getKey());
+            if (syncStatus.isPresent()) {
+                card.setSyncStatus(syncStatus.get());
             }
         });
         return cards;
@@ -48,31 +51,35 @@ public class SellerChannelCardQueryService {
      * @param sellerId 셀러 식별자
      * @return CONNECTED, DISCONNECTED, NOT_CONFIGURED 중 하나
      */
-    private String resolveShopifySyncStatus(String sellerId) {
+    private Optional<String> resolveChannelSyncStatus(String sellerId, String channelKey) {
+        Optional<ChannelCredentialReader> reader = findCredentialReader(channelKey);
+        Optional<ChannelConnectionVerifier> verifier = findConnectionVerifier(channelKey);
+
+        if (reader.isEmpty() || verifier.isEmpty()) {
+            return Optional.empty();
+        }
+
         try {
-            ShopifyCredentialDto cred = channelApiQueryService.findShopifyCredential(sellerId);
-            return shopifyConnectionVerifier.ping(cred.getStoreName(), cred.getAccessToken())
-                    ? "CONNECTED" : "DISCONNECTED";
+            ChannelCredential credential = reader.get().read(sellerId, channelKey);
+            return Optional.of(
+                    verifier.get().verify(credential.getStoreName(), credential.getChannelApi())
+                            ? "CONNECTED"
+                            : "DISCONNECTED");
         } catch (BusinessException e) {
-            // 자격증명이 DB에 없는 경우 (CHANNEL_CREDENTIALS_NOT_FOUND, INT-103)
-            return "NOT_CONFIGURED";
+            return Optional.of("NOT_CONFIGURED");
         }
     }
 
-    /**
-     * 알려진 채널 코드를 사람이 읽기 쉬운 라벨로 변환한다.
-     *
-     * @param channelName 채널 코드
-     * @return 화면 표시에 사용할 채널 라벨
-     */
-    String toLabel(String channelName) {
-        if (channelName == null) return "";
-        return switch (channelName.toUpperCase()) {
-            case "SHOPIFY" -> "Shopify";
-            case "AMAZON"  -> "Amazon";
-            case "MANUAL"  -> "Manual";
-            case "EXCEL"   -> "Excel";
-            default        -> channelName;
-        };
+    private Optional<ChannelCredentialReader> findCredentialReader(String channelKey) {
+        return credentialReaders.stream()
+                .filter(candidate -> candidate.supports(channelKey))
+                .findFirst();
     }
+
+    private Optional<ChannelConnectionVerifier> findConnectionVerifier(String channelKey) {
+        return connectionVerifiers.stream()
+                .filter(candidate -> candidate.supports(channelKey))
+                .findFirst();
+    }
+
 }
