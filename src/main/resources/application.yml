@@ -1,6 +1,23 @@
 spring:
   application:
     name: team1-backend-integration
+
+  datasource:
+    # Docker: SPRING_DATASOURCE_URL 환경변수로 주입 (integration-db:3306)
+    # 로컬 직접 실행: 기본값 localhost:3310 사용
+    url: ${SPRING_DATASOURCE_URL:jdbc:mariadb://localhost:3310/integration_db?useSSL=false&serverTimezone=Asia/Seoul}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:temp_password}
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  kafka:
+    # Docker: SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+    # 로컬 직접 실행: localhost:9094
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
   jpa:
     hibernate:
       # create → update: 재시작해도 기존 데이터 유지
@@ -21,10 +38,14 @@ mybatis:
     map-underscore-to-camel-case: true
 
 shopify:
+  # store-name, access-token 은 사용자가 UI에서 입력 → DB 저장
   api-version: 2025-01
 
 easypost:
-  base-url: https://api.easypost.com
+  # Docker: EASYPOST_API_KEY, EASYPOST_BASE_URL 환경변수로 주입
+  # 로컬 직접 실행: 기본값 사용 (api-key는 개발자가 직접 설정 필요)
+  api-key: ${EASYPOST_API_KEY:}
+  base-url: ${EASYPOST_BASE_URL:https://api.easypost.com}
 
 management:
   endpoints:
