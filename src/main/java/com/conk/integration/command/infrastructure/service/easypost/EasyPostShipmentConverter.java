@@ -25,6 +25,10 @@ public final class EasyPostShipmentConverter {
      * @return 저장 가능한 송장 엔티티
      */
     public static EasypostShipmentInvoice toInvoice(EasyPostShipmentResponse response) {
+        return toInvoice(response, null, null);
+    }
+
+    public static EasypostShipmentInvoice toInvoice(EasyPostShipmentResponse response, String orderId, String requestedService) {
         EasyPostShipmentResponse.RateDto selected = response.getSelectedRate();
         String labelUrl = response.getPostageLabel() != null ? response.getPostageLabel().getLabelUrl() : null;
         String trackingUrl = resolveTrackingUrl(response);
@@ -41,12 +45,15 @@ public final class EasyPostShipmentConverter {
 
         return EasypostShipmentInvoice.builder()
                 .invoiceNo(response.getId())
+                .orderId(orderId)
                 .trackingCode(response.getTrackingCode())
                 .carrierType(carrierType)
+                .service(selected != null && selected.getService() != null ? selected.getService() : requestedService)
                 .freightChargeAmt(freightChargeAmtCents)
                 .shipToAddress(shipToAddress)
                 .trackingUrl(trackingUrl)
                 .labelFileUrl(labelUrl)
+                .issuedAt(java.time.LocalDateTime.now().toString())
                 .build();
     }
 
