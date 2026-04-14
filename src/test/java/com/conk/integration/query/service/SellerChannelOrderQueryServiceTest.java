@@ -3,6 +3,7 @@ package com.conk.integration.query.service;
 import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
+import com.conk.integration.query.dto.SellerOrderQueryParams;
 import com.conk.integration.query.mapper.SellerChannelOrderMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -38,9 +40,10 @@ class SellerChannelOrderQueryServiceTest {
         // 대표 raw 결과 하나로 표시용 필드 변환을 한 번에 확인한다.
         LocalDateTime orderedAt = LocalDateTime.of(2026, 3, 19, 9, 12);
         SellerChannelOrderQueryResult raw = buildRaw("ORD-1", "SHOPIFY", "루미에르 앰플 30ml", 2, null, null, orderedAt);
-        given(channelOrderMapper.findBySellerIdWithItemSummary("seller-1")).willReturn(List.of(raw));
+        given(channelOrderMapper.findBySellerIdWithItemSummary(argThat(params ->
+                hasSellerPaging(params, "seller-1")))).willReturn(List.of(raw));
 
-        List<SellerChannelOrderDto> result = service.getOrders("seller-1");
+        List<SellerChannelOrderDto> result = service.getOrders(orderParams("seller-1"));
 
         assertThat(result).hasSize(1);
         SellerChannelOrderDto dto = result.get(0);
@@ -49,34 +52,38 @@ class SellerChannelOrderQueryServiceTest {
         assertThat(dto.getItemsSummary()).isEqualTo("루미에르 앰플 30ml 외 1건");
         assertThat(dto.getStatus()).isEqualTo("NEW");
         assertThat(dto.getOrderedAt()).isEqualTo(orderedAt);
-        verify(channelOrderMapper).findBySellerIdWithItemSummary("seller-1");
+        verify(channelOrderMapper).findBySellerIdWithItemSummary(argThat(params ->
+                hasSellerPaging(params, "seller-1")));
     }
 
     @Test
     @DisplayName("주문 조회 결과가 비어 있으면 주문 목록을 조회했을 때 빈 리스트를 반환해야 한다")
     void getOrders_returnsEmpty_whenMapperReturnsEmpty() {
-        given(channelOrderMapper.findBySellerIdWithItemSummary("seller-1")).willReturn(List.of());
+        given(channelOrderMapper.findBySellerIdWithItemSummary(argThat(params ->
+                hasSellerPaging(params, "seller-1")))).willReturn(List.of());
 
-        assertThat(service.getOrders("seller-1")).isEmpty();
+        assertThat(service.getOrders(orderParams("seller-1"))).isEmpty();
     }
 
     @Test
     @DisplayName("주문 조회 결과가 주어지면 주문 목록을 조회했을 때 orderAmount는 null이어야 한다")
     void getOrders_orderAmountIsAlwaysNull() {
         // 현재 구현은 주문 금액을 채우지 않으므로 null 고정 동작을 드러낸다.
-        given(channelOrderMapper.findBySellerIdWithItemSummary("seller-1"))
+        given(channelOrderMapper.findBySellerIdWithItemSummary(argThat(params ->
+                hasSellerPaging(params, "seller-1"))))
                 .willReturn(List.of(buildRaw("ORD-1", "SHOPIFY", "상품A", 1, null, null, LocalDateTime.now())));
 
-        assertThat(service.getOrders("seller-1").get(0).getOrderAmount()).isNull();
+        assertThat(service.getOrders(orderParams("seller-1")).get(0).getOrderAmount()).isNull();
     }
 
     @Test
     @DisplayName("주문 조회 결과가 주어지면 주문 목록을 조회했을 때 conkOrderNo는 orderId와 같아야 한다")
     void getOrders_conkOrderNoEqualsOrderId() {
-        given(channelOrderMapper.findBySellerIdWithItemSummary("seller-1"))
+        given(channelOrderMapper.findBySellerIdWithItemSummary(argThat(params ->
+                hasSellerPaging(params, "seller-1"))))
                 .willReturn(List.of(buildRaw("ORD-999", "SHOPIFY", "상품A", 1, null, null, LocalDateTime.now())));
 
-        SellerChannelOrderDto dto = service.getOrders("seller-1").get(0);
+        SellerChannelOrderDto dto = service.getOrders(orderParams("seller-1")).get(0);
         assertThat(dto.getConkOrderNo()).isEqualTo("ORD-999");
         assertThat(dto.getId()).isEqualTo("ORD-999");
     }
@@ -150,7 +157,7 @@ class SellerChannelOrderQueryServiceTest {
     @Test
     @DisplayName("sellerId가 null이면 주문 목록을 조회했을 때 BusinessException(INT-001)을 발생시키고 mapper를 호출하지 않아야 한다")
     void getOrders_throwsWhenSellerIdNull() {
-        assertThatThrownBy(() -> service.getOrders(null))
+        assertThatThrownBy(() -> service.getOrders(orderParams(null)))
                 .isInstanceOf(BusinessException.class);
         verifyNoInteractions(channelOrderMapper);
     }
@@ -158,7 +165,7 @@ class SellerChannelOrderQueryServiceTest {
     @Test
     @DisplayName("sellerId가 공백이면 주문 목록을 조회했을 때 BusinessException(INT-001)을 발생시키고 mapper를 호출하지 않아야 한다")
     void getOrders_throwsWhenSellerIdBlank() {
-        assertThatThrownBy(() -> service.getOrders("  "))
+        assertThatThrownBy(() -> service.getOrders(orderParams("  ")))
                 .isInstanceOf(BusinessException.class);
         verifyNoInteractions(channelOrderMapper);
     }
@@ -183,6 +190,21 @@ class SellerChannelOrderQueryServiceTest {
         raw.setFirstItemName(firstItemName);
         raw.setItemCount(itemCount);
         return raw;
+    }
+
+    private SellerOrderQueryParams orderParams(String sellerId) {
+        return SellerOrderQueryParams.builder()
+                .sellerId(sellerId)
+                .page(0)
+                .size(20)
+                .build();
+    }
+
+    private boolean hasSellerPaging(SellerOrderQueryParams params, String sellerId) {
+        return params != null
+                && sellerId.equals(params.getSellerId())
+                && params.getPage() == 0
+                && params.getSize() == 20;
     }
 }
 

@@ -321,6 +321,31 @@ class IntegrationTest {
         }
 
         @Test
+        @DisplayName("0 페이지 요청이 주어지면 주문 조회를 요청했을 때 HTTP 200 응답과 첫 페이지 데이터를 반환해야 한다")
+        void getOrders_e2e_zeroBasedPage_returnsHttpOk() throws Exception {
+            // given
+            channelOrderRepository.saveAndFlush(ChannelOrder.builder()
+                    .orderId("E2E-ORD-PAGE-001")
+                    .channelOrderNo("#E2E-PAGE-001")
+                    .orderChannel(OrderChannel.SHOPIFY)
+                    .sellerId("seller-E2E-page")
+                    .receiverName("페이지 수신자")
+                    .orderedAt(LocalDateTime.of(2024, 6, 3, 10, 0))
+                    .build());
+
+            // when & then
+            mockMvc.perform(get("/integrations/seller/orders")
+                            .header("X-Seller-Id", "seller-E2E-page")
+                            .param("page", "0")
+                            .param("size", "100"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data").isArray())
+                    .andExpect(jsonPath("$.data", hasSize(1)))
+                    .andExpect(jsonPath("$.data[0].id").value("E2E-ORD-PAGE-001"));
+        }
+
+        @Test
         @DisplayName("DB에 주문이 저장되어 있지 않으면 주문 조회를 요청했을 때 HTTP 200 응답과 빈 배열을 반환해야 한다")
         void getOrders_e2e_returnsEmptyWhenNoData() throws Exception {
             // when & then — 데이터 없는 sellerId로 조회

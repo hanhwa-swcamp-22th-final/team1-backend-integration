@@ -18,14 +18,22 @@ public class SellerOrderQueryParams {
     // 주문번호 또는 수령인명 검색 키워드 — null이면 전체
     private final String search;
 
-    // 1-based 페이지 번호 (기본값 1)
+    // 0-based 페이지 번호 (기본값 0)
     private final int page;
 
     // 페이지당 항목 수 (기본값 20)
     private final int size;
 
+    public int getPage() {
+        return Math.max(page, 0);
+    }
+
+    public int getSize() {
+        return size > 0 ? size : 20;
+    }
+
     // MyBatis LIMIT/OFFSET 계산용 오프셋을 반환한다.
     public int getOffset() {
-        return (page - 1) * size;
+        return getPage() * getSize();
     }
 }

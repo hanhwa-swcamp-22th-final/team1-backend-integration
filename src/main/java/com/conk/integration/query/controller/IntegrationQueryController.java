@@ -55,14 +55,14 @@ public class IntegrationQueryController {
 
     /**
      * 셀러 채널 통합 주문 조회
-     * GET /integrations/seller/orders?channel=SHOPIFY&search=...&page=1&size=20
+     * GET /integrations/seller/orders?channel=SHOPIFY&search=...&page=0&size=20
      */
     @GetMapping("/seller/orders")
     public ResponseEntity<ApiResponse<List<SellerChannelOrderDto>>> getSellerChannelOrders(
             @RequestHeader("X-Seller-Id") String sellerId,
             @RequestParam(required = false) String channel,
             @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
         SellerOrderQueryParams params = SellerOrderQueryParams.builder()

@@ -6,6 +6,7 @@ import com.conk.integration.common.exception.BusinessException;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
+import com.conk.integration.query.dto.SellerOrderQueryParams;
 import com.conk.integration.common.channel.dto.ChannelCredential;
 import com.conk.integration.query.mapper.ChannelApiMapper;
 import com.conk.integration.query.mapper.SellerChannelCardMapper;
@@ -24,6 +25,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
@@ -63,10 +65,11 @@ class QueryServiceTest {
             raw.setInvoiceNo("INV-001");
             raw.setShippedAt(null);
 
-            given(channelOrderMapper.findBySellerIdWithItemSummary("seller-A"))
+            given(channelOrderMapper.findBySellerIdWithItemSummary(argThat(params ->
+                    hasSellerPaging(params, "seller-A"))))
                     .willReturn(List.of(raw));
 
-            List<SellerChannelOrderDto> result = sellerChannelOrderQueryService.getOrders("seller-A");
+            List<SellerChannelOrderDto> result = sellerChannelOrderQueryService.getOrders(orderParams("seller-A"));
 
             assertThat(result).hasSize(1);
             SellerChannelOrderDto dto = result.get(0);
@@ -81,10 +84,11 @@ class QueryServiceTest {
         @DisplayName("조회 결과가 빈 목록이면 주문 목록을 조회했을 때 빈 리스트를 반환해야 한다")
         void getOrders_returnsEmptyList_whenNoOrders() {
             // mapper가 빈 결과를 줄 때 서비스는 추가 후처리 없이 빈 컬렉션을 유지해야 한다.
-            given(channelOrderMapper.findBySellerIdWithItemSummary("seller-B"))
+            given(channelOrderMapper.findBySellerIdWithItemSummary(argThat(params ->
+                    hasSellerPaging(params, "seller-B"))))
                     .willReturn(List.of());
 
-            List<SellerChannelOrderDto> result = sellerChannelOrderQueryService.getOrders("seller-B");
+            List<SellerChannelOrderDto> result = sellerChannelOrderQueryService.getOrders(orderParams("seller-B"));
 
             assertThat(result).isEmpty();
         }
@@ -93,7 +97,7 @@ class QueryServiceTest {
         @DisplayName("sellerId가 null이면 주문 목록을 조회했을 때 BusinessException을 발생시켜야 한다")
         void getOrders_throwsWhenSellerIdIsNull() {
             // 조회 계층에서도 sellerId 검증을 먼저 수행한다.
-            assertThatThrownBy(() -> sellerChannelOrderQueryService.getOrders(null))
+            assertThatThrownBy(() -> sellerChannelOrderQueryService.getOrders(orderParams(null)))
                     .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("sellerId는 필수");
         }
@@ -102,7 +106,7 @@ class QueryServiceTest {
         @DisplayName("sellerId가 빈 문자열이면 주문 목록을 조회했을 때 BusinessException을 발생시켜야 한다")
         void getOrders_throwsWhenSellerIdIsBlank() {
             // 공백 문자열은 의미 있는 조회 키가 아니므로 즉시 차단한다.
-            assertThatThrownBy(() -> sellerChannelOrderQueryService.getOrders("   "))
+            assertThatThrownBy(() -> sellerChannelOrderQueryService.getOrders(orderParams("   ")))
                     .isInstanceOf(BusinessException.class)
                     .hasMessageContaining("sellerId는 필수");
         }
@@ -256,6 +260,21 @@ class QueryServiceTest {
             cred.setAccessToken("test-token");
             return cred;
         }
+    }
+
+    private SellerOrderQueryParams orderParams(String sellerId) {
+        return SellerOrderQueryParams.builder()
+                .sellerId(sellerId)
+                .page(0)
+                .size(20)
+                .build();
+    }
+
+    private boolean hasSellerPaging(SellerOrderQueryParams params, String sellerId) {
+        return params != null
+                && sellerId.equals(params.getSellerId())
+                && params.getPage() == 0
+                && params.getSize() == 20;
     }
 }
 

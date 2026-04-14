@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.hamcrest.Matchers.*;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.*;
@@ -226,7 +227,12 @@ class IntegrationQueryControllerTest {
                     .status("NEW")
                     .build();
 
-            given(channelOrderQueryService.getOrders("seller-A")).willReturn(List.of(order));
+            given(channelOrderQueryService.getOrders(argThat(params ->
+                    params != null
+                            && "seller-A".equals(params.getSellerId())
+                            && params.getPage() == 0
+                            && params.getSize() == 20
+            ))).willReturn(List.of(order));
 
             // when & then
             mockMvc.perform(get("/integrations/seller/orders")
@@ -247,7 +253,12 @@ class IntegrationQueryControllerTest {
         @DisplayName("주문이 없으면 통합 주문 조회를 요청했을 때 HTTP 200 응답과 빈 배열을 반환해야 한다")
         void getSellerChannelOrders_returnsEmptyList() throws Exception {
             // given
-            given(channelOrderQueryService.getOrders("seller-B")).willReturn(List.of());
+            given(channelOrderQueryService.getOrders(argThat(params ->
+                    params != null
+                            && "seller-B".equals(params.getSellerId())
+                            && params.getPage() == 0
+                            && params.getSize() == 20
+            ))).willReturn(List.of());
 
             // when & then
             mockMvc.perform(get("/integrations/seller/orders")
@@ -280,7 +291,12 @@ class IntegrationQueryControllerTest {
                     .status("PROCESSING")
                     .build();
 
-            given(channelOrderQueryService.getOrders("seller-C")).willReturn(List.of(processingOrder));
+            given(channelOrderQueryService.getOrders(argThat(params ->
+                    params != null
+                            && "seller-C".equals(params.getSellerId())
+                            && params.getPage() == 0
+                            && params.getSize() == 20
+            ))).willReturn(List.of(processingOrder));
 
             // when & then
             mockMvc.perform(get("/integrations/seller/orders")
@@ -293,13 +309,39 @@ class IntegrationQueryControllerTest {
         @DisplayName("정상 요청이 주어지면 통합 주문 조회를 요청했을 때 응답 최상위 success 필드는 true여야 한다")
         void getSellerChannelOrders_successFieldIsTrue() throws Exception {
             // given
-            given(channelOrderQueryService.getOrders("seller-D")).willReturn(List.of());
+            given(channelOrderQueryService.getOrders(argThat(params ->
+                    params != null
+                            && "seller-D".equals(params.getSellerId())
+                            && params.getPage() == 0
+                            && params.getSize() == 20
+            ))).willReturn(List.of());
 
             // when & then
             mockMvc.perform(get("/integrations/seller/orders")
                             .header("X-Seller-Id", "seller-D"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
+        }
+
+        @Test
+        @DisplayName("0 페이지 요청이 주어지면 통합 주문 조회를 요청했을 때 첫 페이지 조건으로 서비스를 호출해야 한다")
+        void getSellerChannelOrders_zeroBasedPage_usesFirstPage() throws Exception {
+            // given
+            given(channelOrderQueryService.getOrders(argThat(params ->
+                    params != null
+                            && "seller-page-0".equals(params.getSellerId())
+                            && params.getPage() == 0
+                            && params.getSize() == 100
+            ))).willReturn(List.of());
+
+            // when & then
+            mockMvc.perform(get("/integrations/seller/orders")
+                            .header("X-Seller-Id", "seller-page-0")
+                            .param("page", "0")
+                            .param("size", "100"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data").isArray());
         }
     }
 }
