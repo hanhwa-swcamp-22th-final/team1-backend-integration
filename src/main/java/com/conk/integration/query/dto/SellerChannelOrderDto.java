@@ -1,5 +1,6 @@
 package com.conk.integration.query.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -20,6 +21,7 @@ public class SellerChannelOrderDto {
     private String recipient;
     private String itemsSummary;
     private Double orderAmount;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm")
     private LocalDateTime orderedAt;
     private String status;
 }

@@ -4,6 +4,7 @@ import com.conk.integration.common.ApiResponse;
 import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
+import com.conk.integration.query.dto.SellerChannelOrderPageDto;
 import com.conk.integration.query.dto.SellerOrderQueryParams;
 import com.conk.integration.query.service.SellerChannelCardQueryService;
 import com.conk.integration.query.service.SellerChannelDetailQueryService;
@@ -58,7 +59,7 @@ public class IntegrationQueryController {
      * GET /integrations/seller/orders?channel=SHOPIFY&search=...&page=0&size=20
      */
     @GetMapping("/seller/orders")
-    public ResponseEntity<ApiResponse<List<SellerChannelOrderDto>>> getSellerChannelOrders(
+    public ResponseEntity<ApiResponse<SellerChannelOrderPageDto>> getSellerChannelOrders(
             @RequestHeader("X-Seller-Id") String sellerId,
             @RequestParam(required = false) String channel,
             @RequestParam(required = false) String search,
@@ -72,6 +73,13 @@ public class IntegrationQueryController {
                 .page(page)
                 .size(size)
                 .build();
-        return ResponseEntity.ok(ApiResponse.ok(channelOrderQueryService.getOrders(params)));
+        List<SellerChannelOrderDto> items = channelOrderQueryService.getOrders(params);
+        SellerChannelOrderPageDto data = SellerChannelOrderPageDto.builder()
+                .items(items)
+                .total(channelOrderQueryService.countOrders(params))
+                .page(params.getPage())
+                .size(params.getSize())
+                .build();
+        return ResponseEntity.ok(ApiResponse.ok(data));
     }
 }

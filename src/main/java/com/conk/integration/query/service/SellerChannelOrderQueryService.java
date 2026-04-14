@@ -28,16 +28,23 @@ public class SellerChannelOrderQueryService {
      * @throws IllegalArgumentException  channel 값이 OrderChannel enum에 없는 경우
      */
     public List<SellerChannelOrderDto> getOrders(SellerOrderQueryParams params) {
-        SellerIdValidator.requireValid(params.getSellerId());
-        // channel이 전달된 경우 유효한 OrderChannel 값인지 확인한다.
-        if (params.getChannel() != null && !params.getChannel().isBlank()) {
-            OrderChannel.valueOf(params.getChannel());
-        }
+        validate(params);
         // mapper 결과를 표시 전용 DTO로 일괄 변환한다.
         return channelOrderMapper.findBySellerIdWithItemSummary(params)
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 셀러의 주문 목록 전체 개수를 동일한 필터 조건으로 조회한다.
+     *
+     * @param params 셀러ID, 채널, 검색어, 페이지 정보
+     * @return 전체 주문 수
+     */
+    public int countOrders(SellerOrderQueryParams params) {
+        validate(params);
+        return channelOrderMapper.countBySellerIdWithFilters(params);
     }
 
     // 조회 raw 결과를 응답 계약에 맞는 필드명/표현으로 정규화한다.
@@ -67,5 +74,12 @@ public class SellerChannelOrderQueryService {
         if (shippedAt != null && !shippedAt.isBlank()) return "SHIPPED";
         if (invoiceNo != null) return "PROCESSING";
         return "NEW";
+    }
+
+    private void validate(SellerOrderQueryParams params) {
+        SellerIdValidator.requireValid(params.getSellerId());
+        if (params.getChannel() != null && !params.getChannel().isBlank()) {
+            OrderChannel.valueOf(params.getChannel());
+        }
     }
 }

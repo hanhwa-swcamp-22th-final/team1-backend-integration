@@ -66,6 +66,17 @@ class SellerChannelOrderQueryServiceTest {
     }
 
     @Test
+    @DisplayName("필터 조건이 주어지면 전체 주문 수를 조회했을 때 mapper count 결과를 반환해야 한다")
+    void countOrders_returnsMapperCount() {
+        given(channelOrderMapper.countBySellerIdWithFilters(argThat(params ->
+                hasSellerPaging(params, "seller-1")))).willReturn(12);
+
+        assertThat(service.countOrders(orderParams("seller-1"))).isEqualTo(12);
+        verify(channelOrderMapper).countBySellerIdWithFilters(argThat(params ->
+                hasSellerPaging(params, "seller-1")));
+    }
+
+    @Test
     @DisplayName("주문 조회 결과가 주어지면 주문 목록을 조회했을 때 orderAmount는 null이어야 한다")
     void getOrders_orderAmountIsAlwaysNull() {
         // 현재 구현은 주문 금액을 채우지 않으므로 null 고정 동작을 드러낸다.

@@ -43,4 +43,23 @@
         LIMIT #{params.size} OFFSET #{params.offset}
     </select>
 
+    <select id="countBySellerIdWithFilters"
+            parameterType="com.conk.integration.query.dto.SellerOrderQueryParams"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM channel_order co
+        <where>
+            co.seller_id = #{params.sellerId}
+            <if test="params.channel != null and params.channel != ''">
+                AND co.order_channel = #{params.channel}
+            </if>
+            <if test="params.search != null and params.search != ''">
+                AND (
+                    co.channel_order_no LIKE CONCAT('%', #{params.search}, '%')
+                    OR co.receiver_name  LIKE CONCAT('%', #{params.search}, '%')
+                )
+            </if>
+        </where>
+    </select>
+
 </mapper>

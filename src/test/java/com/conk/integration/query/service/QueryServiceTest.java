@@ -94,6 +94,18 @@ class QueryServiceTest {
         }
 
         @Test
+        @DisplayName("필터 조건이 주어지면 전체 주문 수를 조회했을 때 mapper count 결과를 반환해야 한다")
+        void countOrders_returnsTotalCount() {
+            given(channelOrderMapper.countBySellerIdWithFilters(argThat(params ->
+                    hasSellerPaging(params, "seller-C"))))
+                    .willReturn(12);
+
+            int result = sellerChannelOrderQueryService.countOrders(orderParams("seller-C"));
+
+            assertThat(result).isEqualTo(12);
+        }
+
+        @Test
         @DisplayName("sellerId가 null이면 주문 목록을 조회했을 때 BusinessException을 발생시켜야 한다")
         void getOrders_throwsWhenSellerIdIsNull() {
             // 조회 계층에서도 sellerId 검증을 먼저 수행한다.

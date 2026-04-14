@@ -233,6 +233,12 @@ class IntegrationQueryControllerTest {
                             && params.getPage() == 0
                             && params.getSize() == 20
             ))).willReturn(List.of(order));
+            given(channelOrderQueryService.countOrders(argThat(params ->
+                    params != null
+                            && "seller-A".equals(params.getSellerId())
+                            && params.getPage() == 0
+                            && params.getSize() == 20
+            ))).willReturn(12);
 
             // when & then
             mockMvc.perform(get("/integrations/seller/orders")
@@ -240,13 +246,17 @@ class IntegrationQueryControllerTest {
                     .andDo(print())
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data").isArray())
-                    .andExpect(jsonPath("$.data", hasSize(1)))
-                    .andExpect(jsonPath("$.data[0].id").value("O-001"))
-                    .andExpect(jsonPath("$.data[0].channel").value("SHOPIFY"))
-                    .andExpect(jsonPath("$.data[0].recipient").value("홍길동"))
-                    .andExpect(jsonPath("$.data[0].itemsSummary").value("상품A 외 2건"))
-                    .andExpect(jsonPath("$.data[0].status").value("NEW"));
+                    .andExpect(jsonPath("$.data.items").isArray())
+                    .andExpect(jsonPath("$.data.items", hasSize(1)))
+                    .andExpect(jsonPath("$.data.total").value(12))
+                    .andExpect(jsonPath("$.data.page").value(0))
+                    .andExpect(jsonPath("$.data.size").value(20))
+                    .andExpect(jsonPath("$.data.items[0].id").value("O-001"))
+                    .andExpect(jsonPath("$.data.items[0].channel").value("SHOPIFY"))
+                    .andExpect(jsonPath("$.data.items[0].recipient").value("홍길동"))
+                    .andExpect(jsonPath("$.data.items[0].itemsSummary").value("상품A 외 2건"))
+                    .andExpect(jsonPath("$.data.items[0].orderedAt").value("2024-01-15 10:00"))
+                    .andExpect(jsonPath("$.data.items[0].status").value("NEW"));
         }
 
         @Test
@@ -259,13 +269,22 @@ class IntegrationQueryControllerTest {
                             && params.getPage() == 0
                             && params.getSize() == 20
             ))).willReturn(List.of());
+            given(channelOrderQueryService.countOrders(argThat(params ->
+                    params != null
+                            && "seller-B".equals(params.getSellerId())
+                            && params.getPage() == 0
+                            && params.getSize() == 20
+            ))).willReturn(0);
 
             // when & then
             mockMvc.perform(get("/integrations/seller/orders")
                             .header("X-Seller-Id", "seller-B"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data").isArray())
-                    .andExpect(jsonPath("$.data").isEmpty());
+                    .andExpect(jsonPath("$.data.items").isArray())
+                    .andExpect(jsonPath("$.data.items").isEmpty())
+                    .andExpect(jsonPath("$.data.total").value(0))
+                    .andExpect(jsonPath("$.data.page").value(0))
+                    .andExpect(jsonPath("$.data.size").value(20));
         }
 
         @Test
@@ -297,12 +316,19 @@ class IntegrationQueryControllerTest {
                             && params.getPage() == 0
                             && params.getSize() == 20
             ))).willReturn(List.of(processingOrder));
+            given(channelOrderQueryService.countOrders(argThat(params ->
+                    params != null
+                            && "seller-C".equals(params.getSellerId())
+                            && params.getPage() == 0
+                            && params.getSize() == 20
+            ))).willReturn(1);
 
             // when & then
             mockMvc.perform(get("/integrations/seller/orders")
                             .header("X-Seller-Id", "seller-C"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data[0].status").value("PROCESSING"));
+                    .andExpect(jsonPath("$.data.items[0].status").value("PROCESSING"))
+                    .andExpect(jsonPath("$.data.items[0].orderedAt").value("2024-01-16 11:00"));
         }
 
         @Test
@@ -315,6 +341,12 @@ class IntegrationQueryControllerTest {
                             && params.getPage() == 0
                             && params.getSize() == 20
             ))).willReturn(List.of());
+            given(channelOrderQueryService.countOrders(argThat(params ->
+                    params != null
+                            && "seller-D".equals(params.getSellerId())
+                            && params.getPage() == 0
+                            && params.getSize() == 20
+            ))).willReturn(0);
 
             // when & then
             mockMvc.perform(get("/integrations/seller/orders")
@@ -333,6 +365,12 @@ class IntegrationQueryControllerTest {
                             && params.getPage() == 0
                             && params.getSize() == 100
             ))).willReturn(List.of());
+            given(channelOrderQueryService.countOrders(argThat(params ->
+                    params != null
+                            && "seller-page-0".equals(params.getSellerId())
+                            && params.getPage() == 0
+                            && params.getSize() == 100
+            ))).willReturn(1);
 
             // when & then
             mockMvc.perform(get("/integrations/seller/orders")
@@ -341,7 +379,9 @@ class IntegrationQueryControllerTest {
                             .param("size", "100"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data").isArray());
+                    .andExpect(jsonPath("$.data.items").isArray())
+                    .andExpect(jsonPath("$.data.page").value(0))
+                    .andExpect(jsonPath("$.data.size").value(100));
         }
     }
 }

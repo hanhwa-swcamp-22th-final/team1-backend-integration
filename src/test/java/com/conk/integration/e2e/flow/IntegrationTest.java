@@ -312,12 +312,16 @@ class IntegrationTest {
                     .andDo(print())
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data").isArray())
-                    .andExpect(jsonPath("$.data", hasSize(1)))
-                    .andExpect(jsonPath("$.data[0].id").value("E2E-ORD-001"))
-                    .andExpect(jsonPath("$.data[0].channel").value("SHOPIFY"))
-                    .andExpect(jsonPath("$.data[0].recipient").value("E2E 수신자"))
-                    .andExpect(jsonPath("$.data[0].status").value("NEW"));
+                    .andExpect(jsonPath("$.data.items").isArray())
+                    .andExpect(jsonPath("$.data.items", hasSize(1)))
+                    .andExpect(jsonPath("$.data.total").value(1))
+                    .andExpect(jsonPath("$.data.page").value(0))
+                    .andExpect(jsonPath("$.data.size").value(20))
+                    .andExpect(jsonPath("$.data.items[0].id").value("E2E-ORD-001"))
+                    .andExpect(jsonPath("$.data.items[0].channel").value("SHOPIFY"))
+                    .andExpect(jsonPath("$.data.items[0].recipient").value("E2E 수신자"))
+                    .andExpect(jsonPath("$.data.items[0].orderedAt").value("2024-06-01 10:00"))
+                    .andExpect(jsonPath("$.data.items[0].status").value("NEW"));
         }
 
         @Test
@@ -340,9 +344,12 @@ class IntegrationTest {
                             .param("size", "100"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data").isArray())
-                    .andExpect(jsonPath("$.data", hasSize(1)))
-                    .andExpect(jsonPath("$.data[0].id").value("E2E-ORD-PAGE-001"));
+                    .andExpect(jsonPath("$.data.items").isArray())
+                    .andExpect(jsonPath("$.data.items", hasSize(1)))
+                    .andExpect(jsonPath("$.data.total").value(1))
+                    .andExpect(jsonPath("$.data.page").value(0))
+                    .andExpect(jsonPath("$.data.size").value(100))
+                    .andExpect(jsonPath("$.data.items[0].id").value("E2E-ORD-PAGE-001"));
         }
 
         @Test
@@ -353,8 +360,11 @@ class IntegrationTest {
                             .header("X-Seller-Id", "seller-EMPTY"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data").isArray())
-                    .andExpect(jsonPath("$.data").isEmpty());
+                    .andExpect(jsonPath("$.data.items").isArray())
+                    .andExpect(jsonPath("$.data.items").isEmpty())
+                    .andExpect(jsonPath("$.data.total").value(0))
+                    .andExpect(jsonPath("$.data.page").value(0))
+                    .andExpect(jsonPath("$.data.size").value(20));
         }
 
         @Test
@@ -382,7 +392,10 @@ class IntegrationTest {
             mockMvc.perform(get("/integrations/seller/orders")
                             .header("X-Seller-Id", "seller-E2E-2"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data[0].status").value("PROCESSING"));
+                    .andExpect(jsonPath("$.data.items[0].status").value("PROCESSING"))
+                    .andExpect(jsonPath("$.data.total").value(1))
+                    .andExpect(jsonPath("$.data.page").value(0))
+                    .andExpect(jsonPath("$.data.size").value(20));
         }
     }
 
