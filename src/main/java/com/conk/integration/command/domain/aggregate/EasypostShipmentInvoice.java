@@ -18,11 +18,15 @@ public class EasypostShipmentInvoice {
     @Id
     private String invoiceNo;
 
+    private String orderId;
+
     private String trackingCode;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
     private CarrierType carrierType;
+
+    private String service;
 
     private Integer freightChargeAmt;
 
