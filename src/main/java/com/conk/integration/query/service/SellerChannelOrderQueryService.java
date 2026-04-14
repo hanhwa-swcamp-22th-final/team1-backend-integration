@@ -1,8 +1,10 @@
 package com.conk.integration.query.service;
 
+import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import com.conk.integration.common.SellerIdValidator;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
+import com.conk.integration.query.dto.SellerOrderQueryParams;
 import com.conk.integration.query.mapper.SellerChannelOrderMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,16 +20,21 @@ public class SellerChannelOrderQueryService {
     private final SellerChannelOrderMapper channelOrderMapper;
 
     /**
-     * 셀러의 주문 목록을 조회하고 표시용 상태/요약 필드를 계산해 반환한다.
+     * 셀러의 주문 목록을 채널/검색어/페이지 조건으로 조회하고 표시용 필드를 계산해 반환한다.
      *
-     * @param sellerId 셀러 식별자
+     * @param params 셀러ID, 채널, 검색어, 페이지 정보
      * @return 주문 목록 (status, itemsSummary 필드 포함)
-     * @throws BusinessException sellerId가 null이거나 공백인 경우 (INT-001)
+     * @throws BusinessException         sellerId가 null이거나 공백인 경우 (INT-001)
+     * @throws IllegalArgumentException  channel 값이 OrderChannel enum에 없는 경우
      */
-    public List<SellerChannelOrderDto> getOrders(String sellerId) {
-        SellerIdValidator.requireValid(sellerId);
+    public List<SellerChannelOrderDto> getOrders(SellerOrderQueryParams params) {
+        SellerIdValidator.requireValid(params.getSellerId());
+        // channel이 전달된 경우 유효한 OrderChannel 값인지 확인한다.
+        if (params.getChannel() != null && !params.getChannel().isBlank()) {
+            OrderChannel.valueOf(params.getChannel());
+        }
         // mapper 결과를 표시 전용 DTO로 일괄 변환한다.
-        return channelOrderMapper.findBySellerIdWithItemSummary(sellerId)
+        return channelOrderMapper.findBySellerIdWithItemSummary(params)
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());

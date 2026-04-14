@@ -4,6 +4,7 @@ import com.conk.integration.common.ApiResponse;
 import com.conk.integration.common.channel.dto.SellerChannelDetailDto;
 import com.conk.integration.query.dto.SellerChannelCardDto;
 import com.conk.integration.query.dto.SellerChannelOrderDto;
+import com.conk.integration.query.dto.SellerOrderQueryParams;
 import com.conk.integration.query.service.SellerChannelCardQueryService;
 import com.conk.integration.query.service.SellerChannelDetailQueryService;
 import com.conk.integration.query.service.SellerChannelOrderQueryService;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -53,13 +55,23 @@ public class IntegrationQueryController {
 
     /**
      * 셀러 채널 통합 주문 조회
-     * GET /integrations/seller/orders
+     * GET /integrations/seller/orders?channel=SHOPIFY&search=...&page=1&size=20
      */
     @GetMapping("/seller/orders")
     public ResponseEntity<ApiResponse<List<SellerChannelOrderDto>>> getSellerChannelOrders(
-            @RequestHeader("X-Seller-Id") String sellerId) {
+            @RequestHeader("X-Seller-Id") String sellerId,
+            @RequestParam(required = false) String channel,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
 
-        // 주문 조회도 동일한 X-Seller-Id 헤더 계약을 따른다.
-        return ResponseEntity.ok(ApiResponse.ok(channelOrderQueryService.getOrders(sellerId)));
+        SellerOrderQueryParams params = SellerOrderQueryParams.builder()
+                .sellerId(sellerId)
+                .channel(channel)
+                .search(search)
+                .page(page)
+                .size(size)
+                .build();
+        return ResponseEntity.ok(ApiResponse.ok(channelOrderQueryService.getOrders(params)));
     }
 }

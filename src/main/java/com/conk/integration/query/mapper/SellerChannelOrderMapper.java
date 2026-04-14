@@ -1,6 +1,7 @@
 package com.conk.integration.query.mapper;
 
 import com.conk.integration.query.dto.SellerChannelOrderQueryResult;
+import com.conk.integration.query.dto.SellerOrderQueryParams;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -10,6 +11,6 @@ import java.util.List;
 @Mapper
 public interface SellerChannelOrderMapper {
 
-    // 주문 기본 정보와 첫 상품/품목 수 요약용 컬럼을 함께 조회한다.
-    List<SellerChannelOrderQueryResult> findBySellerIdWithItemSummary(@Param("sellerId") String sellerId);
+    // 채널/검색어/페이지 조건을 적용해 주문 기본 정보와 상품 요약을 함께 조회한다.
+    List<SellerChannelOrderQueryResult> findBySellerIdWithItemSummary(@Param("params") SellerOrderQueryParams params);
 }

@@ -5,30 +5,42 @@
 <mapper namespace="com.conk.integration.query.mapper.SellerChannelOrderMapper">
 
     <select id="findBySellerIdWithItemSummary"
-            parameterType="string"
+            parameterType="com.conk.integration.query.dto.SellerOrderQueryParams"
             resultType="com.conk.integration.query.dto.SellerChannelOrderQueryResult">
         SELECT
-            co.order_id          AS orderId,
-            co.channel_order_no  AS channelOrderNo,
-            co.order_channel     AS orderChannel,
-            co.ordered_at        AS orderedAt,
-            co.receiver_name     AS receiverName,
-            co.invoice_no        AS invoiceNo,
-            co.shipped_at        AS shippedAt,
+            co.order_id         AS orderId,
+            co.channel_order_no AS channelOrderNo,
+            co.order_channel    AS orderChannel,
+            co.ordered_at       AS orderedAt,
+            co.receiver_name    AS receiverName,
+            co.invoice_no       AS invoiceNo,
+            co.shipped_at       AS shippedAt,
             (
                 SELECT coi.product_name_snapshot
                 FROM   channel_order_item coi
                 WHERE  coi.order_id = co.order_id
                 LIMIT  1
-            )                    AS firstItemName,
+            )                   AS firstItemName,
             (
                 SELECT COUNT(*)
                 FROM   channel_order_item coi2
                 WHERE  coi2.order_id = co.order_id
-            )                    AS itemCount
+            )                   AS itemCount
         FROM channel_order co
-        WHERE co.seller_id = #{sellerId}
+        <where>
+            co.seller_id = #{params.sellerId}
+            <if test="params.channel != null and params.channel != ''">
+                AND co.order_channel = #{params.channel}
+            </if>
+            <if test="params.search != null and params.search != ''">
+                AND (
+                    co.channel_order_no LIKE CONCAT('%', #{params.search}, '%')
+                    OR co.receiver_name  LIKE CONCAT('%', #{params.search}, '%')
+                )
+            </if>
+        </where>
         ORDER BY co.ordered_at DESC
+        LIMIT #{params.size} OFFSET #{params.offset}
     </select>
 
 </mapper>
