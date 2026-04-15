@@ -25,13 +25,13 @@ public final class EasyPostShipmentConverter {
      * @return 저장 가능한 송장 엔티티
      */
     public static EasypostShipmentInvoice toInvoice(EasyPostShipmentResponse response) {
-        return toInvoice(response, null, null);
+        return toInvoice(response, null, null, null);
     }
 
-    public static EasypostShipmentInvoice toInvoice(EasyPostShipmentResponse response, String orderId, String requestedService) {
+    public static EasypostShipmentInvoice toInvoice(EasyPostShipmentResponse response, String orderId, String requestedService, String trackingUrlPrefix) {
         EasyPostShipmentResponse.RateDto selected = response.getSelectedRate();
         String labelUrl = response.getPostageLabel() != null ? response.getPostageLabel().getLabelUrl() : null;
-        String trackingUrl = resolveTrackingUrl(response);
+        String trackingUrl = resolveTrackingUrl(response, trackingUrlPrefix);
         String shipToAddress = resolveShipToAddress(response.getToAddress());
 
         int freightChargeAmtCents = 0;
@@ -75,12 +75,13 @@ public final class EasyPostShipmentConverter {
     }
 
     // tracker 공개 URL이 있으면 우선 사용하고, 없으면 trackingCode 기반 URL을 만든다.
-    private static String resolveTrackingUrl(EasyPostShipmentResponse response) {
+    private static String resolveTrackingUrl(EasyPostShipmentResponse response, String trackingUrlPrefix) {
         if (response.getTracker() != null && response.getTracker().getPublicUrl() != null) {
             return response.getTracker().getPublicUrl();
         }
         if (response.getTrackingCode() != null) {
-            return "https://track.easypost.com/" + response.getTrackingCode();
+            String prefix = trackingUrlPrefix != null ? trackingUrlPrefix : "https://track.easypost.com/";
+            return prefix + response.getTrackingCode();
         }
         return null;
     }

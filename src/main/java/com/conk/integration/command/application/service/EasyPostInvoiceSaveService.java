@@ -3,6 +3,7 @@ package com.conk.integration.command.application.service;
 import com.conk.integration.command.application.dto.request.EasyPostCreateShipmentRequest;
 import com.conk.integration.command.application.dto.request.OrderInvoicePair;
 import com.conk.integration.command.application.dto.response.BulkInvoiceResponse;
+import com.conk.integration.command.infrastructure.config.EasyPostProperties;
 import com.conk.integration.command.infrastructure.service.easypost.EasyPostShipmentResponse;
 import com.conk.integration.command.application.dto.InvoiceTargetDto;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
@@ -25,6 +26,7 @@ public class EasyPostInvoiceSaveService {
     private final EasyPostApiClient easyPostApiClient;
     private final EasypostShipmentInvoiceRepository invoiceRepository;
     private final ChannelOrderInvoiceMapper channelOrderInvoiceMapper;
+    private final EasyPostProperties easyPostProperties;
 
     /**
      * 배송 송장을 생성하고 DB에 저장한다.
@@ -41,7 +43,7 @@ public class EasyPostInvoiceSaveService {
 
         EasyPostShipmentResponse bought = easyPostApiClient.buyRate(shipment.getId(), cheapest.getId());
 
-        EasypostShipmentInvoice invoice = EasyPostShipmentConverter.toInvoice(bought);
+        EasypostShipmentInvoice invoice = EasyPostShipmentConverter.toInvoice(bought, null, null, easyPostProperties.getTrackingUrlPrefix());
         return invoiceRepository.save(invoice);
     }
 

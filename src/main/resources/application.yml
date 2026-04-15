@@ -46,6 +46,7 @@ easypost:
   # 로컬 직접 실행: 기본값 사용 (api-key는 개발자가 직접 설정 필요)
   api-key: ${EASYPOST_API_KEY:}
   base-url: ${EASYPOST_BASE_URL:https://api.easypost.com}
+  tracking-url-prefix: ${EASYPOST_TRACKING_URL_PREFIX:https://track.easypost.com/}
 
 management:
   endpoints:

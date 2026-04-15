@@ -4,6 +4,7 @@ import com.conk.integration.command.application.dto.request.EasyPostCreateShipme
 import com.conk.integration.command.application.dto.request.InternalLabelRequest;
 import com.conk.integration.command.application.dto.response.InternalLabelRecommendationResponse;
 import com.conk.integration.command.application.dto.response.InternalLabelResponse;
+import com.conk.integration.command.infrastructure.config.EasyPostProperties;
 import com.conk.integration.command.domain.aggregate.EasypostShipmentInvoice;
 import com.conk.integration.command.domain.aggregate.enums.CarrierType;
 import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
@@ -29,11 +30,14 @@ public class InternalLabelService {
 
     private final EasyPostApiClient easyPostApiClient;
     private final EasypostShipmentInvoiceRepository invoiceRepository;
+    private final EasyPostProperties easyPostProperties;
 
     public InternalLabelService(EasyPostApiClient easyPostApiClient,
-                                EasypostShipmentInvoiceRepository invoiceRepository) {
+                                EasypostShipmentInvoiceRepository invoiceRepository,
+                                EasyPostProperties easyPostProperties) {
         this.easyPostApiClient = easyPostApiClient;
         this.invoiceRepository = invoiceRepository;
+        this.easyPostProperties = easyPostProperties;
     }
 
     @Transactional
@@ -45,7 +49,8 @@ public class InternalLabelService {
         EasypostShipmentInvoice invoice = EasyPostShipmentConverter.toInvoice(
                 bought,
                 request.getOrderId(),
-                rate.getService()
+                rate.getService(),
+                easyPostProperties.getTrackingUrlPrefix()
         );
         EasypostShipmentInvoice saved = invoiceRepository.save(invoice);
         return InternalLabelResponse.from(saved);
