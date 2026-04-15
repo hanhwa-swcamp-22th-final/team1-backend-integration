@@ -77,14 +77,13 @@ class SellerChannelOrderQueryServiceTest {
     }
 
     @Test
-    @DisplayName("주문 조회 결과가 주어지면 주문 목록을 조회했을 때 orderAmount는 null이어야 한다")
-    void getOrders_orderAmountIsAlwaysNull() {
-        // 현재 구현은 주문 금액을 채우지 않으므로 null 고정 동작을 드러낸다.
+    @DisplayName("주문 조회 결과가 주어지면 주문 목록을 조회했을 때 orderAmount는 0이어야 한다")
+    void getOrders_orderAmountDefaultsToZero() {
         given(channelOrderMapper.findBySellerIdWithItemSummary(argThat(params ->
                 hasSellerPaging(params, "seller-1"))))
                 .willReturn(List.of(buildRaw("ORD-1", "SHOPIFY", "상품A", 1, null, null, LocalDateTime.now())));
 
-        assertThat(service.getOrders(orderParams("seller-1")).get(0).getOrderAmount()).isNull();
+        assertThat(service.getOrders(orderParams("seller-1")).get(0).getOrderAmount()).isEqualTo(0D);
     }
 
     @Test
