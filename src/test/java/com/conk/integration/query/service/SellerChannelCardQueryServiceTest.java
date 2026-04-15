@@ -66,13 +66,20 @@ class SellerChannelCardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("채널 카드 조회 결과가 비어 있으면 채널 카드 목록을 조회했을 때 빈 리스트를 반환해야 한다")
-    void getChannelCards_returnsEmpty_whenMapperReturnsEmpty() {
+    @DisplayName("채널 카드 조회 결과가 비어 있어도 채널 카드 목록을 조회했을 때 Shopify 기본 카드를 반환해야 한다")
+    void getChannelCards_returnsShopifyDefault_whenMapperReturnsEmpty() {
         given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1")).willReturn(List.of());
+        given(credentialReader.supports("SHOPIFY")).willReturn(true);
+        given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
+        given(credentialReader.read("seller-1", "SHOPIFY"))
+                .willThrow(new BusinessException(ErrorCode.CHANNEL_CREDENTIALS_NOT_FOUND));
 
         List<SellerChannelCardDto> result = service.getChannelCards("seller-1");
 
-        assertThat(result).isEmpty();
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getKey()).isEqualTo("SHOPIFY");
+        assertThat(result.get(0).getLabel()).isEqualTo("Shopify");
+        assertThat(result.get(0).getSyncStatus()).isEqualTo("NOT_CONFIGURED");
         verify(channelCardMapper).findBySellerIdGroupedByChannel("seller-1");
     }
 
@@ -156,6 +163,25 @@ class SellerChannelCardQueryServiceTest {
 
         assertThat(service.getChannelCards("seller-1").get(0).getSyncStatus()).isEqualTo("NOT_CONFIGURED");
         verify(connectionVerifier, times(0)).verify(any(), any());
+    }
+
+    @Test
+    @DisplayName("Shopify 카드가 없어도 다른 채널 카드 목록을 조회했을 때 연결 가능한 Shopify 기본 카드를 함께 반환해야 한다")
+    void getChannelCards_appendsShopifyDefault_whenMissing() {
+        given(channelCardMapper.findBySellerIdGroupedByChannel("seller-1"))
+                .willReturn(List.of(buildCard("AMAZON", "PLANNED", 0, 0, null)));
+        given(credentialReader.supports(any())).willAnswer(invocation -> "SHOPIFY".equals(invocation.getArgument(0)));
+        given(connectionVerifier.supports(any())).willAnswer(invocation -> "SHOPIFY".equals(invocation.getArgument(0)));
+        given(credentialReader.read("seller-1", "SHOPIFY"))
+                .willThrow(new BusinessException(ErrorCode.CHANNEL_CREDENTIALS_NOT_FOUND));
+
+        List<SellerChannelCardDto> result = service.getChannelCards("seller-1");
+
+        assertThat(result).hasSize(2);
+        assertThat(result)
+                .extracting(SellerChannelCardDto::getKey)
+                .containsExactly("AMAZON", "SHOPIFY");
+        assertThat(result.get(1).getSyncStatus()).isEqualTo("NOT_CONFIGURED");
     }
 
     @Test

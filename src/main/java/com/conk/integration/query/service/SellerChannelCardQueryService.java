@@ -11,6 +11,7 @@ import com.conk.integration.query.mapper.SellerChannelCardMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,6 +19,9 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class SellerChannelCardQueryService {
+
+    private static final String SHOPIFY_CHANNEL_KEY = "SHOPIFY";
+    private static final String NOT_CONFIGURED = "NOT_CONFIGURED";
 
     private final SellerChannelCardMapper channelCardMapper;
     private final List<ChannelCredentialReader> credentialReaders;
@@ -33,7 +37,8 @@ public class SellerChannelCardQueryService {
      */
     public List<SellerChannelCardDto> getChannelCards(String sellerId) {
         SellerIdValidator.requireValid(sellerId);
-        List<SellerChannelCardDto> cards = channelCardMapper.findBySellerIdGroupedByChannel(sellerId);
+        List<SellerChannelCardDto> cards = new ArrayList<>(channelCardMapper.findBySellerIdGroupedByChannel(sellerId));
+        ensureDefaultShopifyCard(cards);
         cards.forEach(card -> {
             // DB에는 코드값만 있으므로 화면 표시에 맞는 label을 후처리한다.
             card.setLabel(ChannelLabelResolver.toLabel(card.getKey()));
@@ -43,6 +48,25 @@ public class SellerChannelCardQueryService {
             }
         });
         return cards;
+    }
+
+    private void ensureDefaultShopifyCard(List<SellerChannelCardDto> cards) {
+        boolean hasShopifyCard = cards.stream()
+                .map(SellerChannelCardDto::getKey)
+                .anyMatch(SHOPIFY_CHANNEL_KEY::equalsIgnoreCase);
+
+        if (hasShopifyCard) {
+            return;
+        }
+
+        SellerChannelCardDto defaultCard = new SellerChannelCardDto();
+        defaultCard.setKey(SHOPIFY_CHANNEL_KEY);
+        defaultCard.setLabel(ChannelLabelResolver.toLabel(SHOPIFY_CHANNEL_KEY));
+        defaultCard.setSyncStatus(NOT_CONFIGURED);
+        defaultCard.setPendingOrders(0);
+        defaultCard.setTodayImported(0);
+        defaultCard.setLastSyncedAt(null);
+        cards.add(defaultCard);
     }
 
     /**
@@ -66,7 +90,7 @@ public class SellerChannelCardQueryService {
                             ? "CONNECTED"
                             : "DISCONNECTED");
         } catch (BusinessException e) {
-            return Optional.of("NOT_CONFIGURED");
+            return Optional.of(NOT_CONFIGURED);
         }
     }
 
