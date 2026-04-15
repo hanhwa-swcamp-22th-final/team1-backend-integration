@@ -36,7 +36,7 @@ class SellerChannelDetailQueryServiceTest {
 
     @Test
     @DisplayName("Shopify 자격 증명이 있고 ping에 성공하면 채널 상세를 조회했을 때 계약 DTO를 반환해야 한다")
-        void getChannelDetail_shopifyConnected_returnsDetail() {
+    void getChannelDetail_shopifyConnected_returnsDetail() {
         ChannelConnectionInfo connectionInfo = buildConnectionInfo("SHOPIFY", "shpat_xxxxxxxx", "my-shopify-store", LocalDateTime.of(2026, 1, 15, 9, 0));
         given(channelApiQueryService.findChannelConnectionInfo("seller-A", "SHOPIFY")).willReturn(connectionInfo);
         given(connectionVerifier.supports("SHOPIFY")).willReturn(true);
