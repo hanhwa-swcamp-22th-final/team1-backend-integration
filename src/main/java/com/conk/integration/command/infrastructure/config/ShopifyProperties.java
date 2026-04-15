@@ -16,7 +16,7 @@ public class ShopifyProperties {
     private static final Pattern SHOPIFY_STORE_PATTERN =
             Pattern.compile("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$");
 
-    private String apiVersion = "2025-01";
+    private String apiVersion;
 
     // 스토어 단위 기본 URL.
     public String getBaseUrl(String storeName) {

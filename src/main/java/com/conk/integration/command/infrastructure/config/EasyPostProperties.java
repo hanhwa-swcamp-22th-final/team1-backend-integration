@@ -11,7 +11,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class EasyPostProperties {
 
     private String apiKey;
-    private String baseUrl = "https://api.easypost.com";
+    private String baseUrl;
+    private String trackingUrlPrefix;
 
     // shipment 생성 엔드포인트.
     public String getShipmentsUrl() {
