@@ -56,7 +56,7 @@ public class SellerChannelOrderQueryService {
                 .conkOrderNo(raw.getOrderId())
                 .recipient(raw.getReceiverName())
                 .itemsSummary(buildItemsSummary(raw.getFirstItemName(), raw.getItemCount()))
-                .orderAmount(null)
+                .orderAmount(0D)
                 .orderedAt(raw.getOrderedAt())
                 .status(resolveStatus(raw.getInvoiceNo(), raw.getShippedAt()))
                 .build();
