@@ -39,7 +39,7 @@ mybatis:
 
 shopify:
   # store-name, access-token 은 사용자가 UI에서 입력 → DB 저장
-  api-version: 2025-01
+  api-version: ${SHOPIFY_API_VERSION:2025-01}
 
 easypost:
   # Docker: EASYPOST_API_KEY, EASYPOST_BASE_URL 환경변수로 주입
