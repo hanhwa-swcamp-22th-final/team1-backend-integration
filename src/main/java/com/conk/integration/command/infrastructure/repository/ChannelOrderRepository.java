@@ -17,4 +17,7 @@ public interface ChannelOrderRepository extends JpaRepository<ChannelOrder, Stri
     Optional<ChannelOrder> findFirstBySellerIdAndOrderChannelOrderByAuditCreatedAtDesc(
             String sellerId,
             OrderChannel orderChannel);
+
+    // 동일 셀러+채널 주문번호가 이미 저장되어 있는지 확인한다 (sync 멱등성 보장).
+    boolean existsBySellerIdAndChannelOrderNo(String sellerId, String channelOrderNo);
 }

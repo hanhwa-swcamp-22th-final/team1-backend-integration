@@ -2,6 +2,7 @@ package com.conk.integration.command.application.service.shopify;
 
 import com.conk.integration.command.application.dto.response.ChannelOrderSyncResponse;
 import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderResponse;
+import com.conk.integration.command.application.service.ChannelOrderIdGenerator;
 import com.conk.integration.command.application.service.ChannelOrderSyncer;
 import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.ChannelOrderItem;
@@ -31,6 +32,7 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
     private final ShopifyOrderClient shopifyOrderClient;
     private final ChannelOrderRepository channelOrderRepository;
     private final ChannelApiQueryService channelApiQueryService;
+    private final ChannelOrderIdGenerator channelOrderIdGenerator;
 
     @Override
     public boolean supports(OrderChannel channel) {
@@ -59,14 +61,15 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
         List<ChannelOrder> savedOrders = new ArrayList<>();
 
         for (ShopifyOrderResponse.OrderNode node : orders) {
-            // GID에서 숫자 ID 추출: "gid://shopify/Order/12345" → "12345"
-            String orderId = extractIdFromGid(node.getId());
+            String channelOrderNo = node.getName();
 
-            if (channelOrderRepository.existsById(orderId)) {
-                log.debug("중복 주문 skip: {}", orderId);
+            if (channelOrderRepository.existsBySellerIdAndChannelOrderNo(sellerId, channelOrderNo)) {
+                log.debug("중복 주문 skip: {}", channelOrderNo);
                 skippedCount++;
                 continue;
             }
+
+            String orderId = channelOrderIdGenerator.generate(OrderChannel.SHOPIFY);
 
             ChannelOrder order = toChannelOrder(node, orderId, sellerId);
             channelOrderRepository.save(order);
