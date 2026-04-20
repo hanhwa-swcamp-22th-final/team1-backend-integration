@@ -88,7 +88,7 @@ public class ShopifyOrderResponse {
         private String createdAt;
 
         @JsonProperty("currentTotalPriceSet")
-        private String currentTotalPriceSet;
+        private CurrentTotalPriceSet currentTotalPriceSet;
 
         @JsonProperty("shippingAddress")
         private ShippingAddress shippingAddress;
@@ -99,7 +99,22 @@ public class ShopifyOrderResponse {
         @JsonProperty("lineItems")
         private LineItemConnection lineItems;
     }
-
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class CurrentTotalPriceSet {
+        @JsonProperty("shopMoney")
+        ShopMoney shopMoney;
+    }
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class ShopMoney {
+        @JsonProperty("amount")
+        String amount;
+        @JsonProperty("currencyCode")
+        String currencyCode;
+    }
     @Getter
     @Setter
     @NoArgsConstructor

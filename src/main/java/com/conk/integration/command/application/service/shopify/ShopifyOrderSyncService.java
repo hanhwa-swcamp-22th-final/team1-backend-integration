@@ -123,7 +123,7 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
                 .shipToZipCode(addrField(addr, ShopifyOrderResponse.ShippingAddress::getZip))
                 .sellerId(sellerId)
                 .fulfillmentOrderId(extractFulfillmentOrderId(node))
-                .totalAmount(parseAmount(node.getCurrentTotalPriceSet()))
+                .totalAmount(parseAmount(node.getCurrentTotalPriceSet().getShopMoney().getAmount()))
                 .build();
 
         buildItems(node, orderId, order);

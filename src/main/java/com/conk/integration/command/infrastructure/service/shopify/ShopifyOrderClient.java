@@ -38,7 +38,12 @@ public class ShopifyOrderClient {
                     name
                     email
                     createdAt
-                    currentTotalPriceSet
+                    currentTotalPriceSet {
+                      shopMoney {
+                        amount
+                        currencyCode
+                      }
+                    }
                     shippingAddress {
                       name
                       firstName
