@@ -8,6 +8,7 @@
             resultType="com.conk.integration.command.application.dto.FulfillmentTargetDto">
         SELECT
             co.order_id                       AS orderId,
+            co.channel_order_no               AS channelOrderNo,
             co.fulfillment_order_id           AS fulfillmentOrderId,
             co.invoice_no                     AS invoiceNo,
             esi.carrier_type                  AS carrierType

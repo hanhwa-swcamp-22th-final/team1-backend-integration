@@ -6,6 +6,7 @@ import com.conk.integration.common.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -22,10 +23,12 @@ import java.util.Map;
 /**
  * Shopify GraphQL Admin API로 주문 목록을 조회한다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ShopifyOrderClient {
 
+    // fulfillmentOrders는 read_merchant_managed_fulfillment_orders scope가 필요해 별도 쿼리로 분리했다.
     private static final String ORDERS_QUERY_TEMPLATE = """
             {
               orders(first: 250%s%s) {
@@ -47,13 +50,6 @@ public class ShopifyOrderClient {
                       zip
                       countryCode
                     }
-                    fulfillmentOrders(first: 1) {
-                      edges {
-                        node {
-                          id
-                        }
-                      }
-                    }
                     lineItems(first: 50) {
                       edges {
                         node {
@@ -71,6 +67,24 @@ public class ShopifyOrderClient {
                 pageInfo {
                   hasNextPage
                   endCursor
+                }
+              }
+            }
+            """;
+
+    private static final String FULFILLMENT_ORDER_ID_QUERY_TEMPLATE = """
+            {
+              orders(first: 1, query: "name:%s") {
+                edges {
+                  node {
+                    fulfillmentOrders(first: 1) {
+                      edges {
+                        node {
+                          id
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -161,6 +175,9 @@ public class ShopifyOrderClient {
                     ShopifyOrderResponse.class
             ).getBody();
 
+            if (response != null && response.getErrors() != null && !response.getErrors().isEmpty()) {
+                response.getErrors().forEach(e -> log.error("Shopify GraphQL error: {}", e.getMessage()));
+            }
             if (response == null || response.getData() == null
                     || response.getData().getOrders() == null) {
                 throw new BusinessException(ErrorCode.SHOPIFY_EMPTY_RESPONSE);
@@ -193,6 +210,48 @@ public class ShopifyOrderClient {
     private List<ShopifyOrderResponse.OrderEdge> getOrderEdges(ShopifyOrderResponse response) {
         List<ShopifyOrderResponse.OrderEdge> edges = response.getData().getOrders().getEdges();
         return edges == null ? Collections.emptyList() : edges;
+    }
+
+    /**
+     * 주문명(예: #1001)으로 fulfillmentOrderId를 Shopify에서 조회한다.
+     * read_merchant_managed_fulfillment_orders scope가 필요하다.
+     *
+     * @param storeName      Shopify 스토어명
+     * @param accessToken    Shopify Admin API 액세스 토큰
+     * @param channelOrderNo Shopify 주문명 (예: #1001)
+     * @return fulfillmentOrder GID, 없으면 null
+     */
+    public String getFulfillmentOrderId(String storeName, String accessToken, String channelOrderNo) {
+        try {
+            String query = FULFILLMENT_ORDER_ID_QUERY_TEMPLATE.formatted(channelOrderNo);
+            String jsonBody = objectMapper.writeValueAsString(Map.of("query", query));
+            HttpEntity<String> entity = new HttpEntity<>(jsonBody, buildHeaders(accessToken));
+
+            ShopifyOrderResponse response = restTemplate.exchange(
+                    properties.getGraphQLUrl(storeName),
+                    HttpMethod.POST,
+                    entity,
+                    ShopifyOrderResponse.class
+            ).getBody();
+
+            if (response != null && response.getErrors() != null && !response.getErrors().isEmpty()) {
+                response.getErrors().forEach(e -> log.error("Shopify GraphQL error (fulfillmentOrderId): {}", e.getMessage()));
+            }
+            if (response == null || response.getData() == null
+                    || response.getData().getOrders() == null) {
+                return null;
+            }
+
+            return getOrderEdges(response).stream()
+                    .findFirst()
+                    .map(edge -> edge.getNode().getFulfillmentOrders())
+                    .filter(fo -> fo != null && fo.getEdges() != null && !fo.getEdges().isEmpty())
+                    .map(fo -> fo.getEdges().get(0).getNode().getId())
+                    .orElse(null);
+
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(ErrorCode.SHOPIFY_SERIALIZATION_FAILED);
+        }
     }
 
     /**

@@ -9,6 +9,7 @@ import lombok.Data;
 public class FulfillmentTargetDto {
 
     private String orderId;
+    private String channelOrderNo;
     private String fulfillmentOrderId;
     private String invoiceNo;
     private String carrierType;

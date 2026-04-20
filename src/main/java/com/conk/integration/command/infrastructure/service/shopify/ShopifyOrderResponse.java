@@ -16,6 +16,17 @@ public class ShopifyOrderResponse {
     @JsonProperty("data")
     private Data data;
 
+    @JsonProperty("errors")
+    private List<GraphQLError> errors;
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class GraphQLError {
+        @JsonProperty("message")
+        private String message;
+    }
+
     @Getter
     @Setter
     @NoArgsConstructor
