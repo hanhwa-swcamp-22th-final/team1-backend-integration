@@ -13,6 +13,7 @@
             co.order_channel    AS orderChannel,
             co.ordered_at       AS orderedAt,
             co.receiver_name    AS receiverName,
+            co.total_amount     AS totalAmount,
             co.invoice_no       AS invoiceNo,
             co.shipped_at       AS shippedAt,
             (

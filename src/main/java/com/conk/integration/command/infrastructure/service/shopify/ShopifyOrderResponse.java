@@ -87,6 +87,9 @@ public class ShopifyOrderResponse {
         @JsonProperty("createdAt")
         private String createdAt;
 
+        @JsonProperty("currentTotalPrice")
+        private String currentTotalPrice;
+
         @JsonProperty("shippingAddress")
         private ShippingAddress shippingAddress;
 

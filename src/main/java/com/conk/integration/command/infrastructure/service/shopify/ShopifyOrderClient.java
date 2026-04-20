@@ -38,6 +38,7 @@ public class ShopifyOrderClient {
                     name
                     email
                     createdAt
+                    currentTotalPrice
                     shippingAddress {
                       name
                       firstName

@@ -56,7 +56,7 @@ public class SellerChannelOrderQueryService {
                 .conkOrderNo(raw.getOrderId())
                 .recipient(raw.getReceiverName())
                 .itemsSummary(buildItemsSummary(raw.getFirstItemName(), raw.getItemCount()))
-                .orderAmount(0D)
+                .orderAmount(raw.getTotalAmount() != null ? raw.getTotalAmount().doubleValue() : 0D)
                 .orderedAt(raw.getOrderedAt())
                 .status(resolveStatus(raw.getInvoiceNo(), raw.getShippedAt()))
                 .build();
@@ -66,7 +66,7 @@ public class SellerChannelOrderQueryService {
     String buildItemsSummary(String firstItemName, int itemCount) {
         if (firstItemName == null || firstItemName.isBlank()) return "";
         if (itemCount <= 1) return firstItemName;
-        return firstItemName + " 외 " + (itemCount - 1) + "건";
+        return firstItemName + ", ...";
     }
 
     // 송장/출고 시각 존재 여부로 주문 진행 상태를 계산한다.

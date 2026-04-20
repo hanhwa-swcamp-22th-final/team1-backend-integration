@@ -5,6 +5,7 @@ import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +42,9 @@ public class ChannelOrder {
     private String shipToCity;
 
     private String shipToZipCode;
+
+    @Column(precision = 15, scale = 2)
+    private BigDecimal totalAmount;
 
     // schema: VARCHAR(255) — not DATETIME
     private String shippedAt;

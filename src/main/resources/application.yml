@@ -56,6 +56,18 @@ easypost:
   base-url: ${EASYPOST_BASE_URL:https://api.easypost.com}
   tracking-url-prefix: ${EASYPOST_TRACKING_URL_PREFIX:https://track.easypost.com/}
 
+order:
+  # Docker/k8s: ORDER_SERVICE_URL 환경변수로 주입 (coreDNS 서비스명)
+  # 로컬 직접 실행: 기본값 localhost:8082 사용
+  service:
+    url: ${ORDER_SERVICE_URL:http://localhost:8082}
+
+wms:
+  # Docker/k8s: WMS_SERVICE_URL 환경변수로 주입 (coreDNS 서비스명)
+  # 로컬 직접 실행: 기본값 localhost:8083 사용
+  service:
+    url: ${WMS_SERVICE_URL:http://localhost:8083}
+
 management:
   endpoints:
     web:

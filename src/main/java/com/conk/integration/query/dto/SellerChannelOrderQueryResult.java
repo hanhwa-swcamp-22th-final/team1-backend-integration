@@ -2,6 +2,7 @@ package com.conk.integration.query.dto;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -19,6 +20,7 @@ public class SellerChannelOrderQueryResult {
     private String receiverName;
     private String invoiceNo;
     private String shippedAt;
+    private BigDecimal totalAmount;
     private String firstItemName;
     private int itemCount;
 }

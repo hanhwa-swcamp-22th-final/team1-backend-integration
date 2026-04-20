@@ -5,6 +5,7 @@ import com.conk.integration.command.domain.aggregate.ChannelOrderItem;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -15,6 +16,7 @@ public class ChannelOrderSyncResponse {
 
     private int savedCount;
     private int skippedCount;
+    private int failedSyncCount;
     private List<OrderDto> orders;
 
     @Getter
@@ -25,6 +27,7 @@ public class ChannelOrderSyncResponse {
         private String channelOrderNo;
         private LocalDateTime orderedAt;
         private String receiverName;
+        private BigDecimal totalAmount;
         private List<ItemDto> items;
 
         public static OrderDto from(ChannelOrder order) {
@@ -36,6 +39,7 @@ public class ChannelOrderSyncResponse {
                     order.getChannelOrderNo(),
                     order.getOrderedAt(),
                     order.getReceiverName(),
+                    order.getTotalAmount(),
                     items
             );
         }

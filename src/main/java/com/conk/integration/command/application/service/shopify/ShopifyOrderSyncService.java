@@ -8,6 +8,10 @@ import com.conk.integration.command.domain.aggregate.ChannelOrder;
 import com.conk.integration.command.domain.aggregate.ChannelOrderItem;
 import com.conk.integration.command.domain.aggregate.embeddable.ChannelOrderItemId;
 import com.conk.integration.command.domain.aggregate.enums.OrderChannel;
+import com.conk.integration.command.infrastructure.client.OrderServiceClient;
+import com.conk.integration.command.infrastructure.client.WmsClient;
+import com.conk.integration.command.infrastructure.client.dto.ShopifyOrderSyncRequest;
+import com.conk.integration.command.infrastructure.repository.ChannelOrderItemRepository;
 import com.conk.integration.command.infrastructure.repository.ChannelOrderRepository;
 import com.conk.integration.command.infrastructure.service.shopify.ShopifyOrderClient;
 import com.conk.integration.common.channel.dto.ChannelCredential;
@@ -17,13 +21,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
-// Shopify GraphQL 주문 응답을 내부 ChannelOrder/ChannelOrderItem 엔티티로 변환해 저장한다.
+// Shopify GraphQL 주문 응답을 내부 ChannelOrder/ChannelOrderItem 엔티티로 변환해 저장하고 order-service와 동기화한다.
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -31,22 +36,17 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
 
     private final ShopifyOrderClient shopifyOrderClient;
     private final ChannelOrderRepository channelOrderRepository;
+    private final ChannelOrderItemRepository channelOrderItemRepository;
     private final ChannelApiQueryService channelApiQueryService;
     private final ChannelOrderIdGenerator channelOrderIdGenerator;
+    private final OrderServiceClient orderServiceClient;
+    private final WmsClient wmsClient;
 
     @Override
     public boolean supports(OrderChannel channel) {
         return channel == OrderChannel.SHOPIFY;
     }
 
-    /**
-     * Shopify GraphQL API에서 주문 목록을 가져와 channel_order + channel_order_item 테이블에 저장한다.
-     * - 이미 존재하는 orderId는 skip (멱등성 보장)
-     * - fulfillmentOrderId를 함께 저장해 bulk fulfillment 전송에 활용한다.
-     *
-     * @param sellerId 동기화할 sellerId
-     * @return 저장/skip 건수 및 저장된 주문 목록
-     */
     @Override
     @Transactional
     public ChannelOrderSyncResponse syncOrders(String sellerId) {
@@ -58,6 +58,7 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
 
         int savedCount = 0;
         int skippedCount = 0;
+        int failedSyncCount = 0;
         List<ChannelOrder> savedOrders = new ArrayList<>();
 
         for (ShopifyOrderResponse.OrderNode node : orders) {
@@ -69,17 +70,37 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
                 continue;
             }
 
+            if (!allSkusRegisteredInWms(node, channelOrderNo)) {
+                log.warn("WMS 미등록 SKU가 포함된 주문 반려: channelOrderNo={}", channelOrderNo);
+                skippedCount++;
+                continue;
+            }
+
             String orderId = channelOrderIdGenerator.generate(OrderChannel.SHOPIFY);
 
             ChannelOrder order = toChannelOrder(node, orderId, sellerId);
             channelOrderRepository.save(order);
+
+            List<ChannelOrderItem> items = order.getItems();
+            items.forEach(channelOrderItemRepository::save);
+            log.debug("주문 저장 완료: orderId={}, channelOrderNo={}, amount={}, items={}건",
+                    orderId, channelOrderNo, order.getTotalAmount(), items.size());
+
             savedOrders.add(order);
             savedCount++;
-            log.debug("주문 저장 완료: {} ({})", orderId, node.getName());
+
+            try {
+                orderServiceClient.syncToOrderService(sellerId, toSyncRequest(order));
+                log.info("Order Service 동기화 성공: orderId={}", orderId);
+            } catch (Exception e) {
+                failedSyncCount++;
+                log.warn("Order Service 동기화 실패 (계속 진행): orderId={}, error={}", orderId, e.getMessage());
+            }
         }
 
-        log.info("주문 동기화 완료 — 저장: {}건, skip: {}건 (sellerId={})", savedCount, skippedCount, sellerId);
-        return new ChannelOrderSyncResponse(savedCount, skippedCount,
+        log.info("동기화 완료 — 저장: {}건, skip: {}건, 동기화실패: {}건 (sellerId={})",
+                savedCount, skippedCount, failedSyncCount, sellerId);
+        return new ChannelOrderSyncResponse(savedCount, skippedCount, failedSyncCount,
                 savedOrders.stream().map(ChannelOrderSyncResponse.OrderDto::from).toList());
     }
 
@@ -102,6 +123,7 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
                 .shipToZipCode(addrField(addr, ShopifyOrderResponse.ShippingAddress::getZip))
                 .sellerId(sellerId)
                 .fulfillmentOrderId(extractFulfillmentOrderId(node))
+                .totalAmount(parseAmount(node.getCurrentTotalPrice()))
                 .build();
 
         buildItems(node, orderId, order);
@@ -131,6 +153,32 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
                     .build();
             order.addItem(item);
         }
+    }
+
+    // order-service 호출용 요청 DTO로 변환한다.
+    private ShopifyOrderSyncRequest toSyncRequest(ChannelOrder order) {
+        ShopifyOrderSyncRequest.ShippingAddress addr = new ShopifyOrderSyncRequest.ShippingAddress(
+                order.getShipToAddress1(),
+                order.getShipToAddress2(),
+                order.getShipToCity(),
+                order.getShipToState(),
+                order.getShipToZipCode());
+
+        List<ShopifyOrderSyncRequest.OrderItem> items = order.getItems().stream()
+                .map(item -> new ShopifyOrderSyncRequest.OrderItem(
+                        item.getId().getSkuId(),
+                        item.getQuantity(),
+                        item.getProductNameSnapshot()))
+                .toList();
+
+        return new ShopifyOrderSyncRequest(
+                order.getOrderedAt(),
+                order.getChannelOrderNo(),
+                order.getReceiverName(),
+                order.getReceiverPhoneNo(),
+                null,
+                addr,
+                items);
     }
 
     // sku(not blank) → variant GID 끝 숫자 → null 순서로 skuId를 결정한다.
@@ -169,5 +217,36 @@ public class ShopifyOrderSyncService implements ChannelOrderSyncer {
     private LocalDateTime parseDateTime(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return null;
         return OffsetDateTime.parse(dateStr).toLocalDateTime();
+    }
+
+    // Shopify의 가격 문자열("29.99")을 BigDecimal로 변환한다.
+    private BigDecimal parseAmount(String price) {
+        if (price == null || price.isBlank()) return null;
+        try {
+            return new BigDecimal(price);
+        } catch (NumberFormatException e) {
+            log.warn("주문금액 파싱 실패: '{}'", price);
+            return null;
+        }
+    }
+
+    // 주문의 모든 lineItem SKU가 WMS에 등록되어 있는지 확인한다. 하나라도 미등록이면 false를 반환한다.
+    private boolean allSkusRegisteredInWms(ShopifyOrderResponse.OrderNode node, String channelOrderNo) {
+        if (node.getLineItems() == null || node.getLineItems().getEdges() == null) {
+            return true;
+        }
+        for (ShopifyOrderResponse.LineItemEdge edge : node.getLineItems().getEdges()) {
+            ShopifyOrderResponse.LineItemNode lineItem = edge.getNode();
+            String skuId = resolveSkuId(lineItem);
+            if (skuId == null) {
+                log.warn("SKU 확인 불가 line item 존재 — channelOrderNo={}, title={}", channelOrderNo, lineItem.getTitle());
+                return false;
+            }
+            if (!wmsClient.skuExists(skuId)) {
+                log.warn("WMS 미등록 SKU — channelOrderNo={}, skuId={}", channelOrderNo, skuId);
+                return false;
+            }
+        }
+        return true;
     }
 }
