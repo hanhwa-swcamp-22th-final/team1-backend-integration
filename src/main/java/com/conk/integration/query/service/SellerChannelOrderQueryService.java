@@ -24,7 +24,6 @@ public class SellerChannelOrderQueryService {
      *
      * @param params 셀러ID, 채널, 검색어, 페이지 정보
      * @return 주문 목록 (status, itemsSummary 필드 포함)
-     * @throws BusinessException         sellerId가 null이거나 공백인 경우 (INT-001)
      * @throws IllegalArgumentException  channel 값이 OrderChannel enum에 없는 경우
      */
     public List<SellerChannelOrderDto> getOrders(SellerOrderQueryParams params) {
