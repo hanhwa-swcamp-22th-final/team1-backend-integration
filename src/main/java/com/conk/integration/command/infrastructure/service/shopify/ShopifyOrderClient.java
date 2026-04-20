@@ -38,7 +38,7 @@ public class ShopifyOrderClient {
                     name
                     email
                     createdAt
-                    currentTotalPrice
+                    currentTotalPriceSet
                     shippingAddress {
                       name
                       firstName
@@ -49,7 +49,7 @@ public class ShopifyOrderClient {
                       city
                       provinceCode
                       zip
-                      countryCode
+                      country
                     }
                     lineItems(first: 50) {
                       edges {

@@ -87,8 +87,8 @@ public class ShopifyOrderResponse {
         @JsonProperty("createdAt")
         private String createdAt;
 
-        @JsonProperty("currentTotalPrice")
-        private String currentTotalPrice;
+        @JsonProperty("currentTotalPriceSet")
+        private String currentTotalPriceSet;
 
         @JsonProperty("shippingAddress")
         private ShippingAddress shippingAddress;
@@ -132,8 +132,8 @@ public class ShopifyOrderResponse {
         @JsonProperty("zip")
         private String zip;
 
-        @JsonProperty("countryCode")
-        private String countryCode;
+        @JsonProperty("country")
+        private String country;
     }
 
     @Getter
