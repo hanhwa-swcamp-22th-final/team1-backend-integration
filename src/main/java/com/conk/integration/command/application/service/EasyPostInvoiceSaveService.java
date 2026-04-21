@@ -11,7 +11,10 @@ import com.conk.integration.command.infrastructure.mapper.ChannelOrderInvoiceMap
 import com.conk.integration.command.infrastructure.repository.EasypostShipmentInvoiceRepository;
 import com.conk.integration.command.infrastructure.service.easypost.EasyPostApiClient;
 import com.conk.integration.command.infrastructure.service.easypost.EasyPostShipmentConverter;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 // EasyPost shipment 생성 결과를 CONK 송장 엔티티로 변환해 저장한다.
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EasyPostInvoiceSaveService {
@@ -27,6 +31,7 @@ public class EasyPostInvoiceSaveService {
     private final EasypostShipmentInvoiceRepository invoiceRepository;
     private final ChannelOrderInvoiceMapper channelOrderInvoiceMapper;
     private final EasyPostProperties easyPostProperties;
+    private final ObjectMapper objectMapper;
 
     /**
      * 배송 송장을 생성하고 DB에 저장한다.
@@ -35,12 +40,14 @@ public class EasyPostInvoiceSaveService {
      * @param request EasyPost shipment 생성 요청
      * @return 저장된 송장 엔티티
      */
-    public EasypostShipmentInvoice createAndSaveInvoice(EasyPostCreateShipmentRequest request) {
+    public EasypostShipmentInvoice createAndSaveInvoice(EasyPostCreateShipmentRequest request) throws JsonProcessingException {
         EasyPostShipmentResponse shipment = easyPostApiClient.createShipment(request);
 
         // EasyPost rate 목록 중 가장 저렴한 운임만 구매 대상으로 선택한다.
+        log.info("rates: {}", objectMapper.writeValueAsString(shipment.getRates()));
         EasyPostShipmentResponse.RateDto cheapest = EasyPostShipmentConverter.selectCheapestRate(shipment.getRates());
 
+        log.info("shipmentId: {}, rateId: {}", shipment.getId(), cheapest.getId());
         EasyPostShipmentResponse bought = easyPostApiClient.buyRate(shipment.getId(), cheapest.getId());
 
         EasypostShipmentInvoice invoice = EasyPostShipmentConverter.toInvoice(bought, null, null, easyPostProperties.getTrackingUrlPrefix());
