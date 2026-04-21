@@ -40,11 +40,15 @@ public class EasyPostInvoiceSaveService {
      * @param request EasyPost shipment 생성 요청
      * @return 저장된 송장 엔티티
      */
-    public EasypostShipmentInvoice createAndSaveInvoice(EasyPostCreateShipmentRequest request) throws JsonProcessingException {
+    public EasypostShipmentInvoice createAndSaveInvoice(EasyPostCreateShipmentRequest request) {
         EasyPostShipmentResponse shipment = easyPostApiClient.createShipment(request);
 
         // EasyPost rate 목록 중 가장 저렴한 운임만 구매 대상으로 선택한다.
-        log.info("rates: {}", objectMapper.writeValueAsString(shipment.getRates()));
+        try {
+            log.info("rates: {}", objectMapper.writeValueAsString(shipment.getRates()));
+        } catch (JsonProcessingException e) {
+            log.warn("rates 직렬화 실패", e);
+        }
         EasyPostShipmentResponse.RateDto cheapest = EasyPostShipmentConverter.selectCheapestRate(shipment.getRates());
 
         log.info("shipmentId: {}, rateId: {}", shipment.getId(), cheapest.getId());
